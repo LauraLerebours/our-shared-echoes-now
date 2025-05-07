@@ -14,7 +14,7 @@ const Header = () => {
       </Avatar>
       
       <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
-        Our Story
+        This Is Us
       </h1>
       
       <Button variant="ghost" size="icon" asChild className="text-memory-purple hover:text-memory-pink hover:bg-memory-lightpurple">
