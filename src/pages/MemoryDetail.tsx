@@ -3,7 +3,7 @@ import React from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Heart, MessageCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -19,20 +19,11 @@ const MemoryDetail = () => {
     date: new Date('2024-04-15'),
     location: 'Redwood National Park',
     likes: 2,
-    isLiked: true,
-    comments: [
-      {
-        id: 'c1',
-        author: 'Sarah',
-        text: 'Such a magical night! We should go back there soon. ✨',
-        createdAt: new Date('2024-04-16')
-      }
-    ]
+    isLiked: true
   };
   
   const [isLiked, setIsLiked] = React.useState(memory.isLiked);
   const [likes, setLikes] = React.useState(memory.likes);
-  const [commentText, setCommentText] = React.useState('');
   
   const toggleLike = () => {
     if (isLiked) {
@@ -41,15 +32,6 @@ const MemoryDetail = () => {
       setLikes(likes + 1);
     }
     setIsLiked(!isLiked);
-  };
-  
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    
-    // In a real app, this would send the comment to an API
-    console.log('Adding comment:', commentText);
-    setCommentText('');
   };
   
   if (!memory) {
@@ -64,7 +46,7 @@ const MemoryDetail = () => {
   }
   
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-16">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -96,7 +78,7 @@ const MemoryDetail = () => {
             </div>
           )}
           
-          <div className="flex items-center justify-between border-t border-b py-3 mb-6">
+          <div className="flex items-center border-t py-3 mb-6">
             <Button 
               variant="ghost" 
               className="p-2 h-auto"
@@ -111,71 +93,9 @@ const MemoryDetail = () => {
                 isLiked ? "text-memory-pink" : "text-muted-foreground"
               )}>{likes}</span>
             </Button>
-            
-            <div className="flex items-center text-muted-foreground">
-              <MessageCircle className="h-5 w-5 mr-1" />
-              <span>{memory.comments.length}</span>
-            </div>
-          </div>
-          
-          <div className="space-y-4 mb-6">
-            <h2 className="text-lg font-medium">Comments</h2>
-            
-            {memory.comments.length > 0 ? (
-              <div className="space-y-4">
-                {memory.comments.map((comment) => (
-                  <div key={comment.id} className="flex">
-                    <Avatar className="h-8 w-8 mr-3">
-                      <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
-                        {comment.author.charAt(0)}
-                      </AvatarFallback>
-                      <AvatarImage src="/placeholder.svg" />
-                    </Avatar>
-                    <div>
-                      <div className="bg-muted p-3 rounded-lg">
-                        <p className="font-medium text-sm mb-1">{comment.author}</p>
-                        <p className="text-sm">{comment.text}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(comment.createdAt, 'MMM d, h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm italic">No comments yet</p>
-            )}
           </div>
         </div>
       </main>
-      
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3">
-        <form onSubmit={handleAddComment} className="flex items-center">
-          <Avatar className="h-8 w-8 mr-3">
-            <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
-              ME
-            </AvatarFallback>
-            <AvatarImage src="/placeholder.svg" />
-          </Avatar>
-          <input
-            type="text"
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            placeholder="Write a comment..."
-            className="flex-1 border rounded-full py-2 px-4 text-sm"
-          />
-          <Button 
-            type="submit"
-            size="sm"
-            variant="ghost"
-            disabled={!commentText.trim()}
-            className="ml-2 text-memory-purple disabled:text-muted-foreground"
-          >
-            Post
-          </Button>
-        </form>
-      </div>
     </div>
   );
 };

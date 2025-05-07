@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -13,10 +13,8 @@ export interface MemoryCardProps {
   date: Date;
   location?: string;
   likes: number;
-  comments: number;
   isLiked: boolean;
   onLike: (id: string) => void;
-  onComment: (id: string) => void;
   onViewDetail: (id: string) => void;
 }
 
@@ -27,10 +25,8 @@ const MemoryCard = ({
   date,
   location,
   likes,
-  comments,
   isLiked,
   onLike,
-  onComment,
   onViewDetail,
 }: MemoryCardProps) => {
   return (
@@ -52,7 +48,7 @@ const MemoryCard = ({
       </CardContent>
       
       <CardFooter className="px-4 py-2 flex justify-between border-t">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center">
           <Button 
             size="sm" 
             variant="ghost" 
@@ -70,19 +66,6 @@ const MemoryCard = ({
               "text-sm", 
               isLiked ? "text-memory-pink" : "text-muted-foreground"
             )}>{likes}</span>
-          </Button>
-          
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            className="p-0 h-auto" 
-            onClick={(e) => {
-              e.stopPropagation();
-              onComment(id);
-            }}
-          >
-            <MessageCircle className="h-5 w-5 mr-1 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">{comments}</span>
           </Button>
         </div>
       </CardFooter>

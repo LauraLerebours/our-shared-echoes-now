@@ -16,7 +16,6 @@ const Index = () => {
       date: new Date('2024-04-15'),
       location: 'Redwood National Park',
       likes: 2,
-      comments: 1,
       isLiked: true,
     },
     {
@@ -26,7 +25,6 @@ const Index = () => {
       date: new Date('2024-03-20'),
       location: 'Malibu Beach',
       likes: 1,
-      comments: 0,
       isLiked: false,
     },
     {
@@ -35,7 +33,6 @@ const Index = () => {
       caption: 'Remember when we adopted Whiskers? Best decision ever.',
       date: new Date('2024-02-05'),
       likes: 3,
-      comments: 2,
       isLiked: true,
     },
   ]);
