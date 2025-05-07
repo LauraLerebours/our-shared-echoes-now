@@ -15,7 +15,7 @@ const MemoryDetail = () => {
   const memory = {
     id: '1',
     image: 'https://images.unsplash.com/photo-1470813740244-df37b8c1edcb',
-    caption: 'Our first stargazing night. I'll never forget the way the sky looked that evening.',
+    caption: 'Our first stargazing night. I\'ll never forget the way the sky looked that evening.',
     date: new Date('2024-04-15'),
     location: 'Redwood National Park',
     likes: 2,
