@@ -1,10 +1,21 @@
 
 import React from 'react';
-import { Heart } from 'lucide-react';
+import { Heart, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export interface MemoryCardProps {
   id: string;
@@ -16,6 +27,7 @@ export interface MemoryCardProps {
   isLiked: boolean;
   onLike: (id: string) => void;
   onViewDetail: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 const MemoryCard = ({
@@ -28,22 +40,23 @@ const MemoryCard = ({
   isLiked,
   onLike,
   onViewDetail,
+  onDelete,
 }: MemoryCardProps) => {
   return (
-    <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md" onClick={() => onViewDetail(id)}>
-      <div className="relative">
+    <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
+      <div className="relative" onClick={() => onViewDetail(id)}>
         <img 
           src={image} 
           alt={caption || "Memory"} 
           className="w-full aspect-[4/3] object-cover" 
         />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
-          <p className="text-white font-medium">{format(date, 'MMMM d, yyyy')}</p>
+          <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}
         </div>
       </div>
       
-      <CardContent className="py-3 px-4">
+      <CardContent className="py-3 px-4" onClick={() => onViewDetail(id)}>
         {caption && <p className="text-foreground/80">{caption}</p>}
       </CardContent>
       
@@ -68,6 +81,37 @@ const MemoryCard = ({
             )}>{likes}</span>
           </Button>
         </div>
+        
+        {onDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="p-1 h-auto text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this memory? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => onDelete(id)}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardFooter>
     </Card>
   );

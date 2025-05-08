@@ -14,12 +14,19 @@ const Index = () => {
     const savedMemories = localStorage.getItem('memories');
     if (savedMemories) {
       try {
-        setMemories(JSON.parse(savedMemories));
+        const parsedMemories = JSON.parse(savedMemories);
+        setMemories(parsedMemories);
       } catch (error) {
         console.error('Error parsing saved memories:', error);
       }
     }
   }, []);
+
+  const handleDeleteMemory = (id: string) => {
+    const updatedMemories = memories.filter(memory => memory.id !== id);
+    setMemories(updatedMemories);
+    localStorage.setItem('memories', JSON.stringify(updatedMemories));
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -29,7 +36,7 @@ const Index = () => {
         {memories.length === 0 ? (
           <EmptyState />
         ) : (
-          <MemoryList memories={memories} />
+          <MemoryList memories={memories} onDeleteMemory={handleDeleteMemory} />
         )}
       </main>
       

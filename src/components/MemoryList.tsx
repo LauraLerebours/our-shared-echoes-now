@@ -2,6 +2,7 @@
 import React from 'react';
 import MemoryCard, { MemoryCardProps } from './MemoryCard';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
 
 export interface Memory {
   id: string;
@@ -15,9 +16,10 @@ export interface Memory {
 
 interface MemoryListProps {
   memories: Memory[];
+  onDeleteMemory?: (id: string) => void;
 }
 
-const MemoryList: React.FC<MemoryListProps> = ({ memories }) => {
+const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => {
   const navigate = useNavigate();
   
   const handleLike = (id: string) => {
@@ -29,6 +31,16 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories }) => {
     navigate(`/memory/${id}`);
   };
 
+  const handleDelete = (id: string) => {
+    if (onDeleteMemory) {
+      onDeleteMemory(id);
+      toast({
+        title: "Memory deleted",
+        description: "Your memory has been deleted successfully",
+      });
+    }
+  };
+
   return (
     <div className="px-4 pt-4 pb-20">
       {memories.map((memory) => (
@@ -37,6 +49,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories }) => {
           {...memory}
           onLike={handleLike}
           onViewDetail={handleViewDetail}
+          onDelete={handleDelete}
         />
       ))}
     </div>

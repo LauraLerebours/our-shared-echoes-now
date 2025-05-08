@@ -1,29 +1,54 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Heart, MapPin } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const MemoryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [memory, setMemory] = useState<any>(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [loading, setLoading] = useState(true);
   
-  // In a real app, this would be fetched from an API
-  const memory = {
-    id: '1',
-    image: 'https://images.unsplash.com/photo-1470813740244-df37b8c1edcb',
-    caption: 'Our first stargazing night. I\'ll never forget the way the sky looked that evening.',
-    date: new Date('2024-04-15'),
-    location: 'Redwood National Park',
-    likes: 2,
-    isLiked: true
-  };
-  
-  const [isLiked, setIsLiked] = React.useState(memory.isLiked);
-  const [likes, setLikes] = React.useState(memory.likes);
+  useEffect(() => {
+    // Load memories from localStorage
+    const savedMemoriesJSON = localStorage.getItem('memories');
+    if (savedMemoriesJSON) {
+      try {
+        const savedMemories = JSON.parse(savedMemoriesJSON);
+        const foundMemory = savedMemories.find((memory: any) => memory.id === id);
+        if (foundMemory) {
+          setMemory(foundMemory);
+          setIsLiked(foundMemory.isLiked);
+          setLikes(foundMemory.likes);
+        }
+      } catch (error) {
+        console.error('Error parsing saved memories:', error);
+        toast({
+          title: "Error",
+          description: "Could not load memory details",
+          variant: "destructive",
+        });
+      }
+    }
+    setLoading(false);
+  }, [id]);
   
   const toggleLike = () => {
     if (isLiked) {
@@ -32,7 +57,63 @@ const MemoryDetail = () => {
       setLikes(likes + 1);
     }
     setIsLiked(!isLiked);
+    
+    // Update memory in localStorage
+    updateMemoryInLocalStorage({
+      ...memory,
+      isLiked: !isLiked,
+      likes: isLiked ? likes - 1 : likes + 1
+    });
   };
+
+  const handleDelete = () => {
+    const savedMemoriesJSON = localStorage.getItem('memories');
+    if (savedMemoriesJSON) {
+      try {
+        const savedMemories = JSON.parse(savedMemoriesJSON);
+        const updatedMemories = savedMemories.filter((memory: any) => memory.id !== id);
+        localStorage.setItem('memories', JSON.stringify(updatedMemories));
+        
+        toast({
+          title: "Memory deleted",
+          description: "Your memory has been deleted successfully",
+        });
+        
+        // Navigate back to home
+        navigate('/', { replace: true });
+      } catch (error) {
+        console.error('Error deleting memory:', error);
+        toast({
+          title: "Error",
+          description: "Could not delete memory",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const updateMemoryInLocalStorage = (updatedMemory: any) => {
+    const savedMemoriesJSON = localStorage.getItem('memories');
+    if (savedMemoriesJSON) {
+      try {
+        const savedMemories = JSON.parse(savedMemoriesJSON);
+        const updatedMemories = savedMemories.map((memory: any) => 
+          memory.id === id ? updatedMemory : memory
+        );
+        localStorage.setItem('memories', JSON.stringify(updatedMemories));
+      } catch (error) {
+        console.error('Error updating memory:', error);
+      }
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
   
   if (!memory) {
     return (
@@ -52,16 +133,43 @@ const MemoryDetail = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         
-        <h1 className="text-lg font-medium">{format(memory.date, 'MMMM d, yyyy')}</h1>
+        <h1 className="text-lg font-medium">{format(new Date(memory.date), 'MMMM d, yyyy')}</h1>
         
-        <div className="w-8" />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="p-1 h-auto text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this memory? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDelete}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </header>
       
       <main className="flex-1">
         <div className="relative">
           <img 
             src={memory.image} 
-            alt="Memory" 
+            alt={memory.caption || "Memory"} 
             className="w-full aspect-square object-cover" 
           />
         </div>
