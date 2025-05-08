@@ -12,6 +12,7 @@ export interface Memory {
   location?: string;
   likes: number;
   isLiked: boolean;
+  isVideo?: boolean;
 }
 
 interface MemoryListProps {

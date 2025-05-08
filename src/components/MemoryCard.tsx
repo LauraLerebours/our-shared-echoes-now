@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, Trash2 } from 'lucide-react';
+import { Heart, Trash2, Video } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ export interface MemoryCardProps {
   location?: string;
   likes: number;
   isLiked: boolean;
+  isVideo?: boolean;
   onLike: (id: string) => void;
   onViewDetail: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -38,6 +39,7 @@ const MemoryCard = ({
   location,
   likes,
   isLiked,
+  isVideo,
   onLike,
   onViewDetail,
   onDelete,
@@ -45,11 +47,24 @@ const MemoryCard = ({
   return (
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
-        <img 
-          src={image} 
-          alt={caption || "Memory"} 
-          className="w-full aspect-[4/3] object-cover" 
-        />
+        {isVideo ? (
+          <div className="relative">
+            <video 
+              src={image}
+              className="w-full aspect-[4/3] object-cover" 
+              poster={image + '?poster=true'}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Video className="h-12 w-12 text-white opacity-80" />
+            </div>
+          </div>
+        ) : (
+          <img 
+            src={image} 
+            alt={caption || "Memory"} 
+            className="w-full aspect-[4/3] object-cover" 
+          />
+        )}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
           <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}

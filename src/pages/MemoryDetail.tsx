@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, MapPin, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -167,11 +167,19 @@ const MemoryDetail = () => {
       
       <main className="flex-1">
         <div className="relative">
-          <img 
-            src={memory.image} 
-            alt={memory.caption || "Memory"} 
-            className="w-full aspect-square object-cover" 
-          />
+          {memory.isVideo ? (
+            <video 
+              src={memory.image} 
+              className="w-full aspect-square object-cover" 
+              controls
+            />
+          ) : (
+            <img 
+              src={memory.image} 
+              alt={memory.caption || "Memory"} 
+              className="w-full aspect-square object-cover" 
+            />
+          )}
         </div>
         
         <div className="p-4">

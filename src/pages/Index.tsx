@@ -15,7 +15,12 @@ const Index = () => {
     if (savedMemories) {
       try {
         const parsedMemories = JSON.parse(savedMemories);
-        setMemories(parsedMemories);
+        // Ensure dates are properly parsed as Date objects
+        const processedMemories = parsedMemories.map((memory: any) => ({
+          ...memory,
+          date: new Date(memory.date)
+        }));
+        setMemories(processedMemories);
       } catch (error) {
         console.error('Error parsing saved memories:', error);
       }

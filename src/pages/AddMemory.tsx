@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image } from 'lucide-react';
+import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -15,20 +15,39 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const AddMemory = () => {
   const navigate = useNavigate();
   const [date, setDate] = useState<Date>(new Date());
   const [caption, setCaption] = useState('');
   const [location, setLocation] = useState('');
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [previewMedia, setPreviewMedia] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  
+  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size - limit to 10MB
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select a file smaller than 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Set media type based on file type
+      if (file.type.startsWith('video/')) {
+        setMediaType('video');
+      } else {
+        setMediaType('image');
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
+        setPreviewMedia(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -37,10 +56,10 @@ const AddMemory = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!previewImage) {
+    if (!previewMedia) {
       toast({
-        title: "Image required",
-        description: "Please select an image for your memory",
+        title: "Media required",
+        description: "Please select an image or video for your memory",
         variant: "destructive",
       });
       return;
@@ -49,12 +68,13 @@ const AddMemory = () => {
     // Create a new memory object
     const newMemory = {
       id: uuidv4(),
-      image: previewImage,
+      image: previewMedia,
       caption,
       date,
       location: location || undefined,
       likes: 0,
       isLiked: false,
+      isVideo: mediaType === 'video',
     };
     
     // Get existing memories from localStorage
@@ -99,7 +119,7 @@ const AddMemory = () => {
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!previewImage}
+          disabled={!previewMedia}
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
           Save
@@ -108,44 +128,70 @@ const AddMemory = () => {
       
       <main className="flex-1 p-4">
         <form onSubmit={handleSubmit} className="space-y-6">
+          <Tabs defaultValue="image" className="mb-4" onValueChange={(value) => setMediaType(value as 'image' | 'video')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="image" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Photo
+              </TabsTrigger>
+              <TabsTrigger value="video" className="flex items-center gap-2">
+                <Video className="h-4 w-4" />
+                Video
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
           <div className={cn(
             "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
-            previewImage ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
+            previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
           )}>
-            {previewImage ? (
+            {previewMedia ? (
               <div className="relative w-full">
-                <img 
-                  src={previewImage} 
-                  alt="Memory preview" 
-                  className="w-full aspect-[4/3] object-cover rounded-lg" 
-                />
+                {mediaType === 'video' ? (
+                  <video 
+                    src={previewMedia} 
+                    className="w-full aspect-[4/3] object-cover rounded-lg"
+                    controls
+                  />
+                ) : (
+                  <img 
+                    src={previewMedia} 
+                    alt="Memory preview" 
+                    className="w-full aspect-[4/3] object-cover rounded-lg" 
+                  />
+                )}
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
                   className="absolute bottom-4 right-4"
-                  onClick={() => setPreviewImage(null)}
+                  onClick={() => setPreviewMedia(null)}
                 >
                   Change
                 </Button>
               </div>
             ) : (
               <>
-                <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
+                {mediaType === 'video' ? (
+                  <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
+                ) : (
+                  <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
+                )}
                 <p className="text-muted-foreground mb-4 text-center">
-                  Tap to add a photo for this memory
+                  Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
                 </p>
                 <Button
                   type="button"
                   variant="outline"
                   className="relative bg-white"
                 >
-                  Select Photo
+                  <Upload className="h-4 w-4 mr-2" />
+                  Select {mediaType === 'video' ? 'Video' : 'Photo'}
                   <Input
                     type="file"
-                    accept="image/*"
+                    accept={mediaType === 'video' ? 'video/*' : 'image/*'}
                     className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={handleImageChange}
+                    onChange={handleMediaChange}
                   />
                 </Button>
               </>
