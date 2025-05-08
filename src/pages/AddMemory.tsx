@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from '@/hooks/use-toast';
 import {
   Popover,
   PopoverContent,
@@ -34,8 +36,52 @@ const AddMemory = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would send the data to an API
-    console.log({ date, caption, location, image: previewImage });
+    
+    if (!previewImage) {
+      toast({
+        title: "Image required",
+        description: "Please select an image for your memory",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create a new memory object
+    const newMemory = {
+      id: uuidv4(),
+      image: previewImage,
+      caption,
+      date,
+      location: location || undefined,
+      likes: 0,
+      isLiked: false,
+    };
+    
+    // Get existing memories from localStorage
+    const existingMemoriesJSON = localStorage.getItem('memories');
+    let existingMemories = [];
+    
+    if (existingMemoriesJSON) {
+      try {
+        existingMemories = JSON.parse(existingMemoriesJSON);
+      } catch (error) {
+        console.error('Error parsing existing memories:', error);
+      }
+    }
+    
+    // Add the new memory to the beginning of the array
+    const updatedMemories = [newMemory, ...existingMemories];
+    
+    // Save back to localStorage
+    localStorage.setItem('memories', JSON.stringify(updatedMemories));
+    
+    // Show success notification
+    toast({
+      title: "Memory saved",
+      description: "Your memory has been added successfully",
+    });
+    
+    // Navigate back to the home page
     navigate('/');
   };
 
