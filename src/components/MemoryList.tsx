@@ -42,9 +42,14 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
     }
   };
 
+  // Sort memories by date, with most recent first
+  const sortedMemories = [...memories].sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
   return (
     <div className="px-4 pt-4 pb-20">
-      {memories.map((memory) => (
+      {sortedMemories.map((memory) => (
         <MemoryCard
           key={memory.id}
           {...memory}
