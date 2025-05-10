@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import AddMemory from "./pages/AddMemory";
+import AddNote from "./pages/AddNote";
 import MemoryDetail from "./pages/MemoryDetail";
 import NotFound from "./pages/NotFound";
 
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/add" element={<AddMemory />} />
+          <Route path="/add-note" element={<AddNote />} />
           <Route path="/memory/:id" element={<MemoryDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

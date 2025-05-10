@@ -18,7 +18,9 @@ const Index = () => {
         // Ensure dates are properly parsed as Date objects
         const processedMemories = parsedMemories.map((memory: any) => ({
           ...memory,
-          date: new Date(memory.date)
+          date: new Date(memory.date),
+          // Ensure older records have a type (default to 'memory' if not set)
+          type: memory.type || 'memory'
         }));
         setMemories(processedMemories);
       } catch (error) {

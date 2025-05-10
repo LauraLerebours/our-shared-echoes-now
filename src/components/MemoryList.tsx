@@ -13,6 +13,7 @@ export interface Memory {
   likes: number;
   isLiked: boolean;
   isVideo?: boolean;
+  type: 'memory' | 'note';  // Added type field to distinguish between memories and notes
 }
 
 interface MemoryListProps {

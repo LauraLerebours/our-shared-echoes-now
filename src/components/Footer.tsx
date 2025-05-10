@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Heart } from 'lucide-react';
+import { Home, Heart, FilePlusIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FooterProps {
@@ -21,6 +21,14 @@ const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
         >
           <Home className="h-6 w-6" />
           <span className="text-xs mt-1">Timeline</span>
+        </Link>
+        
+        <Link 
+          to="/add-note" 
+          className="flex flex-col items-center px-4 py-1 text-muted-foreground"
+        >
+          <FilePlusIcon className="h-6 w-6" />
+          <span className="text-xs mt-1">Add Note</span>
         </Link>
         
         <Link 
