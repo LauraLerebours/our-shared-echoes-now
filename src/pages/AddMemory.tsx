@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,9 @@ import { format } from 'date-fns';
 import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { createMemory } from '@/lib/db';
 import {
   Popover,
   PopoverContent,
@@ -24,39 +26,68 @@ const AddMemory = () => {
   const [location, setLocation] = useState('');
   const [previewMedia, setPreviewMedia] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
+  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
   
-  const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Check file size - limit to 10MB
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please select a file smaller than 10MB",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!file || !user) return;
+    
+    // Check file size - limit to 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      // Set media type based on file type
-      if (file.type.startsWith('video/')) {
-        setMediaType('video');
-      } else {
-        setMediaType('image');
-      }
+    // Set media type based on file type
+    if (file.type.startsWith('video/')) {
+      setMediaType('video');
+    } else {
+      setMediaType('image');
+    }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewMedia(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    try {
+      setUploading(true);
+      
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${uuidv4()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('memories')
+        .upload(filePath, file);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('memories')
+        .getPublicUrl(filePath);
+        
+      setPreviewMedia(publicUrlData.publicUrl);
+      
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload media",
+        variant: "destructive",
+      });
+      console.error('Error uploading file:', error);
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!previewMedia) {
+    if (!previewMedia || !user) {
       toast({
         title: "Media required",
         description: "Please select an image or video for your memory",
@@ -65,46 +96,51 @@ const AddMemory = () => {
       return;
     }
     
-    // Create a new memory object
-    const newMemory = {
-      id: uuidv4(),
-      image: previewMedia,
-      caption,
-      date,
-      location: location || undefined,
-      likes: 0,
-      isLiked: false,
-      isVideo: mediaType === 'video',
-    };
+    setUploading(true);
     
-    // Get existing memories from localStorage
-    const existingMemoriesJSON = localStorage.getItem('memories');
-    let existingMemories = [];
-    
-    if (existingMemoriesJSON) {
-      try {
-        existingMemories = JSON.parse(existingMemoriesJSON);
-      } catch (error) {
-        console.error('Error parsing existing memories:', error);
+    try {
+      // Create a new memory object
+      const newMemory = {
+        id: uuidv4(),
+        image: previewMedia,
+        caption,
+        date,
+        location: location || undefined,
+        likes: 0,
+        isLiked: false,
+        isVideo: mediaType === 'video',
+        type: 'memory'
+      };
+      
+      // Save to Supabase
+      const savedMemory = await createMemory(newMemory, user.id);
+      
+      if (!savedMemory) {
+        throw new Error('Failed to save memory');
       }
+      
+      // Show success notification
+      toast({
+        title: "Memory saved",
+        description: "Your memory has been added successfully",
+      });
+      
+      // Navigate back to the home page
+      navigate('/');
+      
+    } catch (error) {
+      console.error('Error saving memory:', error);
+      toast({
+        title: "Save failed",
+        description: "Failed to save memory",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
-    
-    // Add the new memory to the beginning of the array
-    const updatedMemories = [newMemory, ...existingMemories];
-    
-    // Save back to localStorage
-    localStorage.setItem('memories', JSON.stringify(updatedMemories));
-    
-    // Show success notification
-    toast({
-      title: "Memory saved",
-      description: "Your memory has been added successfully",
-    });
-    
-    // Navigate back to the home page
-    navigate('/');
   };
 
+  
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
@@ -119,10 +155,10 @@ const AddMemory = () => {
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!previewMedia}
+          disabled={!previewMedia || uploading}
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
-          Save
+          {uploading ? 'Saving...' : 'Save'}
         </Button>
       </header>
       
@@ -145,7 +181,11 @@ const AddMemory = () => {
             "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
             previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
           )}>
-            {previewMedia ? (
+            {uploading ? (
+              <div className="flex flex-col items-center justify-center h-[200px]">
+                <p>Uploading...</p>
+              </div>
+            ) : previewMedia ? (
               <div className="relative w-full">
                 {mediaType === 'video' ? (
                   <video 

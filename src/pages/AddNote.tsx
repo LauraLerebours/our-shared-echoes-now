@@ -1,12 +1,11 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Memory } from '@/components/MemoryList';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -25,6 +24,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { createMemory } from '@/lib/db';
 
 interface NoteFormValues {
   text: string;
@@ -33,6 +34,7 @@ interface NoteFormValues {
 
 const AddNote = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const form = useForm<NoteFormValues>({
     defaultValues: {
       text: '',
@@ -40,35 +42,50 @@ const AddNote = () => {
     },
   });
 
-  const onSubmit = (data: NoteFormValues) => {
-    // Get existing memories from localStorage
-    const existingMemoriesJson = localStorage.getItem('memories') || '[]';
-    const existingMemories: Memory[] = JSON.parse(existingMemoriesJson);
+  const onSubmit = async (data: NoteFormValues) => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to add a note",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Create a new note
+      const newNote = {
+        id: uuidv4(),
+        image: '',
+        caption: data.text,
+        date: data.date,
+        likes: 0,
+        isLiked: false,
+        type: 'note',
+      };
 
-    // Create a new note
-    const newNote: Memory = {
-      id: uuidv4(),
-      image: '', // Notes don't have an image
-      caption: data.text,
-      date: data.date,
-      likes: 0,
-      isLiked: false,
-      type: 'note',
-    };
-
-    // Add the new note to the existing memories
-    const updatedMemories = [...existingMemories, newNote];
-    
-    // Save to localStorage
-    localStorage.setItem('memories', JSON.stringify(updatedMemories));
-    
-    toast({
-      title: "Note added",
-      description: "Your note has been added successfully",
-    });
-    
-    // Navigate back to the timeline
-    navigate('/');
+      // Save to Supabase
+      const savedNote = await createMemory(newNote, user.id);
+      
+      if (!savedNote) {
+        throw new Error('Failed to save note');
+      }
+      
+      toast({
+        title: "Note added",
+        description: "Your note has been added successfully",
+      });
+      
+      // Navigate back to the timeline
+      navigate('/');
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast({
+        title: "Save failed",
+        description: "Failed to save note",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -1,11 +1,11 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, Heart, FilePlusIcon } from 'lucide-react';
+import { Home, Heart, FilePlusIcon, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FooterProps {
-  activeTab?: 'timeline' | 'favorites';
+  activeTab?: 'timeline' | 'favorites' | 'share';
 }
 
 const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
@@ -29,6 +29,17 @@ const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
         >
           <FilePlusIcon className="h-6 w-6" />
           <span className="text-xs mt-1">Add Note</span>
+        </Link>
+        
+        <Link 
+          to="/share" 
+          className={cn(
+            "flex flex-col items-center px-4 py-1", 
+            activeTab === 'share' ? "text-memory-purple" : "text-muted-foreground"
+          )}
+        >
+          <Share2 className="h-6 w-6" />
+          <span className="text-xs mt-1">Share</span>
         </Link>
         
         <Link 
