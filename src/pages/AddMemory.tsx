@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Memory } from '@/components/MemoryList';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -100,7 +102,7 @@ const AddMemory = () => {
     
     try {
       // Create a new memory object
-      const newMemory = {
+      const newMemory: Memory = {
         id: uuidv4(),
         image: previewMedia,
         caption,
@@ -109,7 +111,7 @@ const AddMemory = () => {
         likes: 0,
         isLiked: false,
         isVideo: mediaType === 'video',
-        type: 'memory'
+        type: 'memory' // This fixes the type error - using literal 'memory' instead of string
       };
       
       // Save to Supabase

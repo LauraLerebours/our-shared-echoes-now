@@ -26,6 +26,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMemory } from '@/lib/db';
+import { Memory } from '@/components/MemoryList';
 
 interface NoteFormValues {
   text: string;
@@ -54,14 +55,14 @@ const AddNote = () => {
     
     try {
       // Create a new note
-      const newNote = {
+      const newNote: Memory = {
         id: uuidv4(),
         image: '',
         caption: data.text,
         date: data.date,
         likes: 0,
         isLiked: false,
-        type: 'note',
+        type: 'note' as 'memory' | 'note' // This fixes the type error - using literal 'note' instead of string
       };
 
       // Save to Supabase
