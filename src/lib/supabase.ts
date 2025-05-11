@@ -28,6 +28,64 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create and export the Supabase client
 export const supabase = createClient(clientUrl, clientKey);
 
+// Initialize Supabase resources
+const initSupabaseResources = async () => {
+  try {
+    // Check if memories table exists, if not, create it
+    const { error: tableError } = await supabase.rpc('create_memories_table_if_not_exists', {});
+    if (tableError) {
+      console.log("Creating memories table manually...");
+      // Create the memories table manually if the RPC doesn't exist
+      const { error: createError } = await supabase.query(`
+        CREATE TABLE IF NOT EXISTS public.memories (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL,
+          image_url TEXT,
+          caption TEXT,
+          date TEXT NOT NULL,
+          location TEXT,
+          likes INTEGER DEFAULT 0,
+          is_liked BOOLEAN DEFAULT false,
+          is_video BOOLEAN DEFAULT false,
+          type TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+        );
+      `);
+      if (createError) {
+        console.error("Error creating memories table:", createError);
+      } else {
+        console.log("Memories table created successfully");
+      }
+    }
+
+    // Check if memories bucket exists, if not, create it
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    if (bucketsError) {
+      console.error("Error listing buckets:", bucketsError);
+    } else {
+      const memoriesBucket = buckets?.find(bucket => bucket.name === 'memories');
+      
+      if (!memoriesBucket) {
+        console.log("Creating memories bucket...");
+        const { error: createBucketError } = await supabase.storage.createBucket('memories', {
+          public: true
+        });
+        
+        if (createBucketError) {
+          console.error("Error creating memories bucket:", createBucketError);
+        } else {
+          console.log("Memories bucket created successfully");
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error initializing Supabase resources:", error);
+  }
+};
+
+// Initialize resources when this module is loaded
+initSupabaseResources();
+
 export type Profile = {
   id: string;
   username?: string;
