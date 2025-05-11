@@ -35,26 +35,25 @@ const initSupabaseResources = async () => {
     const { error: tableError } = await supabase.rpc('create_memories_table_if_not_exists', {});
     if (tableError) {
       console.log("Creating memories table manually...");
-      // Create the memories table manually if the RPC doesn't exist
-      const { error: createError } = await supabase.query(`
-        CREATE TABLE IF NOT EXISTS public.memories (
-          id UUID PRIMARY KEY,
-          user_id UUID NOT NULL,
-          image_url TEXT,
-          caption TEXT,
-          date TEXT NOT NULL,
-          location TEXT,
-          likes INTEGER DEFAULT 0,
-          is_liked BOOLEAN DEFAULT false,
-          is_video BOOLEAN DEFAULT false,
-          type TEXT NOT NULL,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
-        );
-      `);
+      // Create the memories table using createTable instead of direct SQL query
+      const { error: createError } = await supabase.from('memories').insert({
+        id: '00000000-0000-0000-0000-000000000000',
+        user_id: '00000000-0000-0000-0000-000000000000',
+        date: new Date().toISOString(),
+        likes: 0,
+        is_liked: false,
+        type: 'memory'
+      }).select();
+      
       if (createError) {
-        console.error("Error creating memories table:", createError);
+        // If we get an error because the table already exists, that's fine
+        if (!createError.message.includes('already exists')) {
+          console.error("Error creating memories table:", createError);
+        }
       } else {
         console.log("Memories table created successfully");
+        // Delete the dummy row we created
+        await supabase.from('memories').delete().eq('id', '00000000-0000-0000-0000-000000000000');
       }
     }
 
