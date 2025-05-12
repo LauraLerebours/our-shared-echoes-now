@@ -47,7 +47,7 @@ const initSupabaseResources = async () => {
       
       if (createError) {
         // If we get an error because the table already exists, that's fine
-        if (!createError.message.includes('already exists')) {
+        if (createError.message && !createError.message.includes('already exists')) {
           console.error("Error creating memories table:", createError);
         }
       } else {
@@ -57,25 +57,30 @@ const initSupabaseResources = async () => {
       }
     }
 
-    // Check if memories bucket exists, if not, create it
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    if (bucketsError) {
-      console.error("Error listing buckets:", bucketsError);
-    } else {
-      const memoriesBucket = buckets?.find(bucket => bucket.name === 'memories');
+    // Create memories storage bucket if it doesn't exist
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets();
       
-      if (!memoriesBucket) {
+      const memoriesBucketExists = buckets?.some(bucket => bucket.name === 'memories');
+      
+      if (!memoriesBucketExists) {
         console.log("Creating memories bucket...");
-        const { error: createBucketError } = await supabase.storage.createBucket('memories', {
-          public: true
+        const { data, error: createBucketError } = await supabase.storage.createBucket('memories', {
+          public: true,
+          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/mp4'],
+          fileSizeLimit: 10485760 // 10MB
         });
         
         if (createBucketError) {
           console.error("Error creating memories bucket:", createBucketError);
         } else {
-          console.log("Memories bucket created successfully");
+          console.log("Memories bucket created successfully:", data);
         }
+      } else {
+        console.log("Memories bucket already exists");
       }
+    } catch (bucketError) {
+      console.error("Error checking or creating storage buckets:", bucketError);
     }
   } catch (error) {
     console.error("Error initializing Supabase resources:", error);
