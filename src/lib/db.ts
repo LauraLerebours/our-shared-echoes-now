@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
@@ -32,7 +31,7 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     id: dbMemory.id,
     image: dbMemory.image_url || '',
     caption: dbMemory.caption,
-    date: new Date(dbMemory.date),
+    date: dbMemory.created_at ? new Date(dbMemory.created_at) : new Date(),
     location: dbMemory.location,
     likes: dbMemory.likes,
     isLiked: dbMemory.is_liked,
@@ -63,7 +62,7 @@ export const fetchMemories = async (userId: string): Promise<Memory[]> => {
     .from('memories')
     .select('*')
     .eq('user_id', userId)
-    .order('date', { ascending: false });
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching memories:', error);
