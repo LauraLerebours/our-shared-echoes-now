@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,57 +7,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 
 const Auth = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
+
+  // Separate form state
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
+  const [signUpEmail, setSignUpEmail] = useState('');
+  const [signUpPassword, setSignUpPassword] = useState('');
+
+  // Separate loading state
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    const { error } = await signIn(email, password);
-    
-    setIsLoading(false);
-    
+    setIsSigningIn(true);
+
+    const { error } = await signIn(signInEmail, signInPassword);
+    setIsSigningIn(false);
+
     if (error) {
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: error.message,
+        description: error.message || 'Something went wrong.',
       });
       return;
     }
-    
+
+    toast({ title: 'Welcome back!' });
     navigate('/');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    const { error, user } = await signUp(email, password);
-    
-    setIsLoading(false);
-    
+
+    if (signUpPassword.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Weak password',
+        description: 'Password must be at least 6 characters.',
+      });
+      return;
+    }
+
+    setIsSigningUp(true);
+    const { error } = await signUp(signUpEmail, signUpPassword);
+    setIsSigningUp(false);
+
     if (error) {
       toast({
         variant: 'destructive',
         title: 'Sign up failed',
-        description: error.message,
+        description: error.message || 'Something went wrong.',
       });
       return;
     }
-    
+
     toast({
       title: 'Account created',
       description: 'Please check your email to verify your account.',
     });
-
-    if (user) {
-      navigate('/');
-    }
   };
 
   return (
@@ -68,67 +78,65 @@ const Auth = () => {
           <h1 className="text-2xl font-bold">Memory Timeline</h1>
           <p className="text-muted-foreground">Sign in to access your memories</p>
         </div>
-        
+
         <Tabs defaultValue="sign-in" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="sign-in">Sign In</TabsTrigger>
             <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="sign-in">
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Input
                   type="email"
                   placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
                   required
                 />
                 <Input
                   type="password"
                   placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={signInPassword}
+                  onChange={(e) => setSignInPassword(e.target.value)}
                   required
                 />
               </div>
-              
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isLoading}
+                disabled={isSigningIn}
               >
-                {isLoading ? 'Signing In...' : 'Sign In'}
+                {isSigningIn ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
           </TabsContent>
-          
+
           <TabsContent value="sign-up">
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Input
                   type="email"
                   placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={signUpEmail}
+                  onChange={(e) => setSignUpEmail(e.target.value)}
                   required
                 />
                 <Input
                   type="password"
                   placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={signUpPassword}
+                  onChange={(e) => setSignUpPassword(e.target.value)}
                   required
                 />
               </div>
-              
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isLoading}
+                disabled={isSigningUp}
               >
-                {isLoading ? 'Signing Up...' : 'Sign Up'}
+                {isSigningUp ? 'Signing Up...' : 'Sign Up'}
               </Button>
             </form>
           </TabsContent>
