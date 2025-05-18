@@ -28,6 +28,51 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create and export the Supabase client
 export const supabase = createClient(clientUrl, clientKey);
 
+// Create the memories bucket and ensure it exists before any operations
+export const ensureMemoriesBucketExists = async () => {
+  try {
+    // Check if the memories bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error("Error listing buckets:", listError);
+      return false;
+    }
+    
+    const memoriesBucketExists = buckets?.some(bucket => bucket.name === 'memories');
+    
+    if (!memoriesBucketExists) {
+      // Create the memories bucket with public access
+      const { data, error: createError } = await supabase.storage.createBucket('memories', {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/mp4']
+      });
+      
+      if (createError) {
+        console.error("Error creating memories bucket:", createError);
+        console.log("To create the bucket manually, go to your Supabase dashboard and:");
+        console.log("1. Navigate to the Storage section");
+        console.log("2. Click 'New Bucket'");
+        console.log("3. Name it 'memories'");
+        console.log("4. Enable public access");
+        console.log("5. Set file size limits to 10MB");
+        console.log("6. Allow MIME types: image/png, image/jpeg, image/gif, image/webp, video/mp4");
+        return false;
+      }
+      
+      console.log("Successfully created memories bucket");
+      return true;
+    } else {
+      console.log("Memories bucket already exists");
+      return true;
+    }
+  } catch (error) {
+    console.error("Error ensuring memories bucket exists:", error);
+    return false;
+  }
+};
+
 // Initialize Supabase resources
 const initSupabaseResources = async () => {
   try {
@@ -60,41 +105,8 @@ CREATE TABLE memories (
     }
 
     // Create memories storage bucket if it doesn't exist
-    try {
-      console.log("Checking for existing buckets...");
-      const { data: buckets, error: bucketListError } = await supabase.storage.listBuckets();
-      
-      if (bucketListError) {
-        console.error("Error listing buckets:", bucketListError);
-      } else {
-        console.log("Buckets found:", buckets?.length || 0);
-        
-        const memoriesBucketExists = buckets?.some(bucket => bucket.name === 'memories');
-        
-        if (!memoriesBucketExists) {
-          console.log("Creating memories bucket...");
-          
-          // Create a public bucket for memories
-          const { error: createBucketError } = await supabase.storage.createBucket('memories', {
-            public: true,
-            fileSizeLimit: 10485760, // 10MB
-            allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/mp4']
-          });
-          
-          if (createBucketError) {
-            console.error("Error creating memories bucket:", createBucketError);
-            console.log("To resolve this issue, please create a 'memories' bucket in your Supabase dashboard");
-            console.log("Make sure to enable public access and set appropriate MIME types");
-          } else {
-            console.log("Memories bucket created successfully");
-          }
-        } else {
-          console.log("Memories bucket already exists");
-        }
-      }
-    } catch (bucketError) {
-      console.error("Error checking or creating storage buckets:", bucketError);
-    }
+    await ensureMemoriesBucketExists();
+    
   } catch (error) {
     console.error("Error initializing Supabase resources:", error);
   }
@@ -102,6 +114,37 @@ CREATE TABLE memories (
 
 // Initialize resources when this module is loaded
 initSupabaseResources();
+
+// Utility function to upload a file to the memories bucket
+export const uploadToMemories = async (filePath: string, file: File) => {
+  try {
+    // First, ensure the bucket exists
+    const bucketExists = await ensureMemoriesBucketExists();
+    
+    if (!bucketExists) {
+      throw new Error("Memories bucket does not exist and couldn't be created");
+    }
+    
+    // Upload the file
+    const { data, error } = await supabase.storage
+      .from('memories')
+      .upload(filePath, file);
+      
+    if (error) {
+      throw error;
+    }
+    
+    // Get the public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('memories')
+      .getPublicUrl(filePath);
+      
+    return { url: publicUrlData.publicUrl, error: null };
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return { url: null, error };
+  }
+};
 
 export type Profile = {
   id: string;

@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
@@ -8,13 +9,12 @@ export type DbMemory = {
   user_id: string;
   image_url?: string;
   caption?: string;
-  date: string;
+  created_at: string;
   location?: string;
   likes: number;
   is_liked: boolean;
   is_video?: boolean;
   type: 'memory' | 'note';
-  created_at?: string;
 };
 
 export type SharedBoard = {
@@ -47,7 +47,7 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
     user_id: userId,
     image_url: memory.image,
     caption: memory.caption,
-    date: memory.date.toISOString(),
+    // Remove date field and rely on created_at from the database
     location: memory.location,
     likes: memory.likes,
     is_liked: memory.isLiked,
@@ -58,18 +58,23 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
 
 // Memories CRUD operations
 export const fetchMemories = async (userId: string): Promise<Memory[]> => {
-  const { data, error } = await supabase
-    .from('memories')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-  if (error) {
+    if (error) {
+      console.error('Error fetching memories:', error);
+      return [];
+    }
+
+    return (data as DbMemory[]).map(dbMemoryToMemory);
+  } catch (error) {
     console.error('Error fetching memories:', error);
     return [];
   }
-
-  return (data as DbMemory[]).map(dbMemoryToMemory);
 };
 
 export const createMemory = async (memory: Memory, userId: string): Promise<Memory | null> => {

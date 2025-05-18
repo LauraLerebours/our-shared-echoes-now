@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image, Video, Upload } fro
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, uploadToMemories, ensureMemoriesBucketExists } from '@/lib/supabase';
 import { createMemory } from '@/lib/db';
 import {
   Popover,
@@ -55,24 +54,20 @@ const AddMemory = () => {
     try {
       setUploading(true);
       
+      // Make sure bucket exists first
+      await ensureMemoriesBucketExists();
+      
       // Upload file to Supabase storage
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/${uuidv4()}.${fileExt}`;
       
-      const { data, error } = await supabase.storage
-        .from('memories')
-        .upload(filePath, file);
+      const { url, error } = await uploadToMemories(filePath, file);
         
       if (error) {
         throw error;
       }
       
-      // Get the public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('memories')
-        .getPublicUrl(filePath);
-        
-      setPreviewMedia(publicUrlData.publicUrl);
+      setPreviewMedia(url);
       
     } catch (error: any) {
       toast({
