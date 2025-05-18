@@ -1,10 +1,9 @@
 
 import React, { useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Upload, Video, Image } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
-import { ensureMemoriesBucketExists } from '@/lib/supabase';
 
 interface UploadMediaProps {
   userId: string;
@@ -33,17 +32,7 @@ const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSu
     setIsUploading(true);
     
     try {
-      // Ensure bucket exists before upload
-      const bucketExists = await ensureMemoriesBucketExists();
-      if (!bucketExists) {
-        toast({
-          title: "Storage error",
-          description: "Could not access storage bucket. Please try again later or contact support.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
+      // Upload directly to the storage bucket
       const publicUrl = await uploadMediaToStorage(file, userId);
 
       if (publicUrl) {
@@ -55,7 +44,7 @@ const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSu
       } else {
         toast({
           title: "Upload failed",
-          description: "Could not upload file to storage. Please try again later.",
+          description: "Could not upload file to storage. Please check if you're logged in and try again.",
           variant: "destructive"
         });
       }
