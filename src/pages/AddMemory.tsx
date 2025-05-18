@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMemory } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import {
   Popover,
   PopoverContent,
@@ -43,7 +44,11 @@ const AddMemory = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const {
+      data: { user: user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
     if (!previewMedia || !user) {
       toast({
         title: "Media required",

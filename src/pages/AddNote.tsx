@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { createMemory } from '@/lib/db';
 import { Memory } from '@/components/MemoryList';
 import UploadMedia from './UploadMedia';
@@ -56,6 +57,11 @@ const AddNote = () => {
   };
 
   const onSubmit = async (data: NoteFormValues) => {
+    const {
+      data: { user: user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    
     if (!user) {
       toast({
         title: "Not logged in",
