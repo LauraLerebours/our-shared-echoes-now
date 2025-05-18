@@ -1,8 +1,9 @@
+
 import React, { useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Upload, Video, Image } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { uploadMediaToStorage } from '@/lib/storage/uploadMediaToStorage';
+import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 
 interface UploadMediaProps {
   userId: string;

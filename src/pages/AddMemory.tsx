@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -5,11 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar as CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, uploadToMemories, ensureMemoriesBucketExists } from '@/lib/supabase';
 import { createMemory } from '@/lib/db';
 import {
   Popover,
@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
+import UploadMedia from './UploadMedia';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -30,54 +31,13 @@ const AddMemory = () => {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   
-  const handleMediaChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    
-    // Check file size - limit to 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select a file smaller than 10MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Set media type based on file type
-    if (file.type.startsWith('video/')) {
+  const handleUploadSuccess = (publicUrl: string) => {
+    setPreviewMedia(publicUrl);
+    // Determine media type based on URL
+    if (publicUrl.match(/\.(mp4|mov|avi|wmv)$/i)) {
       setMediaType('video');
     } else {
       setMediaType('image');
-    }
-
-    try {
-      setUploading(true);
-      
-      // Make sure bucket exists first
-      await ensureMemoriesBucketExists();
-      
-      // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${uuidv4()}.${fileExt}`;
-      
-      const { url, error } = await uploadToMemories(filePath, file);
-        
-      if (error) {
-        throw error;
-      }
-      
-      setPreviewMedia(url);
-      
-    } catch (error: any) {
-      toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload media",
-        variant: "destructive",
-      });
-      console.error('Error uploading file:', error);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -106,7 +66,7 @@ const AddMemory = () => {
         likes: 0,
         isLiked: false,
         isVideo: mediaType === 'video',
-        type: 'memory' // This fixes the type error - using literal 'memory' instead of string
+        type: 'memory'
       };
       
       // Save to Supabase
@@ -208,7 +168,7 @@ const AddMemory = () => {
                 </Button>
               </div>
             ) : (
-              <>
+              <div className="flex flex-col items-center justify-center w-full">
                 {mediaType === 'video' ? (
                   <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
                 ) : (
@@ -217,21 +177,16 @@ const AddMemory = () => {
                 <p className="text-muted-foreground mb-4 text-center">
                   Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="relative bg-white"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Select {mediaType === 'video' ? 'Video' : 'Photo'}
-                  <Input
-                    type="file"
-                    accept={mediaType === 'video' ? 'video/*' : 'image/*'}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    onChange={handleMediaChange}
+                
+                {user && (
+                  <UploadMedia 
+                    userId={user.id}
+                    mediaType={mediaType}
+                    onUploadSuccess={handleUploadSuccess}
+                    disabled={uploading}
                   />
-                </Button>
-              </>
+                )}
+              </div>
             )}
           </div>
           
