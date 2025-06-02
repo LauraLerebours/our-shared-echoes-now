@@ -21,7 +21,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting initial session:', error);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -29,7 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -42,17 +46,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    try {
+      console.log('Attempting to sign in with email:', email);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        console.error('Sign in error:', error);
+        return { error };
+      }
+      
+      console.log('Sign in successful');
+      return { error: null };
+    } catch (err) {
+      console.error('Sign in exception:', err);
+      return { error: err };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    return { error, user: data.user };
+    try {
+      console.log('Attempting to sign up with email:', email);
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth`
+        }
+      });
+      
+      if (error) {
+        console.error('Sign up error:', error);
+        return { error, user: null };
+      }
+      
+      console.log('Sign up response:', data);
+      
+      if (data.user && !data.session) {
+        console.log('User created but needs email confirmation');
+      }
+      
+      return { error: null, user: data.user };
+    } catch (err) {
+      console.error('Sign up exception:', err);
+      return { error: err, user: null };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('Attempting to sign out');
+      await supabase.auth.signOut();
+      console.log('Sign out successful');
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
   };
 
   const value = {
