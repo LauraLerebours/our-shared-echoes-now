@@ -3,12 +3,12 @@ import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
 
-// Types for the database
+// Types for the database - Updated to match actual schema
 export type DbMemory = {
   id: string;
   user_id: string;
   image_url?: string;
-  caption?: string;
+  text?: string; // Using 'text' instead of 'caption'
   created_at: string;
   location?: string;
   likes: number;
@@ -30,7 +30,7 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
     id: dbMemory.id,
     image: dbMemory.image_url || '',
-    caption: dbMemory.caption,
+    caption: dbMemory.text, // Map 'text' to 'caption'
     date: dbMemory.created_at ? new Date(dbMemory.created_at) : new Date(),
     location: dbMemory.location,
     likes: dbMemory.likes,
@@ -46,8 +46,7 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
     id: memory.id,
     user_id: userId,
     image_url: memory.image,
-    caption: memory.caption,
-    // Remove date field and rely on created_at from the database
+    text: memory.caption, // Map 'caption' to 'text'
     location: memory.location,
     likes: memory.likes,
     is_liked: memory.isLiked,
@@ -59,6 +58,7 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
 // Memories CRUD operations
 export const fetchMemories = async (userId: string): Promise<Memory[]> => {
   try {
+    console.log('Fetching memories for user:', userId);
     const { data, error } = await supabase
       .from('memories')
       .select('*')
@@ -70,6 +70,7 @@ export const fetchMemories = async (userId: string): Promise<Memory[]> => {
       return [];
     }
 
+    console.log('Fetched memories:', data);
     return (data as DbMemory[]).map(dbMemoryToMemory);
   } catch (error) {
     console.error('Error fetching memories:', error);
@@ -78,20 +79,28 @@ export const fetchMemories = async (userId: string): Promise<Memory[]> => {
 };
 
 export const createMemory = async (memory: Memory, userId: string): Promise<Memory | null> => {
-  const newDbMemory = memoryToDbMemory(memory, userId);
+  try {
+    console.log('Creating memory:', memory);
+    const newDbMemory = memoryToDbMemory(memory, userId);
+    console.log('Converted to DB format:', newDbMemory);
 
-  const { data, error } = await supabase
-    .from('memories')
-    .insert([newDbMemory])
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('memories')
+      .insert([newDbMemory])
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error creating memory:', error);
+    if (error) {
+      console.error('Error creating memory:', error);
+      return null;
+    }
+
+    console.log('Created memory successfully:', data);
+    return dbMemoryToMemory(data as DbMemory);
+  } catch (error) {
+    console.error('Error in createMemory:', error);
     return null;
   }
-
-  return dbMemoryToMemory(data as DbMemory);
 };
 
 export const updateMemory = async (memory: Memory, userId: string): Promise<Memory | null> => {
