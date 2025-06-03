@@ -7,8 +7,8 @@ import { Memory } from '@/components/MemoryList';
 export type DbMemory = {
   id: string;
   user_id: string;
-  image_url?: string;
-  text?: string; // Using 'text' instead of 'caption'
+  image?: string; // Using 'image' instead of 'image_url'
+  caption?: string; // Using 'caption' as requested
   created_at: string;
   location?: string;
   likes: number;
@@ -29,8 +29,8 @@ export type SharedBoard = {
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
     id: dbMemory.id,
-    image: dbMemory.image_url || '',
-    caption: dbMemory.text, // Map 'text' to 'caption'
+    image: dbMemory.image || '',
+    caption: dbMemory.caption,
     date: dbMemory.created_at ? new Date(dbMemory.created_at) : new Date(),
     location: dbMemory.location,
     likes: dbMemory.likes,
@@ -45,8 +45,8 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
   return {
     id: memory.id,
     user_id: userId,
-    image_url: memory.image,
-    text: memory.caption, // Map 'caption' to 'text'
+    image: memory.image,
+    caption: memory.caption,
     location: memory.location,
     likes: memory.likes,
     is_liked: memory.isLiked,
