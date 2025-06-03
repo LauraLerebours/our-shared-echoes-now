@@ -3,16 +3,15 @@ import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
 
-// Types for the database - Updated to match actual schema
+// Types for the database - Simplified to match actual schema
 export type DbMemory = {
   id: string;
   user_id: string;
-  media_url?: string; // Updated to use media_url
+  media_url?: string;
   caption?: string;
   created_at: string;
   location?: string;
-  likes: number;
-  is_liked: boolean;
+  likes?: number;
   is_video?: boolean;
   type: 'memory' | 'note';
 };
@@ -29,27 +28,26 @@ export type SharedBoard = {
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
     id: dbMemory.id,
-    image: dbMemory.media_url || '', // Map media_url to image
+    image: dbMemory.media_url || '',
     caption: dbMemory.caption,
     date: dbMemory.created_at ? new Date(dbMemory.created_at) : new Date(),
     location: dbMemory.location,
-    likes: dbMemory.likes,
-    isLiked: dbMemory.is_liked,
+    likes: dbMemory.likes || 0,
+    isLiked: false, // Default to false since this column doesn't exist in DB
     isVideo: dbMemory.is_video,
     type: dbMemory.type,
   };
 };
 
-// Convert frontend memory to database memory
+// Convert frontend memory to database memory - only include columns that exist
 export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory, 'created_at'> => {
   return {
     id: memory.id,
     user_id: userId,
-    media_url: memory.image, // Map image to media_url
+    media_url: memory.image,
     caption: memory.caption,
     location: memory.location,
     likes: memory.likes,
-    is_liked: memory.isLiked,
     is_video: memory.isVideo,
     type: memory.type || 'memory',
   };
@@ -183,7 +181,7 @@ export const getSharedMemories = async (ownerId: string): Promise<Memory[]> => {
     .from('memories')
     .select('*')
     .eq('user_id', ownerId)
-    .order('date', { ascending: false });
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching shared memories:', error);
