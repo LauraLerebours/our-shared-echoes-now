@@ -13,7 +13,6 @@ export type DbMemory = {
   location?: string;
   likes?: number;
   is_video?: boolean;
-  type: 'memory' | 'note';
 };
 
 export type SharedBoard = {
@@ -35,7 +34,7 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     likes: dbMemory.likes || 0,
     isLiked: false, // Default to false since this column doesn't exist in DB
     isVideo: dbMemory.is_video,
-    type: dbMemory.type,
+    type: 'memory', // Default to memory since this column doesn't exist in DB
   };
 };
 
@@ -49,7 +48,7 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
     location: memory.location,
     likes: memory.likes,
     is_video: memory.isVideo,
-    type: memory.type || 'memory',
+    // Removed type field since it doesn't exist in the database
   };
 };
 
