@@ -1,11 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, MapPin, Trash2, Video } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { Memory } from '@/components/MemoryList';
+import { deleteMemory } from '@/lib/db';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,89 +24,106 @@ import {
 const MemoryDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [memory, setMemory] = useState<any>(null);
+  const { user } = useAuth();
+  const [memory, setMemory] = useState<Memory | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(0);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Load memories from localStorage
-    const savedMemoriesJSON = localStorage.getItem('memories');
-    if (savedMemoriesJSON) {
+    const loadMemory = async () => {
+      if (!id || !user) return;
+      
       try {
-        const savedMemories = JSON.parse(savedMemoriesJSON);
-        const foundMemory = savedMemories.find((memory: any) => memory.id === id);
-        if (foundMemory) {
-          setMemory(foundMemory);
-          setIsLiked(foundMemory.isLiked);
-          setLikes(foundMemory.likes);
+        const { data, error } = await supabase
+          .from('memories')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data) {
+          const memoryData: Memory = {
+            id: data.id,
+            image: data.media_url || '',
+            caption: data.caption,
+            date: new Date(data.created_at),
+            location: data.location,
+            likes: data.likes || 0,
+            isLiked: false,
+            isVideo: data.is_video,
+            type: 'memory'
+          };
+          
+          setMemory(memoryData);
+          setIsLiked(false); // Reset like state
+          setLikes(data.likes || 0);
         }
       } catch (error) {
-        console.error('Error parsing saved memories:', error);
+        console.error('Error loading memory:', error);
         toast({
           title: "Error",
           description: "Could not load memory details",
           variant: "destructive",
         });
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
-  }, [id]);
-  
-  const toggleLike = () => {
-    if (isLiked) {
-      setLikes(likes - 1);
-    } else {
-      setLikes(likes + 1);
-    }
-    setIsLiked(!isLiked);
+    };
     
-    // Update memory in localStorage
-    updateMemoryInLocalStorage({
-      ...memory,
-      isLiked: !isLiked,
-      likes: isLiked ? likes - 1 : likes + 1
-    });
+    loadMemory();
+  }, [id, user]);
+  
+  const toggleLike = async () => {
+    if (!memory || !user) return;
+    
+    try {
+      const newLikes = isLiked ? likes - 1 : likes + 1;
+      
+      const { error } = await supabase
+        .from('memories')
+        .update({ likes: newLikes })
+        .eq('id', memory.id)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      setLikes(newLikes);
+      setIsLiked(!isLiked);
+    } catch (error) {
+      console.error('Error updating likes:', error);
+      toast({
+        title: "Error",
+        description: "Could not update likes",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDelete = () => {
-    const savedMemoriesJSON = localStorage.getItem('memories');
-    if (savedMemoriesJSON) {
-      try {
-        const savedMemories = JSON.parse(savedMemoriesJSON);
-        const updatedMemories = savedMemories.filter((memory: any) => memory.id !== id);
-        localStorage.setItem('memories', JSON.stringify(updatedMemories));
-        
+  const handleDelete = async () => {
+    if (!memory || !user) return;
+    
+    try {
+      const success = await deleteMemory(memory.id, user.id);
+      
+      if (success) {
         toast({
           title: "Memory deleted",
           description: "Your memory has been deleted successfully",
         });
-        
-        // Navigate back to home
         navigate('/', { replace: true });
-      } catch (error) {
-        console.error('Error deleting memory:', error);
-        toast({
-          title: "Error",
-          description: "Could not delete memory",
-          variant: "destructive",
-        });
+      } else {
+        throw new Error('Failed to delete memory');
       }
-    }
-  };
-
-  const updateMemoryInLocalStorage = (updatedMemory: any) => {
-    const savedMemoriesJSON = localStorage.getItem('memories');
-    if (savedMemoriesJSON) {
-      try {
-        const savedMemories = JSON.parse(savedMemoriesJSON);
-        const updatedMemories = savedMemories.map((memory: any) => 
-          memory.id === id ? updatedMemory : memory
-        );
-        localStorage.setItem('memories', JSON.stringify(updatedMemories));
-      } catch (error) {
-        console.error('Error updating memory:', error);
-      }
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+      toast({
+        title: "Error",
+        description: "Could not delete memory",
+        variant: "destructive",
+      });
     }
   };
   
@@ -133,7 +153,7 @@ const MemoryDetail = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         
-        <h1 className="text-lg font-medium">{format(new Date(memory.date), 'MMMM d, yyyy')}</h1>
+        <h1 className="text-lg font-medium">{format(memory.date, 'MMMM d, yyyy')}</h1>
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
