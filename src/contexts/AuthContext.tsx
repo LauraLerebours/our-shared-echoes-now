@@ -34,9 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        
+        // Handle sign out specifically
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          console.log('User signed out - clearing local state');
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
       }
     );
 
@@ -95,10 +104,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       console.log('Attempting to sign out');
-      await supabase.auth.signOut();
+      
+      // Clear local state immediately
+      setUser(null);
+      setSession(null);
+      
+      // Sign out from Supabase with scope 'local' to clear all sessions
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      if (error) {
+        console.error('Sign out error:', error);
+        throw error;
+      }
+      
       console.log('Sign out successful');
     } catch (err) {
       console.error('Sign out error:', err);
+      // Reset state even if there's an error to ensure user is logged out locally
+      setUser(null);
+      setSession(null);
+      throw err;
     }
   };
 
