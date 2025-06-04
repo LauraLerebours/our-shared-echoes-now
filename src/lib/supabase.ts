@@ -1,79 +1,128 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-// When using Lovable's Supabase integration, these values are automatically injected
-// Use import.meta.env to access environment variables in Vite
-const supabaseUrl = "https://example.supabase.co"; // Ensure these are set in your .env file
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24ifQ.625_WdcF3KHqz5amU0x2X5WWHP-OEs_4qj0ssLNHzTs"; // Initialize Supabase client with actual values or fallbacks
-let clientUrl = supabaseUrl;
-let clientKey = supabaseAnonKey;
+// Use environment variables for Supabase configuration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check if Supabase URL and Anon Key are defined
+// Check if Supabase credentials are properly configured
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase credentials. Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.");
-  
-  // Use fallback values for development (these won't actually work for real operations)
-  clientUrl = "https://example.supabase.co";
-  clientKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24ifQ.625_WdcF3KHqz5amU0x2X5WWHP-OEs_4qj0ssLNHzTs";
+  console.error("Missing Supabase credentials. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.");
+  console.log("To get your Supabase credentials:");
+  console.log("1. Go to https://supabase.com/dashboard");
+  console.log("2. Create a new project or select an existing one");
+  console.log("3. Go to Settings > API");
+  console.log("4. Copy your Project URL and anon/public key");
+  console.log("5. Set them in your Lovable project via the Supabase integration");
 }
 
-// Create and export the Supabase client
+// Create Supabase client with actual credentials or safe fallbacks
+const clientUrl = supabaseUrl || "https://placeholder.supabase.co";
+const clientKey = supabaseAnonKey || "placeholder-key";
+
 export const supabase = createClient(clientUrl, clientKey);
 
-// Assume bucket already exists and skip creation attempts
-export const ensureMemoriesBucketExists = async (): Promise<boolean> => {
-  // Return true since we're assuming the bucket exists
-  return true;
-};
-
-// Initialize Supabase resources
-const initSupabaseResources = async () => {
+// Test the connection and provide helpful feedback
+const testConnection = async () => {
   try {
-    // Check if the memories table exists
-    console.log("Checking if memories table exists...");
-    const { error: checkTableError } = await supabase
-      .from('memories')
-      .select('id')
-      .limit(1);
+    console.log("Testing Supabase connection...");
+    const { data, error } = await supabase.from('memories').select('count', { count: 'exact', head: true });
     
-    if (checkTableError) {
-      console.error("Error checking memories table:", checkTableError.message);
-      console.log("It seems the memories table may not exist or has incorrect schema.");
-      console.log("Please create the memories table with the following structure:");
-      console.log(`
-CREATE TABLE memories (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  image_url TEXT,
-  caption TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  location TEXT,
-  likes INTEGER DEFAULT 0,
-  is_liked BOOLEAN DEFAULT false,
-  is_video BOOLEAN DEFAULT false,
-  type TEXT NOT NULL
-);`);
-    } else {
-      console.log("Memories table exists.");
+    if (error) {
+      if (error.message.includes('Failed to fetch')) {
+        console.error("❌ Supabase connection failed: Invalid URL or network issue");
+        console.log("Please check your VITE_SUPABASE_URL is correct");
+      } else if (error.message.includes('JWT')) {
+        console.error("❌ Supabase authentication failed: Invalid API key");
+        console.log("Please check your VITE_SUPABASE_ANON_KEY is correct");
+      } else if (error.message.includes('relation "memories" does not exist')) {
+        console.error("❌ Database table 'memories' does not exist");
+        console.log("Please create the memories table in your Supabase database");
+      } else {
+        console.error("❌ Supabase error:", error.message);
+      }
+      return false;
     }
     
-  } catch (error) {
-    console.error("Error initializing Supabase resources:", error);
+    console.log("✅ Supabase connection successful");
+    return true;
+  } catch (err) {
+    console.error("❌ Supabase connection test failed:", err);
+    return false;
   }
 };
 
-// Initialize resources when this module is loaded
-initSupabaseResources();
+// Test connection when module loads (only if credentials are provided)
+if (supabaseUrl && supabaseAnonKey) {
+  testConnection();
+} else {
+  console.warn("⚠️ Supabase not configured - using placeholder credentials");
+}
 
-// Utility function to upload a file to the memories bucket
-export const uploadToMemories = async (filePath: string, file: File) => {
+// Storage bucket utilities
+export const ensureMemoriesBucketExists = async (): Promise<boolean> => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("Cannot create bucket: Supabase not properly configured");
+    return false;
+  }
+
   try {
-    // Upload the file directly, assuming bucket exists
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error("Error checking buckets:", listError.message);
+      return false;
+    }
+
+    const memoriesBucket = buckets?.find(bucket => bucket.name === 'memories');
+    
+    if (memoriesBucket) {
+      console.log("✅ Memories bucket already exists");
+      return true;
+    }
+
+    // Create bucket if it doesn't exist
+    const { error: createError } = await supabase.storage.createBucket('memories', {
+      public: true,
+      allowedMimeTypes: ['image/*', 'video/*'],
+      fileSizeLimit: 10485760 // 10MB
+    });
+
+    if (createError) {
+      console.error("Error creating memories bucket:", createError.message);
+      return false;
+    }
+
+    console.log("✅ Memories bucket created successfully");
+    return true;
+  } catch (error) {
+    console.error("Error managing memories bucket:", error);
+    return false;
+  }
+};
+
+// File upload utility
+export const uploadToMemories = async (filePath: string, file: File) => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { url: null, error: new Error("Supabase not configured") };
+  }
+
+  try {
+    // Ensure bucket exists before uploading
+    const bucketReady = await ensureMemoriesBucketExists();
+    if (!bucketReady) {
+      return { url: null, error: new Error("Could not prepare storage bucket") };
+    }
+
+    // Upload the file
     const { data, error } = await supabase.storage
       .from('memories')
       .upload(filePath, file);
       
     if (error) {
-      throw error;
+      console.error('Upload error:', error);
+      return { url: null, error };
     }
     
     // Get the public URL
