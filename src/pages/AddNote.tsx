@@ -81,6 +81,7 @@ const AddNote = () => {
         caption: data.text,
         date: data.date,
         likes: 0,
+        isVideo: false,
         isLiked: false,
         type: 'note' as 'memory' | 'note'
       };
