@@ -1,10 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // When using Lovable's Supabase integration, these values are automatically injected
 // Use import.meta.env to access environment variables in Vite
 const supabaseUrl = "https://hhcoeuedfeoudgxtttgn.supabase.co";
-const supabaseAnonKey = process.env.SUPABASE_KEY;  // Initialize Supabase client with actual values or fallbacks
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;  // Initialize Supabase client with actual values or fallbacks
 let clientUrl = supabaseUrl;
 let clientKey = supabaseAnonKey;
 
