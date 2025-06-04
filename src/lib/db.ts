@@ -1,26 +1,19 @@
-
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
 
-// Types for the database - Simplified to match actual schema
+// Types for the database - Updated to match actual schema
 export type DbMemory = {
   id: string;
   user_id: string;
   media_url?: string;
   caption?: string;
-  created_at: string;
+  event_date: string; // Changed from created_at to event_date
   location?: string;
   likes?: number;
   is_video?: boolean;
-};
-
-export type SharedBoard = {
-  id: string;
-  owner_id: string;
-  share_code: string;
-  created_at?: string;
-  name?: string;
+  is_liked?: boolean;
+  type?: string;
 };
 
 // Convert database memory to frontend memory
@@ -29,26 +22,28 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     id: dbMemory.id,
     image: dbMemory.media_url || '',
     caption: dbMemory.caption,
-    date: dbMemory.created_at ? new Date(dbMemory.created_at) : new Date(),
+    date: dbMemory.event_date ? new Date(dbMemory.event_date) : new Date(),
     location: dbMemory.location,
     likes: dbMemory.likes || 0,
-    isLiked: false, // Default to false since this column doesn't exist in DB
+    isLiked: dbMemory.is_liked || false,
     isVideo: dbMemory.is_video,
-    type: 'memory', // Default to memory since this column doesn't exist in DB
+    type: dbMemory.type || 'memory',
   };
 };
 
-// Convert frontend memory to database memory - only include columns that exist
+// Convert frontend memory to database memory - updated to include all required fields
 export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory, 'created_at'> => {
   return {
     id: memory.id,
     user_id: userId,
     media_url: memory.image,
     caption: memory.caption,
+    event_date: memory.date.toISOString(), // Ensure date is properly formatted
     location: memory.location,
     likes: memory.likes,
     is_video: memory.isVideo,
-    // Removed type field since it doesn't exist in the database
+    is_liked: memory.isLiked,
+    type: memory.type,
   };
 };
 
@@ -60,7 +55,7 @@ export const fetchMemories = async (userId: string): Promise<Memory[]> => {
       .from('memories')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('event_date', { ascending: false });
 
     if (error) {
       console.error('Error fetching memories:', error);
@@ -180,7 +175,7 @@ export const getSharedMemories = async (ownerId: string): Promise<Memory[]> => {
     .from('memories')
     .select('*')
     .eq('user_id', ownerId)
-    .order('created_at', { ascending: false });
+    .order('event_date', { ascending: false });
 
   if (error) {
     console.error('Error fetching shared memories:', error);

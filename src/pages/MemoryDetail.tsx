@@ -49,16 +49,16 @@ const MemoryDetail = () => {
             id: data.id,
             image: data.media_url || '',
             caption: data.caption,
-            date: new Date(data.created_at),
+            date: new Date(data.event_date), // Updated to use event_date
             location: data.location,
             likes: data.likes || 0,
-            isLiked: false,
+            isLiked: data.is_liked || false, // Updated to use is_liked from DB
             isVideo: data.is_video,
-            type: 'memory'
+            type: data.type || 'memory' // Updated to use type from DB
           };
           
           setMemory(memoryData);
-          setIsLiked(false); // Reset like state
+          setIsLiked(data.is_liked || false);
           setLikes(data.likes || 0);
         }
       } catch (error) {
@@ -84,7 +84,10 @@ const MemoryDetail = () => {
       
       const { error } = await supabase
         .from('memories')
-        .update({ likes: newLikes })
+        .update({ 
+          likes: newLikes,
+          is_liked: !isLiked // Update is_liked in the database
+        })
         .eq('id', memory.id)
         .eq('user_id', user.id);
         
