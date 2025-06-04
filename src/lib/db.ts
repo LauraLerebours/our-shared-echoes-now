@@ -13,7 +13,6 @@ export type DbMemory = {
   likes?: number;
   is_video?: boolean;
   is_liked?: boolean;
-  type?: string;
 };
 
 // Convert database memory to frontend memory
@@ -27,7 +26,6 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     likes: dbMemory.likes || 0,
     isLiked: dbMemory.is_liked || false,
     isVideo: dbMemory.is_video,
-    type: dbMemory.type || 'memory',
   };
 };
 
@@ -43,7 +41,6 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
     likes: memory.likes,
     is_video: memory.isVideo,
     is_liked: memory.isLiked,
-    type: memory.type,
   };
 };
 
