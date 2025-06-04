@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Use environment variables for Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = "https://hhcoeuedfeoudgxtttgn.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY29ldWVkZmVvdWRneHR0dGduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NDU4NDYsImV4cCI6MjA2MjQyMTg0Nn0.3MPbiHpdddcJipa-UxMaTBN8MfRBP1Bw_WiVX76Xt_w";
 
 // Check if Supabase credentials are properly configured
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -142,3 +142,4 @@ export type Profile = {
   username?: string;
   created_at?: string;
 };
+
