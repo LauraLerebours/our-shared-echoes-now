@@ -11,7 +11,23 @@ import { toast } from '@/hooks/use-toast';
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp } = useAuth();
+  
+  // Only destructure the methods we need, not user/loading state
+  const authContext = useAuth();
+  
+  // Handle case where context might not be ready
+  if (!authContext) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  const { signIn, signUp, user } = authContext;
+  
+  // If user is already authenticated, redirect to home
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   // Separate form state
   const [signInEmail, setSignInEmail] = useState('');
