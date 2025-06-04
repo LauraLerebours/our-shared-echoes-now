@@ -5,7 +5,7 @@ import { Home, Heart, FilePlusIcon, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FooterProps {
-  activeTab?: 'timeline' | 'favorites' | 'share';
+  activeTab?: 'timeline' | 'favorites' | 'share' | 'add-note';
 }
 
 const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
@@ -25,7 +25,10 @@ const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
         
         <Link 
           to="/add-note" 
-          className="flex flex-col items-center px-4 py-1 text-muted-foreground"
+          className={cn(
+            "flex flex-col items-center px-4 py-1", 
+            activeTab === 'add-note' ? "text-memory-purple" : "text-muted-foreground"
+          )}
         >
           <FilePlusIcon className="h-6 w-6" />
           <span className="text-xs mt-1">Add Note</span>
