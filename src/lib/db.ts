@@ -21,6 +21,14 @@ export type AccessCode = {
   created_at: string;
 };
 
+export type Board = {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  access_code: string;
+};
+
 // Convert database memory to frontend memory
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
@@ -50,6 +58,60 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
     is_video: memory.isVideo,
     is_liked: memory.isLiked,
   };
+};
+
+// Board operations
+export const fetchBoards = async (): Promise<Board[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('boards')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Board[];
+  } catch (error) {
+    console.error('Error fetching boards:', error);
+    return [];
+  }
+};
+
+export const createBoard = async (name: string, description?: string): Promise<Board | null> => {
+  try {
+    const newBoard = {
+      id: uuidv4(),
+      name,
+      description,
+      access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+    };
+
+    const { data, error } = await supabase
+      .from('boards')
+      .insert([newBoard])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Board;
+  } catch (error) {
+    console.error('Error creating board:', error);
+    return null;
+  }
+};
+
+export const deleteBoard = async (boardId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('boards')
+      .delete()
+      .eq('id', boardId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting board:', error);
+    return false;
+  }
 };
 
 // Access code operations
