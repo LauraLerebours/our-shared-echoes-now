@@ -5,8 +5,7 @@ import { Memory } from '@/components/MemoryList';
 // Types for the database
 export type DbMemory = {
   id: string;
-  user_id: string;
-  board_id: string;
+  access_code: string;
   media_url?: string;
   caption?: string;
   event_date: string;
@@ -16,12 +15,18 @@ export type DbMemory = {
   is_liked?: boolean;
 };
 
-export type Board = {
-  id: string;
-  user_id: string;
+export type AccessCode = {
+  code: string;
   name: string;
   created_at: string;
-  updated_at: string;
+};
+
+export type Board = {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  access_code: string;
 };
 
 // Convert database memory to frontend memory
@@ -36,16 +41,15 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     isLiked: dbMemory.is_liked || false,
     isVideo: dbMemory.is_video,
     type: 'memory',
-    boardId: dbMemory.board_id,
+    accessCode: dbMemory.access_code,
   };
 };
 
 // Convert frontend memory to database memory
-export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory, 'created_at'> => {
+export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> => {
   return {
     id: memory.id,
-    user_id: userId,
-    board_id: memory.boardId,
+    access_code: memory.accessCode,
     media_url: memory.image,
     caption: memory.caption,
     event_date: memory.date.toISOString(),
@@ -56,12 +60,34 @@ export const memoryToDbMemory = (memory: Memory, userId: string): Omit<DbMemory,
   };
 };
 
-// Boards CRUD operations
-export const createBoard = async (userId: string, name: string): Promise<Board | null> => {
+// Board operations
+export const fetchBoards = async (): Promise<Board[]> => {
   try {
     const { data, error } = await supabase
       .from('boards')
-      .insert([{ user_id: userId, name }])
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as Board[];
+  } catch (error) {
+    console.error('Error fetching boards:', error);
+    return [];
+  }
+};
+
+export const createBoard = async (name: string, description?: string): Promise<Board | null> => {
+  try {
+    const newBoard = {
+      id: uuidv4(),
+      name,
+      description,
+      access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+    };
+
+    const { data, error } = await supabase
+      .from('boards')
+      .insert([newBoard])
       .select()
       .single();
 
@@ -73,47 +99,12 @@ export const createBoard = async (userId: string, name: string): Promise<Board |
   }
 };
 
-export const fetchBoards = async (userId: string): Promise<Board[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('boards')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data as Board[];
-  } catch (error) {
-    console.error('Error fetching boards:', error);
-    return [];
-  }
-};
-
-export const updateBoard = async (boardId: string, name: string, userId: string): Promise<Board | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('boards')
-      .update({ name })
-      .eq('id', boardId)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Board;
-  } catch (error) {
-    console.error('Error updating board:', error);
-    return null;
-  }
-};
-
-export const deleteBoard = async (boardId: string, userId: string): Promise<boolean> => {
+export const deleteBoard = async (boardId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('boards')
       .delete()
-      .eq('id', boardId)
-      .eq('user_id', userId);
+      .eq('id', boardId);
 
     if (error) throw error;
     return true;
@@ -123,20 +114,49 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<bool
   }
 };
 
-// Memories CRUD operations
-export const fetchMemories = async (userId: string, boardId?: string): Promise<Memory[]> => {
+// Access code operations
+export const createAccessCode = async (name: string): Promise<AccessCode | null> => {
   try {
-    let query = supabase
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const { data, error } = await supabase
+      .from('access_codes')
+      .insert([{ code, name }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as AccessCode;
+  } catch (error) {
+    console.error('Error creating access code:', error);
+    return null;
+  }
+};
+
+export const getAccessCode = async (code: string): Promise<AccessCode | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('access_codes')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .single();
+
+    if (error) throw error;
+    return data as AccessCode;
+  } catch (error) {
+    console.error('Error fetching access code:', error);
+    return null;
+  }
+};
+
+// Memories CRUD operations
+export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
+  try {
+    const { data, error } = await supabase
       .from('memories')
       .select('*')
-      .eq('user_id', userId)
+      .eq('access_code', accessCode)
       .order('event_date', { ascending: false });
-
-    if (boardId) {
-      query = query.eq('board_id', boardId);
-    }
-
-    const { data, error } = await query;
 
     if (error) throw error;
     return (data as DbMemory[]).map(dbMemoryToMemory);
@@ -146,9 +166,9 @@ export const fetchMemories = async (userId: string, boardId?: string): Promise<M
   }
 };
 
-export const createMemory = async (memory: Memory, userId: string): Promise<Memory | null> => {
+export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    const newDbMemory = memoryToDbMemory(memory, userId);
+    const newDbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
       .insert([newDbMemory])
@@ -163,14 +183,14 @@ export const createMemory = async (memory: Memory, userId: string): Promise<Memo
   }
 };
 
-export const updateMemory = async (memory: Memory, userId: string): Promise<Memory | null> => {
+export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    const dbMemory = memoryToDbMemory(memory, userId);
+    const dbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
       .update(dbMemory)
       .eq('id', memory.id)
-      .eq('user_id', userId)
+      .eq('access_code', memory.accessCode)
       .select()
       .single();
 
@@ -182,13 +202,13 @@ export const updateMemory = async (memory: Memory, userId: string): Promise<Memo
   }
 };
 
-export const deleteMemory = async (memoryId: string, userId: string): Promise<boolean> => {
+export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('memories')
       .delete()
       .eq('id', memoryId)
-      .eq('user_id', userId);
+      .eq('access_code', accessCode);
 
     if (error) throw error;
     return true;
@@ -196,67 +216,4 @@ export const deleteMemory = async (memoryId: string, userId: string): Promise<bo
     console.error('Error deleting memory:', error);
     return false;
   }
-};
-
-// Shared board operations
-export type SharedBoard = {
-  id: string;
-  owner_id: string;
-  share_code: string;
-  name?: string;
-  created_at?: string;
-};
-
-export const createSharedBoard = async (userId: string, name?: string): Promise<SharedBoard | null> => {
-  const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-  const newBoard: Omit<SharedBoard, 'created_at'> = {
-    id: uuidv4(),
-    owner_id: userId,
-    share_code: shareCode,
-    name: name || 'My Memories',
-  };
-
-  const { data, error } = await supabase
-    .from('shared_boards')
-    .insert([newBoard])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating shared board:', error);
-    return null;
-  }
-
-  return data as SharedBoard;
-};
-
-export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
-  const { data, error } = await supabase
-    .from('shared_boards')
-    .select('*')
-    .eq('share_code', shareCode.toUpperCase())
-    .single();
-
-  if (error) {
-    console.error('Error fetching shared board:', error);
-    return null;
-  }
-
-  return data as SharedBoard;
-};
-
-export const getSharedMemories = async (ownerId: string): Promise<Memory[]> => {
-  const { data, error } = await supabase
-    .from('memories')
-    .select('*')
-    .eq('user_id', ownerId)
-    .order('event_date', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching shared memories:', error);
-    return [];
-  }
-
-  return (data as DbMemory[]).map(dbMemoryToMemory);
 };
