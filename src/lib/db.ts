@@ -32,8 +32,8 @@ export type Board = {
 export type SharedBoard = {
   id: string;
   owner_id: string;
+  name: string;
   share_code: string;
-  name?: string;
   created_at: string;
 };
 
@@ -69,12 +69,11 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
 };
 
 // Board operations
-export const fetchBoards = async (userId: string): Promise<Board[]> => {
+export const fetchBoards = async (): Promise<Board[]> => {
   try {
     const { data, error } = await supabase
       .from('boards')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -85,11 +84,10 @@ export const fetchBoards = async (userId: string): Promise<Board[]> => {
   }
 };
 
-export const createBoard = async (userId: string, name: string, description?: string): Promise<Board | null> => {
+export const createBoard = async (name: string, description?: string): Promise<Board | null> => {
   try {
     const newBoard = {
       id: uuidv4(),
-      user_id: userId,
       name,
       description,
       access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
@@ -109,13 +107,12 @@ export const createBoard = async (userId: string, name: string, description?: st
   }
 };
 
-export const deleteBoard = async (boardId: string, userId: string): Promise<boolean> => {
+export const deleteBoard = async (boardId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('boards')
       .delete()
-      .eq('id', boardId)
-      .eq('user_id', userId);
+      .eq('id', boardId);
 
     if (error) throw error;
     return true;
@@ -126,18 +123,17 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<bool
 };
 
 // Shared board operations
-export const createSharedBoard = async (userId: string): Promise<SharedBoard | null> => {
+export const createSharedBoard = async (ownerId: string, name: string = 'Shared Memories'): Promise<SharedBoard | null> => {
   try {
     const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newSharedBoard = {
-      id: uuidv4(),
-      owner_id: userId,
-      share_code: shareCode,
-    };
-
+    
     const { data, error } = await supabase
       .from('shared_boards')
-      .insert([newSharedBoard])
+      .insert([{
+        owner_id: ownerId,
+        name,
+        share_code: shareCode
+      }])
       .select()
       .single();
 
@@ -154,7 +150,7 @@ export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | n
     const { data, error } = await supabase
       .from('shared_boards')
       .select('*')
-      .eq('share_code', shareCode)
+      .eq('share_code', shareCode.toUpperCase())
       .single();
 
     if (error) throw error;
@@ -170,7 +166,7 @@ export const getSharedMemories = async (ownerId: string): Promise<Memory[]> => {
     const { data, error } = await supabase
       .from('memories')
       .select('*')
-      .eq('owner_id', ownerId)
+      .eq('user_id', ownerId)
       .order('event_date', { ascending: false });
 
     if (error) throw error;
