@@ -184,16 +184,27 @@ export const createSharedBoard = async (name: string): Promise<SharedBoard | nul
   }
 };
 
-export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
+export const getSharedBoard = async (shareCode: string): Promise<Board | null> => {
   try {
-    const { data, error } = await supabase
+    // First get the shared board entry
+    const { data: sharedData, error: sharedError } = await supabase
       .from('shared_boards')
       .select('*')
       .eq('share_code', shareCode)
       .single();
 
-    if (error) throw error;
-    return data as SharedBoard;
+    if (sharedError) throw sharedError;
+    if (!sharedData) return null;
+
+    // Then get the actual board
+    const { data: boardData, error: boardError } = await supabase
+      .from('boards')
+      .select('*')
+      .eq('owner_id', sharedData.owner_id)
+      .single();
+
+    if (boardError) throw boardError;
+    return boardData as Board;
   } catch (error) {
     console.error('Error fetching shared board:', error);
     return null;
