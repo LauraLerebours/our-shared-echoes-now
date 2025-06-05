@@ -43,7 +43,7 @@ const Boards = () => {
       
       try {
         setLoading(true);
-        const boardsData = await fetchBoards(user.id);
+        const boardsData = await fetchBoards();
         setBoards(boardsData);
       } catch (error) {
         console.error('Error loading boards:', error);
@@ -65,7 +65,7 @@ const Boards = () => {
     
     try {
       setIsCreatingBoard(true);
-      const newBoard = await createBoard(user.id, newBoardName.trim());
+      const newBoard = await createBoard(newBoardName.trim());
       
       if (newBoard) {
         setBoards([...boards, newBoard]);
@@ -91,7 +91,10 @@ const Boards = () => {
     if (!user) return;
     
     try {
-      const success = await deleteBoard(boardId, user.id);
+      const boardToDelete = boards.find(board => board.id === boardId);
+      if (!boardToDelete) return;
+
+      const success = await deleteBoard(boardId, boardToDelete.access_code);
       
       if (success) {
         setBoards(boards.filter(board => board.id !== boardId));

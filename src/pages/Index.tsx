@@ -46,12 +46,12 @@ const Index = () => {
         setLoading(true);
         
         // Load boards first
-        const boardsData = await fetchBoards(user.id);
+        const boardsData = await fetchBoards();
         setBoards(boardsData);
         
         // If there are no boards, create a default one
         if (boardsData.length === 0) {
-          const defaultBoard = await createBoard(user.id, 'My Memories');
+          const defaultBoard = await createBoard('My Memories');
           if (defaultBoard) {
             setBoards([defaultBoard]);
             setSelectedBoard(defaultBoard.id);
@@ -61,8 +61,11 @@ const Index = () => {
         }
         
         // Load memories for the selected board
-        const memoriesData = await fetchMemories(user.id, selectedBoard || undefined);
-        setMemories(memoriesData);
+        if (boardsData.length > 0) {
+          const selectedBoardData = boardsData[0];
+          const memoriesData = await fetchMemories(selectedBoardData.access_code);
+          setMemories(memoriesData);
+        }
       } catch (error) {
         console.error('Error loading data:', error);
         toast({
@@ -84,8 +87,11 @@ const Index = () => {
       if (!user || !selectedBoard) return;
       
       try {
-        const data = await fetchMemories(user.id, selectedBoard);
-        setMemories(data);
+        const selectedBoardData = boards.find(board => board.id === selectedBoard);
+        if (selectedBoardData) {
+          const data = await fetchMemories(selectedBoardData.access_code);
+          setMemories(data);
+        }
       } catch (error) {
         console.error('Error loading memories:', error);
         toast({
@@ -97,14 +103,14 @@ const Index = () => {
     };
     
     loadMemories();
-  }, [selectedBoard, user]);
+  }, [selectedBoard, user, boards]);
 
   const handleCreateBoard = async () => {
     if (!user || !newBoardName.trim()) return;
     
     try {
       setIsCreatingBoard(true);
-      const newBoard = await createBoard(user.id, newBoardName.trim());
+      const newBoard = await createBoard(newBoardName.trim());
       
       if (newBoard) {
         setBoards([...boards, newBoard]);
@@ -128,10 +134,13 @@ const Index = () => {
   };
 
   const handleDeleteMemory = async (id: string) => {
-    if (!user) return;
+    if (!user || !selectedBoard) return;
     
     try {
-      const success = await deleteMemory(id, user.id);
+      const selectedBoardData = boards.find(board => board.id === selectedBoard);
+      if (!selectedBoardData) return;
+
+      const success = await deleteMemory(id, selectedBoardData.access_code);
       
       if (success) {
         const updatedMemories = memories.filter(memory => memory.id !== id);

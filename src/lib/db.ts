@@ -24,7 +24,6 @@ export type AccessCode = {
 export type Board = {
   id: string;
   name: string;
-  description?: string;
   created_at: string;
   access_code: string;
 };
@@ -100,11 +99,10 @@ export const getBoard = async (accessCode: string): Promise<Board | null> => {
   }
 };
 
-export const createBoard = async (name: string, description?: string): Promise<Board | null> => {
+export const createBoard = async (name: string): Promise<Board | null> => {
   try {
     const newBoard = {
       name,
-      description,
       access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
     };
 
@@ -128,7 +126,6 @@ export const updateBoard = async (board: Board): Promise<Board | null> => {
       .from('boards')
       .update({
         name: board.name,
-        description: board.description,
       })
       .eq('id', board.id)
       .eq('access_code', board.access_code)
