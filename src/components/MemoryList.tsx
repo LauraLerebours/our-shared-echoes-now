@@ -13,7 +13,7 @@ export interface Memory {
   isLiked: boolean;
   isVideo?: boolean;
   type: 'memory' | 'note';
-  boardId?: string;
+  accessCode: string;
 }
 
 interface MemoryListProps {
