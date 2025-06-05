@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,35 +11,29 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Only destructure the methods we need, not user/loading state
   const authContext = useAuth();
   
-  // Handle case where context might not be ready
   if (!authContext) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
   
   const { signIn, signUp, user } = authContext;
   
-  // If user is already authenticated, redirect to home
   useEffect(() => {
     if (user) {
       navigate('/');
     }
   }, [user, navigate]);
 
-  // Separate form state
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
 
-  // Separate loading state
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Check for email confirmation on mount
   useEffect(() => {
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
@@ -59,21 +52,38 @@ const Auth = () => {
     e.preventDefault();
     setIsSigningIn(true);
 
-    const { error } = await signIn(signInEmail, signInPassword);
-    setIsSigningIn(false);
+    try {
+      const { error } = await signIn(signInEmail, signInPassword);
 
-    if (error) {
-      console.error('Login error:', error);
+      if (error) {
+        let errorMessage = 'Something went wrong.';
+        
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. If you just signed up, please check your email for the verification link.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+        }
+
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: errorMessage,
+        });
+        return;
+      }
+
+      toast({ title: 'Welcome back!' });
+      navigate('/');
+    } catch (err) {
+      console.error('Login error:', err);
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: error.message || 'Something went wrong.',
+        description: 'An unexpected error occurred. Please try again.',
       });
-      return;
+    } finally {
+      setIsSigningIn(false);
     }
-
-    toast({ title: 'Welcome back!' });
-    navigate('/');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -89,25 +99,40 @@ const Auth = () => {
     }
 
     setIsSigningUp(true);
-    const { error, user } = await signUp(signUpEmail, signUpPassword);
-    setIsSigningUp(false);
+    try {
+      const { error, user } = await signUp(signUpEmail, signUpPassword);
 
-    if (error) {
-      console.error('Sign up error:', error);
+      if (error) {
+        let errorMessage = 'Something went wrong.';
+        
+        if (error.message.includes('already registered')) {
+          errorMessage = 'This email is already registered. Please sign in instead.';
+        }
+
+        toast({
+          variant: 'destructive',
+          title: 'Sign up failed',
+          description: errorMessage,
+        });
+        return;
+      }
+
+      if (user) {
+        setEmailSent(true);
+        toast({
+          title: 'Account created',
+          description: 'Please check your email to verify your account. Check your spam folder if you don\'t see it.',
+        });
+      }
+    } catch (err) {
+      console.error('Sign up error:', err);
       toast({
         variant: 'destructive',
         title: 'Sign up failed',
-        description: error.message || 'Something went wrong.',
+        description: 'An unexpected error occurred. Please try again.',
       });
-      return;
-    }
-
-    if (user) {
-      setEmailSent(true);
-      toast({
-        title: 'Account created',
-        description: 'Please check your email to verify your account.',
-      });
+    } finally {
+      setIsSigningUp(false);
     }
   };
 

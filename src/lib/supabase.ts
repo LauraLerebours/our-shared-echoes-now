@@ -1,9 +1,7 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-// Use environment variables for Supabase configuration
-const supabaseUrl = "https://hhcoeuedfeoudgxtttgn.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY29ldWVkZmVvdWRneHR0dGduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NDU4NDYsImV4cCI6MjA2MjQyMTg0Nn0.3MPbiHpdddcJipa-UxMaTBN8MfRBP1Bw_WiVX76Xt_w";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Check if Supabase credentials are properly configured
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -13,14 +11,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.log("2. Create a new project or select an existing one");
   console.log("3. Go to Settings > API");
   console.log("4. Copy your Project URL and anon/public key");
-  console.log("5. Set them in your Lovable project via the Supabase integration");
+  console.log("5. Set them in your .env file");
 }
 
-// Create Supabase client with actual credentials or safe fallbacks
-const clientUrl = supabaseUrl || "https://placeholder.supabase.co";
-const clientKey = supabaseAnonKey || "placeholder-key";
-
-export const supabase = createClient(clientUrl, clientKey);
+// Create Supabase client with environment variables
+export const supabase = createClient(
+  supabaseUrl || '',
+  supabaseAnonKey || ''
+);
 
 // Test the connection and provide helpful feedback
 const testConnection = async () => {
@@ -52,12 +50,8 @@ const testConnection = async () => {
   }
 };
 
-// Test connection when module loads (only if credentials are provided)
-if (supabaseUrl && supabaseAnonKey) {
-  testConnection();
-} else {
-  console.warn("⚠️ Supabase not configured - using placeholder credentials");
-}
+// Test connection when module loads
+testConnection();
 
 // Storage bucket utilities
 export const ensureMemoriesBucketExists = async (): Promise<boolean> => {
@@ -142,4 +136,3 @@ export type Profile = {
   username?: string;
   created_at?: string;
 };
-
