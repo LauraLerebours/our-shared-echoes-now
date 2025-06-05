@@ -154,6 +154,36 @@ export const createBoard = async (name: string): Promise<Board | null> => {
   }
 };
 
+export const createSharedBoard = async (name: string): Promise<SharedBoard | null> => {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
+    // Generate a unique share code
+    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .insert([{
+        owner_id: user.id,
+        share_code: shareCode,
+        name
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error creating shared board:', error);
+    return null;
+  }
+};
+
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
     const {
