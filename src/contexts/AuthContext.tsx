@@ -19,7 +19,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error('Error getting initial session:', error);
@@ -29,22 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        
-        // Handle sign out specifically
-        if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          console.log('User signed out - clearing local state');
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        }
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
       }
     );
 
@@ -53,23 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<{ error: any }> => {
+  const signIn = async (email: string, password: string) => {
     try {
-      console.log('Attempting to sign in with email:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error) {
         console.error('Sign in error:', error);
         return { error };
       }
-      
-      // Explicitly check if we have a session after successful sign in
+
       if (!data.session) {
-        console.error('Sign in succeeded but no session was created');
-        return { error: new Error('No session created after sign in') };
+        console.error('No session after sign in');
+        return { error: new Error('No session created') };
       }
-      
-      console.log('Sign in successful');
+
       return { error: null };
     } catch (err) {
       console.error('Sign in exception:', err);
@@ -79,26 +68,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      console.log('Attempting to sign up with email:', email);
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`
+          emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            email_confirm: false,
+          }
         }
       });
-      
+
       if (error) {
         console.error('Sign up error:', error);
         return { error, user: null };
       }
-      
-      console.log('Sign up response:', data);
-      
-      if (data.user && !data.session) {
-        console.log('User created but needs email confirmation');
-      }
-      
+
       return { error: null, user: data.user };
     } catch (err) {
       console.error('Sign up exception:', err);
@@ -108,27 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      console.log('Attempting to sign out');
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      // Clear local state immediately
       setUser(null);
       setSession(null);
-      
-      // Sign out from Supabase with scope 'local' to clear all sessions
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      
-      if (error) {
-        console.error('Sign out error:', error);
-        throw error;
-      }
-      
-      console.log('Sign out successful');
-    } catch (err) {
-      console.error('Sign out error:', err);
-      // Reset state even if there's an error to ensure user is logged out locally
-      setUser(null);
-      setSession(null);
-      throw err;
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
     }
   };
 
