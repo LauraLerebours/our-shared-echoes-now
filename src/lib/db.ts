@@ -69,7 +69,7 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
   };
 };
 
-// Board CRUD operations
+// Board operations
 export const fetchBoards = async (): Promise<Board[]> => {
   try {
     const {
@@ -117,30 +117,6 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
   }
 };
 
-export const getBoard = async (accessCode: string): Promise<Board | null> => {
-  try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('boards')
-      .select('*')
-      .eq('access_code', accessCode)
-      .eq('owner_id', user.id)
-      .single();
-
-    if (error) throw error;
-    return data as Board;
-  } catch (error) {
-    console.error('Error fetching board:', error);
-    return null;
-  }
-};
-
 export const createBoard = async (name: string): Promise<Board | null> => {
   try {
     const {
@@ -178,34 +154,6 @@ export const createBoard = async (name: string): Promise<Board | null> => {
   }
 };
 
-export const updateBoard = async (board: Board): Promise<Board | null> => {
-  try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('boards')
-      .update({
-        name: board.name,
-      })
-      .eq('id', board.id)
-      .eq('access_code', board.access_code)
-      .eq('owner_id', user.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Board;
-  } catch (error) {
-    console.error('Error updating board:', error);
-    return null;
-  }
-};
-
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
     const {
@@ -215,17 +163,31 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // First delete the board
+    // Start a transaction by enabling read committed isolation
+    const { error: isolationError } = await supabase.rpc('set_isolation_level', {
+      level: 'read committed'
+    });
+
+    if (isolationError) throw isolationError;
+
+    // First delete all memories associated with the board
+    const { error: memoriesError } = await supabase
+      .from('memories')
+      .delete()
+      .eq('access_code', accessCode);
+
+    if (memoriesError) throw memoriesError;
+
+    // Then delete the board
     const { error: boardError } = await supabase
       .from('boards')
       .delete()
       .eq('id', boardId)
-      .eq('access_code', accessCode)
       .eq('owner_id', user.id);
 
     if (boardError) throw boardError;
 
-    // Then delete the access code
+    // Finally delete the access code
     const { error: accessCodeError } = await supabase
       .from('access_codes')
       .delete()
@@ -240,61 +202,7 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
   }
 };
 
-// Shared Board operations
-export const createSharedBoard = async (name: string): Promise<SharedBoard | null> => {
-  try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // First create the access code
-    const { error: accessCodeError } = await supabase
-      .from('access_codes')
-      .insert([{ code: shareCode, name }]);
-
-    if (accessCodeError) throw accessCodeError;
-
-    // Then create the shared board
-    const { data, error } = await supabase
-      .from('shared_boards')
-      .insert([{
-        owner_id: user.id,
-        share_code: shareCode,
-        name
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as SharedBoard;
-  } catch (error) {
-    console.error('Error creating shared board:', error);
-    return null;
-  }
-};
-
-export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('shared_boards')
-      .select('*')
-      .eq('share_code', shareCode)
-      .single();
-
-    if (error) throw error;
-    return data as SharedBoard;
-  } catch (error) {
-    console.error('Error fetching shared board:', error);
-    return null;
-  }
-};
-
-// Memory CRUD operations
+// Memory operations
 export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
   try {
     const { data, error } = await supabase
@@ -330,35 +238,7 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    // First verify the access code exists
-    const accessCode = await getAccessCode(memory.accessCode);
-    if (!accessCode) {
-      throw new Error('Invalid access code');
-    }
-
-    // Get the board to ensure it exists and we have access
-    const board = await getBoard(memory.accessCode);
-    if (!board) {
-      throw new Error('Board not found or access denied');
-    }
-
-    // Verify board ownership
-    if (board.owner_id !== user.id) {
-      throw new Error('Access denied: You do not own this board');
-    }
-
-    const newDbMemory = {
-      ...memoryToDbMemory(memory),
-      board_id: board.id
-    };
-
+    const newDbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
       .insert([newDbMemory])
@@ -375,19 +255,6 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    // Get the board to verify ownership
-    const board = await getBoard(memory.accessCode);
-    if (!board || board.owner_id !== user.id) {
-      throw new Error('Access denied: You do not own this board');
-    }
-
     const dbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
@@ -407,19 +274,6 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
-
-    // Get the board to verify ownership
-    const board = await getBoard(accessCode);
-    if (!board || board.owner_id !== user.id) {
-      throw new Error('Access denied: You do not own this board');
-    }
-
     const { error } = await supabase
       .from('memories')
       .delete()
@@ -459,10 +313,10 @@ export const getAccessCode = async (code: string): Promise<AccessCode | null> =>
       .from('access_codes')
       .select('*')
       .eq('code', code.toUpperCase())
-      .limit(1);
+      .single();
 
     if (error) throw error;
-    return data && data.length > 0 ? data[0] as AccessCode : null;
+    return data as AccessCode;
   } catch (error) {
     console.error('Error fetching access code:', error);
     return null;
