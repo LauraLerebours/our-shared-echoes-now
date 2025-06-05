@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +9,7 @@ import { ArrowLeft, CalendarIcon, MapPin, Image, Video } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { createMemory } from '@/lib/db';
+import { createMemory, fetchBoards, createBoard } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import {
   Popover,
@@ -24,14 +23,59 @@ import UploadMedia from './UploadMedia';
 
 const AddMemory = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [date, setDate] = useState<Date>(new Date());
   const [caption, setCaption] = useState('');
-  const [location, setLocation] = useState('');
+  const [location_, setLocation] = useState('');
   const [previewMedia, setPreviewMedia] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [uploading, setUploading] = useState(false);
+  const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   const { user } = useAuth();
   
+  useEffect(() => {
+    const initializeBoard = async () => {
+      if (!user) return;
+
+      try {
+        // Get all boards
+        const boards = await fetchBoards();
+        
+        // If we have a boardId in location state, find that board's access code
+        const boardId = location.state?.boardId;
+        if (boardId) {
+          const board = boards.find(b => b.id === boardId);
+          if (board) {
+            setSelectedAccessCode(board.access_code);
+            return;
+          }
+        }
+        
+        // If no specific board or board not found, use first available board or create new one
+        if (boards.length > 0) {
+          setSelectedAccessCode(boards[0].access_code);
+        } else {
+          // Create a default board if none exist
+          const newBoard = await createBoard('My Memories');
+          if (newBoard) {
+            setSelectedAccessCode(newBoard.access_code);
+          } else {
+            throw new Error('Failed to create default board');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing board:', error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize board",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeBoard();
+  }, [user, location.state]);
+
   const handleUploadSuccess = (publicUrl: string) => {
     setPreviewMedia(publicUrl);
     // Determine media type based on URL
@@ -44,15 +88,11 @@ const AddMemory = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const {
-      data: { user: user },
-      error: userError,
-    } = await supabase.auth.getUser();
 
-    if (!previewMedia || !user) {
+    if (!previewMedia || !selectedAccessCode) {
       toast({
-        title: "Media required",
-        description: "Please select an image or video for your memory",
+        title: "Error",
+        description: !previewMedia ? "Please select an image or video for your memory" : "No board selected",
         variant: "destructive",
       });
       return;
@@ -67,15 +107,16 @@ const AddMemory = () => {
         image: previewMedia,
         caption,
         date,
-        location: location || undefined,
+        location: location_ || undefined,
         likes: 0,
         isLiked: false,
         isVideo: mediaType === 'video',
-        type: 'memory'
+        type: 'memory',
+        accessCode: selectedAccessCode
       };
       
       // Save to Supabase
-      const savedMemory = await createMemory(newMemory, user.id);
+      const savedMemory = await createMemory(newMemory);
       
       if (!savedMemory) {
         throw new Error('Failed to save memory');
@@ -101,7 +142,6 @@ const AddMemory = () => {
       setUploading(false);
     }
   };
-
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -117,7 +157,7 @@ const AddMemory = () => {
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!previewMedia || uploading}
+          disabled={!previewMedia || uploading || !selectedAccessCode}
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
           {uploading ? 'Saving...' : 'Save'}
@@ -245,7 +285,7 @@ const AddMemory = () => {
                 <Input
                   id="location"
                   placeholder="Add a location"
-                  value={location}
+                  value={location_}
                   onChange={(e) => setLocation(e.target.value)}
                   className="pl-10"
                 />

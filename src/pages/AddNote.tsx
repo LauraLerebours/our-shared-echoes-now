@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -26,7 +25,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { createMemory } from '@/lib/db';
+import { createMemory, fetchBoards, createBoard } from '@/lib/db';
 import { Memory } from '@/components/MemoryList';
 import UploadMedia from './UploadMedia';
 
@@ -37,9 +36,11 @@ interface NoteFormValues {
 
 const AddNote = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   
   const form = useForm<NoteFormValues>({
     defaultValues: {
@@ -47,6 +48,49 @@ const AddNote = () => {
       date: new Date(),
     },
   });
+
+  useEffect(() => {
+    const initializeBoard = async () => {
+      if (!user) return;
+
+      try {
+        // Get all boards
+        const boards = await fetchBoards();
+        
+        // If we have a boardId in location state, find that board's access code
+        const boardId = location.state?.boardId;
+        if (boardId) {
+          const board = boards.find(b => b.id === boardId);
+          if (board) {
+            setSelectedAccessCode(board.access_code);
+            return;
+          }
+        }
+        
+        // If no specific board or board not found, use first available board or create new one
+        if (boards.length > 0) {
+          setSelectedAccessCode(boards[0].access_code);
+        } else {
+          // Create a default board if none exist
+          const newBoard = await createBoard('My Memories');
+          if (newBoard) {
+            setSelectedAccessCode(newBoard.access_code);
+          } else {
+            throw new Error('Failed to create default board');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing board:', error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize board",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeBoard();
+  }, [user, location.state]);
 
   const handleUploadSuccess = (publicUrl: string) => {
     setMediaUrl(publicUrl);
@@ -57,15 +101,10 @@ const AddNote = () => {
   };
 
   const onSubmit = async (data: NoteFormValues) => {
-    const {
-      data: { user: user },
-      error: userError,
-    } = await supabase.auth.getUser();
-    
-    if (!user) {
+    if (!selectedAccessCode) {
       toast({
-        title: "Not logged in",
-        description: "Please log in to add a note",
+        title: "Error",
+        description: "No board selected",
         variant: "destructive",
       });
       return;
@@ -83,11 +122,12 @@ const AddNote = () => {
         likes: 0,
         isVideo: false,
         isLiked: false,
-        type: 'note' as 'memory' | 'note'
+        type: 'note' as 'memory' | 'note',
+        accessCode: selectedAccessCode
       };
 
       // Save to Supabase
-      const savedNote = await createMemory(newNote, user.id);
+      const savedNote = await createMemory(newNote);
       
       if (!savedNote) {
         throw new Error('Failed to save note');
@@ -233,7 +273,7 @@ const AddNote = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={uploading}
+                disabled={uploading || !selectedAccessCode}
               >
                 {uploading ? 'Saving...' : 'Save Note'}
               </Button>
