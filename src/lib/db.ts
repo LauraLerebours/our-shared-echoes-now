@@ -353,10 +353,10 @@ export const getAccessCode = async (code: string): Promise<AccessCode | null> =>
       .from('access_codes')
       .select('*')
       .eq('code', code.toUpperCase())
-      .single();
+      .limit(1);
 
     if (error) throw error;
-    return data as AccessCode;
+    return data && data.length > 0 ? data[0] as AccessCode : null;
   } catch (error) {
     console.error('Error fetching access code:', error);
     return null;
