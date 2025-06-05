@@ -6,7 +6,7 @@ import { Board, fetchBoards, createBoard, deleteBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -115,52 +115,16 @@ const Boards = () => {
       <Header />
       
       <main className="flex-1 p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">My Boards</h1>
-          
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Board
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Board</DialogTitle>
-                <DialogDescription>
-                  Give your new memory board a name.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <Input
-                  placeholder="Board name"
-                  value={newBoardName}
-                  onChange={(e) => setNewBoardName(e.target.value)}
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleCreateBoard}
-                  disabled={isCreatingBoard || !newBoardName.trim()}
-                >
-                  {isCreatingBoard ? 'Creating...' : 'Create Board'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-        
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <p>Loading your boards...</p>
-          </div>
-        ) : boards.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">You haven't created any boards yet.</p>
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">My Boards</h1>
+            
             <Dialog>
               <DialogTrigger asChild>
-                <Button>Create Your First Board</Button>
+                <Button className="bg-memory-purple hover:bg-memory-purple/90">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Board
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -180,6 +144,7 @@ const Boards = () => {
                   <Button
                     onClick={handleCreateBoard}
                     disabled={isCreatingBoard || !newBoardName.trim()}
+                    className="bg-memory-purple hover:bg-memory-purple/90"
                   >
                     {isCreatingBoard ? 'Creating...' : 'Create Board'}
                   </Button>
@@ -187,16 +152,65 @@ const Boards = () => {
               </DialogContent>
             </Dialog>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {boards.map((board) => (
-              <div
-                key={board.id}
-                className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-semibold">{board.name}</h2>
-                  <div className="flex gap-2">
+          
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <p>Loading your boards...</p>
+            </div>
+          ) : boards.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border shadow-sm">
+              <div className="w-16 h-16 bg-memory-lightpurple rounded-full flex items-center justify-center mx-auto mb-4">
+                <Image className="h-8 w-8 text-memory-purple" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">No Boards Yet</h2>
+              <p className="text-muted-foreground mb-6">Create your first board to start organizing your memories.</p>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="bg-memory-purple hover:bg-memory-purple/90">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Board
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Board</DialogTitle>
+                    <DialogDescription>
+                      Give your new memory board a name.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Input
+                      placeholder="Board name"
+                      value={newBoardName}
+                      onChange={(e) => setNewBoardName(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={handleCreateBoard}
+                      disabled={isCreatingBoard || !newBoardName.trim()}
+                      className="bg-memory-purple hover:bg-memory-purple/90"
+                    >
+                      {isCreatingBoard ? 'Creating...' : 'Create Board'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {boards.map((board) => (
+                <div
+                  key={board.id}
+                  className="bg-white rounded-lg border p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-1">{board.name}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Created {new Date(board.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10">
@@ -222,21 +236,29 @@ const Boards = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => navigate('/', { state: { selectedBoard: board.id } })}
+                    >
+                      View Memories
+                    </Button>
+                    <Button 
+                      className="flex-1 bg-memory-purple hover:bg-memory-purple/90"
+                      onClick={() => navigate('/add', { state: { boardId: board.id } })}
+                    >
+                      Add Memory
+                    </Button>
+                  </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => navigate('/', { state: { selectedBoard: board.id } })}
-                >
-                  View Memories
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </main>
       
-      <Footer />
+      <Footer activeTab="boards" />
     </div>
   );
 };
