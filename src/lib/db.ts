@@ -29,6 +29,14 @@ export type Board = {
   access_code: string;
 };
 
+export type SharedBoard = {
+  id: string;
+  owner_id: string;
+  share_code: string;
+  name?: string;
+  created_at: string;
+};
+
 // Convert database memory to frontend memory
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
@@ -148,6 +156,52 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
   } catch (error) {
     console.error('Error deleting board:', error);
     return false;
+  }
+};
+
+// Shared Board operations
+export const createSharedBoard = async (name: string): Promise<SharedBoard | null> => {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
+    const newSharedBoard = {
+      owner_id: user.id,
+      share_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      name
+    };
+
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .insert([newSharedBoard])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error creating shared board:', error);
+    return null;
+  }
+};
+
+export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .select('*')
+      .eq('share_code', shareCode)
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error fetching shared board:', error);
+    return null;
   }
 };
 
