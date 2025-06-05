@@ -29,6 +29,14 @@ export type Board = {
   access_code: string;
 };
 
+export type SharedBoard = {
+  id: string;
+  owner_id: string;
+  share_code: string;
+  name?: string;
+  created_at: string;
+};
+
 // Convert database memory to frontend memory
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
@@ -111,6 +119,62 @@ export const deleteBoard = async (boardId: string): Promise<boolean> => {
   } catch (error) {
     console.error('Error deleting board:', error);
     return false;
+  }
+};
+
+// Shared board operations
+export const createSharedBoard = async (userId: string): Promise<SharedBoard | null> => {
+  try {
+    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newSharedBoard = {
+      id: uuidv4(),
+      owner_id: userId,
+      share_code: shareCode,
+    };
+
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .insert([newSharedBoard])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error creating shared board:', error);
+    return null;
+  }
+};
+
+export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .select('*')
+      .eq('share_code', shareCode)
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error fetching shared board:', error);
+    return null;
+  }
+};
+
+export const getSharedMemories = async (ownerId: string): Promise<Memory[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('event_date', { ascending: false });
+
+    if (error) throw error;
+    return (data as DbMemory[]).map(dbMemoryToMemory);
+  } catch (error) {
+    console.error('Error fetching shared memories:', error);
+    return [];
   }
 };
 
