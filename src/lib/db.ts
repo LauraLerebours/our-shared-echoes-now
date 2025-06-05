@@ -69,11 +69,12 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
 };
 
 // Board operations
-export const fetchBoards = async (): Promise<Board[]> => {
+export const fetchBoards = async (userId: string): Promise<Board[]> => {
   try {
     const { data, error } = await supabase
       .from('boards')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -84,10 +85,11 @@ export const fetchBoards = async (): Promise<Board[]> => {
   }
 };
 
-export const createBoard = async (name: string, description?: string): Promise<Board | null> => {
+export const createBoard = async (userId: string, name: string, description?: string): Promise<Board | null> => {
   try {
     const newBoard = {
       id: uuidv4(),
+      user_id: userId,
       name,
       description,
       access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
@@ -107,12 +109,13 @@ export const createBoard = async (name: string, description?: string): Promise<B
   }
 };
 
-export const deleteBoard = async (boardId: string): Promise<boolean> => {
+export const deleteBoard = async (boardId: string, userId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('boards')
       .delete()
-      .eq('id', boardId);
+      .eq('id', boardId)
+      .eq('user_id', userId);
 
     if (error) throw error;
     return true;
