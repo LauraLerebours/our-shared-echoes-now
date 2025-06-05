@@ -13,6 +13,7 @@ export type DbMemory = {
   likes?: number;
   is_video?: boolean;
   is_liked?: boolean;
+  board_id?: string;
 };
 
 export type AccessCode = {
@@ -238,7 +239,17 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    const newDbMemory = memoryToDbMemory(memory);
+    // Get the board first to ensure it exists and we have access
+    const board = await getBoard(memory.accessCode);
+    if (!board) {
+      throw new Error('Board not found or access denied');
+    }
+
+    const newDbMemory = {
+      ...memoryToDbMemory(memory),
+      board_id: board.id // Add the board_id to satisfy RLS policy
+    };
+
     const { data, error } = await supabase
       .from('memories')
       .insert([newDbMemory])
