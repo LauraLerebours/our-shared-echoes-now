@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MemoryList from '@/components/MemoryList';
 import { Memory } from '@/components/MemoryList';
-import { fetchMemories, getBoard } from '@/lib/db';
+import { fetchMemories, getBoardById, deleteMemory } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { Board } from '@/lib/db';
 
@@ -21,7 +21,7 @@ const BoardView = () => {
 
       try {
         setLoading(true);
-        const boardData = await getBoard(boardId);
+        const boardData = await getBoardById(boardId);
         
         if (!boardData) {
           toast({

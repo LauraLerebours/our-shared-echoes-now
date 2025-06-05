@@ -28,8 +28,8 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
     console.log(`Liked memory ${id}`);
   };
 
-  const handleViewDetail = (id: string) => {
-    navigate(`/memory/${id}`);
+  const handleViewDetail = (id: string, accessCode: string) => {
+    navigate(`/memory/${id}`, { state: { accessCode } });
   };
 
   const handleDelete = (id: string) => {
@@ -53,7 +53,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
           key={memory.id}
           {...memory}
           onLike={handleLike}
-          onViewDetail={handleViewDetail}
+          onViewDetail={() => handleViewDetail(memory.id, memory.accessCode)}
           onDelete={handleDelete}
         />
       ))}

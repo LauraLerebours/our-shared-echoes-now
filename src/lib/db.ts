@@ -93,6 +93,30 @@ export const fetchBoards = async (): Promise<Board[]> => {
   }
 };
 
+export const getBoardById = async (boardId: string): Promise<Board | null> => {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('boards')
+      .select('*')
+      .eq('id', boardId)
+      .eq('owner_id', user.id)
+      .single();
+
+    if (error) throw error;
+    return data as Board;
+  } catch (error) {
+    console.error('Error fetching board by ID:', error);
+    return null;
+  }
+};
+
 export const getBoard = async (accessCode: string): Promise<Board | null> => {
   try {
     const {
