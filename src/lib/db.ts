@@ -102,14 +102,19 @@ export const getBoard = async (accessCode: string): Promise<Board | null> => {
 
 export const createBoard = async (name: string): Promise<Board | null> => {
   try {
-    const newBoard = {
-      name,
-      access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-    };
+    const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    // First create the access code
+    const { error: accessCodeError } = await supabase
+      .from('access_codes')
+      .insert([{ code: accessCode, name }]);
 
+    if (accessCodeError) throw accessCodeError;
+
+    // Then create the board
     const { data, error } = await supabase
       .from('boards')
-      .insert([newBoard])
+      .insert([{ name, access_code: accessCode }])
       .select()
       .single();
 
@@ -143,13 +148,23 @@ export const updateBoard = async (board: Board): Promise<Board | null> => {
 
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
-    const { error } = await supabase
+    // First delete the board
+    const { error: boardError } = await supabase
       .from('boards')
       .delete()
       .eq('id', boardId)
       .eq('access_code', accessCode);
 
-    if (error) throw error;
+    if (boardError) throw boardError;
+
+    // Then delete the access code
+    const { error: accessCodeError } = await supabase
+      .from('access_codes')
+      .delete()
+      .eq('code', accessCode);
+
+    if (accessCodeError) throw accessCodeError;
+
     return true;
   } catch (error) {
     console.error('Error deleting board:', error);
@@ -167,15 +182,23 @@ export const createSharedBoard = async (name: string): Promise<SharedBoard | nul
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    const newSharedBoard = {
-      owner_id: user.id,
-      share_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      name
-    };
+    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+    // First create the access code
+    const { error: accessCodeError } = await supabase
+      .from('access_codes')
+      .insert([{ code: shareCode, name }]);
+
+    if (accessCodeError) throw accessCodeError;
+
+    // Then create the shared board
     const { data, error } = await supabase
       .from('shared_boards')
-      .insert([newSharedBoard])
+      .insert([{
+        owner_id: user.id,
+        share_code: shareCode,
+        name
+      }])
       .select()
       .single();
 
@@ -239,7 +262,13 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
-    // Get the board first to ensure it exists and we have access
+    // First verify the access code exists
+    const accessCode = await getAccessCode(memory.accessCode);
+    if (!accessCode) {
+      throw new Error('Invalid access code');
+    }
+
+    // Get the board to ensure it exists and we have access
     const board = await getBoard(memory.accessCode);
     if (!board) {
       throw new Error('Board not found or access denied');
@@ -247,7 +276,7 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
 
     const newDbMemory = {
       ...memoryToDbMemory(memory),
-      board_id: board.id // Add the board_id to satisfy RLS policy
+      board_id: board.id
     };
 
     const { data, error } = await supabase
