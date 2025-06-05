@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -6,7 +5,7 @@ import MemoryList from '@/components/MemoryList';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Memory } from '@/components/MemoryList';
-import { getSharedBoard, getSharedMemories } from '@/lib/db';
+import { getSharedBoard, fetchMemories } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 
 const SharedMemories = () => {
@@ -40,8 +39,8 @@ const SharedMemories = () => {
           setBoardName(board.name);
         }
         
-        // Get memories from the board owner
-        const sharedMemories = await getSharedMemories(board.owner_id);
+        // Get memories using the share code
+        const sharedMemories = await fetchMemories(code);
         setMemories(sharedMemories);
       } catch (error) {
         console.error('Error loading shared memories:', error);
