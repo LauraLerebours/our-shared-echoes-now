@@ -209,13 +209,6 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // Start a transaction by enabling read committed isolation
-    const { error: isolationError } = await supabase.rpc('set_isolation_level', {
-      level: 'read committed'
-    });
-
-    if (isolationError) throw isolationError;
-
     // First delete all memories associated with the board
     const { error: memoriesError } = await supabase
       .from('memories')
