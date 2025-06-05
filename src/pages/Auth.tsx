@@ -58,10 +58,15 @@ const Auth = () => {
       if (error) {
         let errorMessage = 'Something went wrong.';
         
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password. If you just signed up, please check your email for the verification link.';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+        switch (error.code) {
+          case 'invalid_credentials':
+            errorMessage = 'Invalid email or password. If you just signed up, please check your email for the verification link.';
+            break;
+          case 'email_not_confirmed':
+            errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+            break;
+          default:
+            console.error('Unhandled auth error:', error);
         }
 
         toast({
@@ -105,8 +110,15 @@ const Auth = () => {
       if (error) {
         let errorMessage = 'Something went wrong.';
         
-        if (error.message.includes('already registered')) {
-          errorMessage = 'This email is already registered. Please sign in instead.';
+        switch (error.code) {
+          case 'user_already_registered':
+            errorMessage = 'This email is already registered. Please sign in instead.';
+            break;
+          case 'invalid_email':
+            errorMessage = 'Please enter a valid email address.';
+            break;
+          default:
+            console.error('Unhandled signup error:', error);
         }
 
         toast({
