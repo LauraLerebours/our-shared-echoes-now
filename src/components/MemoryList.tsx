@@ -1,4 +1,3 @@
-
 import React from 'react';
 import MemoryCard, { MemoryCardProps } from './MemoryCard';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +12,8 @@ export interface Memory {
   likes: number;
   isLiked: boolean;
   isVideo?: boolean;
-  type: 'memory' | 'note';  // Added type field to distinguish between memories and notes
+  type: 'memory' | 'note';
+  boardId?: string;
 }
 
 interface MemoryListProps {
@@ -26,7 +26,6 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
   
   const handleLike = (id: string) => {
     console.log(`Liked memory ${id}`);
-    // In a real app, this would make an API call to toggle the like status
   };
 
   const handleViewDetail = (id: string) => {
@@ -43,7 +42,6 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
     }
   };
 
-  // Sort memories by date, with most recent first
   const sortedMemories = [...memories].sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
