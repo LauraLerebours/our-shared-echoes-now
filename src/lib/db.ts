@@ -13,7 +13,6 @@ export type DbMemory = {
   likes?: number;
   is_video?: boolean;
   is_liked?: boolean;
-  board_id?: string;
 };
 
 export type AccessCode = {
@@ -335,40 +334,5 @@ export const deleteMemory = async (memoryId: string, accessCode: string): Promis
   } catch (error) {
     console.error('Error deleting memory:', error);
     return false;
-  }
-};
-
-// Access code operations
-export const createAccessCode = async (name: string): Promise<AccessCode | null> => {
-  try {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    const { data, error } = await supabase
-      .from('access_codes')
-      .insert([{ code, name }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as AccessCode;
-  } catch (error) {
-    console.error('Error creating access code:', error);
-    return null;
-  }
-};
-
-export const getAccessCode = async (code: string): Promise<AccessCode | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('access_codes')
-      .select('*')
-      .eq('code', code.toUpperCase())
-      .single();
-
-    if (error) throw error;
-    return data as AccessCode;
-  } catch (error) {
-    console.error('Error fetching access code:', error);
-    return null;
   }
 };
