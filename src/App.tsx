@@ -13,6 +13,7 @@ import Auth from "./pages/Auth";
 import Share from "./pages/Share";
 import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
+import BoardView from "./pages/BoardView";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Boards />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/board/:boardId" 
+              element={
+                <ProtectedRoute>
+                  <BoardView />
                 </ProtectedRoute>
               } 
             />

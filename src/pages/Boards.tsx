@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Board, fetchBoards, createBoard, deleteBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2, Image } from 'lucide-react';
+import { Plus, Trash2, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -88,12 +88,10 @@ const Boards = () => {
   };
 
   const handleDeleteBoard = async (boardId: string) => {
-    if (!user) return;
+    const boardToDelete = boards.find(board => board.id === boardId);
+    if (!boardToDelete) return;
     
     try {
-      const boardToDelete = boards.find(board => board.id === boardId);
-      if (!boardToDelete) return;
-
       const success = await deleteBoard(boardId, boardToDelete.access_code);
       
       if (success) {
@@ -239,21 +237,12 @@ const Boards = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1"
-                      onClick={() => navigate('/', { state: { selectedBoard: board.id } })}
-                    >
-                      View Memories
-                    </Button>
-                    <Button 
-                      className="flex-1 bg-memory-purple hover:bg-memory-purple/90"
-                      onClick={() => navigate('/add', { state: { boardId: board.id } })}
-                    >
-                      Add Memory
-                    </Button>
-                  </div>
+                  <Button 
+                    className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                    onClick={() => navigate(`/board/${board.id}`)}
+                  >
+                    View Board
+                  </Button>
                 </div>
               ))}
             </div>
