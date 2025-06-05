@@ -184,6 +184,22 @@ export const createSharedBoard = async (name: string): Promise<SharedBoard | nul
   }
 };
 
+export const getSharedBoard = async (shareCode: string): Promise<SharedBoard | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('shared_boards')
+      .select('*')
+      .eq('share_code', shareCode)
+      .single();
+
+    if (error) throw error;
+    return data as SharedBoard;
+  } catch (error) {
+    console.error('Error fetching shared board:', error);
+    return null;
+  }
+};
+
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
     const {
