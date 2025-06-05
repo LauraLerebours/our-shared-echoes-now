@@ -27,6 +27,7 @@ export type Board = {
   name: string;
   created_at: string;
   access_code: string;
+  owner_id?: string;
 };
 
 export type SharedBoard = {
@@ -71,9 +72,17 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
 // Board CRUD operations
 export const fetchBoards = async (): Promise<Board[]> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('boards')
       .select('*')
+      .eq('owner_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -86,10 +95,18 @@ export const fetchBoards = async (): Promise<Board[]> => {
 
 export const getBoard = async (accessCode: string): Promise<Board | null> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('boards')
       .select('*')
       .eq('access_code', accessCode)
+      .eq('owner_id', user.id)
       .single();
 
     if (error) throw error;
@@ -102,6 +119,13 @@ export const getBoard = async (accessCode: string): Promise<Board | null> => {
 
 export const createBoard = async (name: string): Promise<Board | null> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     // First create the access code
@@ -114,7 +138,11 @@ export const createBoard = async (name: string): Promise<Board | null> => {
     // Then create the board
     const { data, error } = await supabase
       .from('boards')
-      .insert([{ name, access_code: accessCode }])
+      .insert([{ 
+        name, 
+        access_code: accessCode,
+        owner_id: user.id 
+      }])
       .select()
       .single();
 
@@ -128,6 +156,13 @@ export const createBoard = async (name: string): Promise<Board | null> => {
 
 export const updateBoard = async (board: Board): Promise<Board | null> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     const { data, error } = await supabase
       .from('boards')
       .update({
@@ -135,6 +170,7 @@ export const updateBoard = async (board: Board): Promise<Board | null> => {
       })
       .eq('id', board.id)
       .eq('access_code', board.access_code)
+      .eq('owner_id', user.id)
       .select()
       .single();
 
@@ -148,12 +184,20 @@ export const updateBoard = async (board: Board): Promise<Board | null> => {
 
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     // First delete the board
     const { error: boardError } = await supabase
       .from('boards')
       .delete()
       .eq('id', boardId)
-      .eq('access_code', accessCode);
+      .eq('access_code', accessCode)
+      .eq('owner_id', user.id);
 
     if (boardError) throw boardError;
 
@@ -262,6 +306,13 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
     // First verify the access code exists
     const accessCode = await getAccessCode(memory.accessCode);
     if (!accessCode) {
@@ -272,6 +323,11 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
     const board = await getBoard(memory.accessCode);
     if (!board) {
       throw new Error('Board not found or access denied');
+    }
+
+    // Verify board ownership
+    if (board.owner_id !== user.id) {
+      throw new Error('Access denied: You do not own this board');
     }
 
     const newDbMemory = {
@@ -295,6 +351,19 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
+    // Get the board to verify ownership
+    const board = await getBoard(memory.accessCode);
+    if (!board || board.owner_id !== user.id) {
+      throw new Error('Access denied: You do not own this board');
+    }
+
     const dbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
@@ -314,6 +383,19 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
   try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error('User not authenticated');
+
+    // Get the board to verify ownership
+    const board = await getBoard(accessCode);
+    if (!board || board.owner_id !== user.id) {
+      throw new Error('Access denied: You do not own this board');
+    }
+
     const { error } = await supabase
       .from('memories')
       .delete()
