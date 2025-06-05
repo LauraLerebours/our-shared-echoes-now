@@ -14,10 +14,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.log("5. Set them in your .env file");
 }
 
-// Create Supabase client with environment variables
+// Create Supabase client with environment variables and additional options
 export const supabase = createClient(
   supabaseUrl || '',
-  supabaseAnonKey || ''
+  supabaseAnonKey || '',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'memories-app'
+      }
+    }
+  }
 );
 
 // Test the connection and provide helpful feedback
