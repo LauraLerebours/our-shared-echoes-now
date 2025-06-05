@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -54,14 +53,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<{ error: any }> => {
     try {
       console.log('Attempting to sign in with email:', email);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
         console.error('Sign in error:', error);
         return { error };
+      }
+      
+      // Explicitly check if we have a session after successful sign in
+      if (!data.session) {
+        console.error('Sign in succeeded but no session was created');
+        return { error: new Error('No session created after sign in') };
       }
       
       console.log('Sign in successful');
