@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import Share from "./pages/Share";
 import SharedMemories from "./pages/SharedMemories";
+import Boards from "./pages/Boards";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +46,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/boards" 
+              element={
+                <ProtectedRoute>
+                  <Boards />
                 </ProtectedRoute>
               } 
             />
