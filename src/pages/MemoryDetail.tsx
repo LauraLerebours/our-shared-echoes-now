@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Heart, MapPin, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { Memory } from '@/components/MemoryList';
-import { deleteMemory } from '@/lib/db';
+import { getMemory, deleteMemory } from '@/lib/db';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +22,7 @@ import {
 
 const MemoryDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [memory, setMemory] = useState<Memory | null>(null);
@@ -30,37 +30,36 @@ const MemoryDetail = () => {
   const [likes, setLikes] = useState(0);
   const [loading, setLoading] = useState(true);
   
+  const accessCode = location.state?.accessCode;
+  
   useEffect(() => {
     const loadMemory = async () => {
-      if (!id || !user) return;
+      if (!id || !accessCode) {
+        toast({
+          title: "Error",
+          description: "Missing required information to load memory",
+          variant: "destructive",
+        });
+        navigate('/boards');
+        return;
+      }
       
       try {
-        const { data, error } = await supabase
-          .from('memories')
-          .select('*')
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .single();
-          
-        if (error) throw error;
+        const memoryData = await getMemory(id, accessCode);
         
-        if (data) {
-          const memoryData: Memory = {
-            id: data.id,
-            image: data.media_url || '',
-            caption: data.caption,
-            date: new Date(data.event_date), // Updated to use event_date
-            location: data.location,
-            likes: data.likes || 0,
-            isLiked: data.is_liked || false, // Updated to use is_liked from DB
-            isVideo: data.is_video,
-            type: data.type || 'memory' // Updated to use type from DB
-          };
-          
-          setMemory(memoryData);
-          setIsLiked(data.is_liked || false);
-          setLikes(data.likes || 0);
+        if (!memoryData) {
+          toast({
+            title: "Error",
+            description: "Memory not found",
+            variant: "destructive",
+          });
+          navigate('/boards');
+          return;
         }
+        
+        setMemory(memoryData);
+        setIsLiked(memoryData.isLiked);
+        setLikes(memoryData.likes);
       } catch (error) {
         console.error('Error loading memory:', error);
         toast({
@@ -74,49 +73,20 @@ const MemoryDetail = () => {
     };
     
     loadMemory();
-  }, [id, user]);
-  
-  const toggleLike = async () => {
-    if (!memory || !user) return;
-    
-    try {
-      const newLikes = isLiked ? likes - 1 : likes + 1;
-      
-      const { error } = await supabase
-        .from('memories')
-        .update({ 
-          likes: newLikes,
-          is_liked: !isLiked // Update is_liked in the database
-        })
-        .eq('id', memory.id)
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
-      
-      setLikes(newLikes);
-      setIsLiked(!isLiked);
-    } catch (error) {
-      console.error('Error updating likes:', error);
-      toast({
-        title: "Error",
-        description: "Could not update likes",
-        variant: "destructive",
-      });
-    }
-  };
+  }, [id, accessCode, navigate]);
 
   const handleDelete = async () => {
-    if (!memory || !user) return;
+    if (!memory || !accessCode) return;
     
     try {
-      const success = await deleteMemory(memory.id, user.id);
+      const success = await deleteMemory(memory.id, accessCode);
       
       if (success) {
         toast({
           title: "Memory deleted",
           description: "Your memory has been deleted successfully",
         });
-        navigate('/', { replace: true });
+        navigate('/boards', { replace: true });
       } else {
         throw new Error('Failed to delete memory');
       }
@@ -143,7 +113,7 @@ const MemoryDetail = () => {
       <div className="flex flex-col items-center justify-center h-screen">
         <p>Memory not found</p>
         <Button asChild className="mt-4">
-          <Link to="/">Back to timeline</Link>
+          <Link to="/boards">Back to boards</Link>
         </Button>
       </div>
     );
@@ -221,7 +191,7 @@ const MemoryDetail = () => {
             <Button 
               variant="ghost" 
               className="p-2 h-auto"
-              onClick={toggleLike}
+              onClick={() => setIsLiked(!isLiked)}
             >
               <Heart className={cn(
                 "h-6 w-6 mr-1.5", 
