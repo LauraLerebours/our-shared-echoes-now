@@ -10,15 +10,8 @@ import { toast } from '@/hooks/use-toast';
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
-  const authContext = useAuth();
-  
-  if (!authContext) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-  
-  const { signIn, signUp, user } = authContext;
-  
+  const { signIn, signUp, user } = useAuth();
+
   useEffect(() => {
     if (user) {
       navigate('/');
@@ -29,7 +22,6 @@ const Auth = () => {
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
-
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -58,20 +50,15 @@ const Auth = () => {
       if (error) {
         let errorMessage = 'Something went wrong.';
         
-        switch (error.code) {
-          case 'invalid_credentials':
-            errorMessage = 'Invalid email or password. If you just signed up, please check your email for the verification link.';
-            break;
-          case 'email_not_confirmed':
-            errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
-            break;
-          default:
-            console.error('Unhandled auth error:', error);
+        if (error.message?.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+        } else if (error.message?.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password.';
         }
 
         toast({
           variant: 'destructive',
-          title: 'Login failed',
+          title: 'Sign in failed',
           description: errorMessage,
         });
         return;
@@ -79,12 +66,12 @@ const Auth = () => {
 
       toast({ title: 'Welcome back!' });
       navigate('/');
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch (error) {
+      console.error('Sign in error:', error);
       toast({
         variant: 'destructive',
-        title: 'Login failed',
-        description: 'An unexpected error occurred. Please try again.',
+        title: 'Sign in failed',
+        description: 'An unexpected error occurred.',
       });
     } finally {
       setIsSigningIn(false);
@@ -104,27 +91,15 @@ const Auth = () => {
     }
 
     setIsSigningUp(true);
+
     try {
       const { error, user } = await signUp(signUpEmail, signUpPassword);
 
       if (error) {
-        let errorMessage = 'Something went wrong.';
-        
-        switch (error.code) {
-          case 'user_already_registered':
-            errorMessage = 'This email is already registered. Please sign in instead.';
-            break;
-          case 'invalid_email':
-            errorMessage = 'Please enter a valid email address.';
-            break;
-          default:
-            console.error('Unhandled signup error:', error);
-        }
-
         toast({
           variant: 'destructive',
           title: 'Sign up failed',
-          description: errorMessage,
+          description: error.message || 'Something went wrong.',
         });
         return;
       }
@@ -136,12 +111,12 @@ const Auth = () => {
           description: 'Please check your email to verify your account. Check your spam folder if you don\'t see it.',
         });
       }
-    } catch (err) {
-      console.error('Sign up error:', err);
+    } catch (error) {
+      console.error('Sign up error:', error);
       toast({
         variant: 'destructive',
         title: 'Sign up failed',
-        description: 'An unexpected error occurred. Please try again.',
+        description: 'An unexpected error occurred.',
       });
     } finally {
       setIsSigningUp(false);
