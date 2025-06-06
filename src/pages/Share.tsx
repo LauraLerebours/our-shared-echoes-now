@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, Copy, Link, Share2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { createSharedBoard, fetchBoards } from '@/lib/db';
+import { fetchBoards, getBoardByShareCode } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -19,9 +19,8 @@ import {
 const Share = () => {
   const [shareCode, setShareCode] = useState('');
   const [copied, setCopied] = useState(false);
-  const [generatingCode, setGeneratingCode] = useState(false);
   const [selectedBoard, setSelectedBoard] = useState<string>('');
-  const [boards, setBoards] = useState<Array<{ id: string; name: string }>>([]);
+  const [boards, setBoards] = useState<Array<{ id: string; name: string; share_code: string }>>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -34,8 +33,8 @@ const Share = () => {
     loadBoards();
   }, [user]);
 
-  const generateShareCode = async () => {
-    if (!user || !selectedBoard) {
+  const getShareCode = () => {
+    if (!selectedBoard) {
       toast({
         title: 'Error',
         description: 'Please select a board to share.',
@@ -44,7 +43,6 @@ const Share = () => {
       return;
     }
 
-    setGeneratingCode(true);
     const selectedBoardData = boards.find(b => b.id === selectedBoard);
     
     if (!selectedBoardData) {
@@ -53,26 +51,14 @@ const Share = () => {
         description: 'Selected board not found.',
         variant: 'destructive',
       });
-      setGeneratingCode(false);
       return;
     }
 
-    const result = await createSharedBoard(selectedBoardData.name, selectedBoardData.id);
-    setGeneratingCode(false);
-
-    if (result) {
-      setShareCode(result.share_code);
-      toast({
-        title: 'Share code generated',
-        description: 'Your board can now be shared with this code.',
-      });
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Failed to generate share code. Please try again.',
-        variant: 'destructive',
-      });
-    }
+    setShareCode(selectedBoardData.share_code);
+    toast({
+      title: 'Share code ready',
+      description: 'Your board share code is ready to copy.',
+    });
   };
 
   const copyToClipboard = () => {
@@ -86,10 +72,20 @@ const Share = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleViewShared = () => {
+  const handleViewShared = async () => {
     const code = window.prompt('Enter the share code:');
     if (code) {
-      navigate(`/shared/${code}`);
+      // Validate the share code exists before navigating
+      const board = await getBoardByShareCode(code);
+      if (board) {
+        navigate(`/shared/${code}`);
+      } else {
+        toast({
+          title: 'Invalid code',
+          description: 'The share code you entered does not exist.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -102,7 +98,7 @@ const Share = () => {
           <div className="text-center">
             <h1 className="text-2xl font-bold">Share Your Board</h1>
             <p className="text-muted-foreground mt-2">
-              Create a share link to let others view your memory board
+              Every board has a unique share code that never changes
             </p>
           </div>
           
@@ -124,12 +120,12 @@ const Share = () => {
             </div>
 
             <Button 
-              onClick={generateShareCode}
+              onClick={getShareCode}
               className="w-full bg-memory-purple hover:bg-memory-purple/90"
-              disabled={generatingCode || !selectedBoard}
+              disabled={!selectedBoard}
             >
               <Share2 className="h-4 w-4 mr-2" />
-              {generatingCode ? 'Generating...' : 'Generate Share Link'}
+              Get Share Code
             </Button>
             
             {shareCode && (

@@ -5,7 +5,7 @@ import MemoryList from '@/components/MemoryList';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Memory } from '@/components/MemoryList';
-import { getSharedBoard, fetchMemories, Board } from '@/lib/db';
+import { getBoardByShareCode, fetchMemories, Board } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 
 const SharedMemories = () => {
@@ -22,8 +22,8 @@ const SharedMemories = () => {
       }
 
       try {
-        // Get the shared board by code
-        const sharedBoard = await getSharedBoard(code);
+        // Get the board by share code
+        const sharedBoard = await getBoardByShareCode(code);
         
         if (!sharedBoard) {
           toast({
