@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
+import { requireAuth, validateBoardAccess, sanitizeInput, validateAccessCodeFormat, rateLimiter } from './supabase-security';
 
 // Types for the database
 export type DbMemory = {
@@ -60,9 +61,9 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
     id: memory.id,
     access_code: memory.accessCode,
     media_url: memory.image,
-    caption: memory.caption,
+    caption: sanitizeInput(memory.caption || ''),
     event_date: memory.date.toISOString(),
-    location: memory.location,
+    location: memory.location ? sanitizeInput(memory.location) : undefined,
     likes: memory.likes,
     is_video: memory.isVideo,
     is_liked: memory.isLiked,
@@ -73,6 +74,11 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
 export const fetchBoards = async (userId: string): Promise<Board[]> => {
   try {
     if (!userId) throw new Error('User ID is required');
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`fetchBoards:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
 
     // Get boards where the user is a member (including owner)
     const { data, error } = await supabase
@@ -96,6 +102,12 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
   try {
     if (!userId) throw new Error('User ID is required');
 
+    // Validate board access
+    const hasAccess = await validateBoardAccess(boardId, userId);
+    if (!hasAccess) {
+      throw new Error('Access denied to this board');
+    }
+
     // Check if user is a member of this board and get board data
     const { data, error } = await supabase
       .from('boards')
@@ -117,6 +129,10 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
 
 export const getBoardByShareCode = async (shareCode: string): Promise<Board | null> => {
   try {
+    if (!validateAccessCodeFormat(shareCode)) {
+      throw new Error('Invalid share code format');
+    }
+
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -135,12 +151,22 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
   try {
     if (!userId) throw new Error('User ID is required');
 
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`createBoard:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+
+    const sanitizedName = sanitizeInput(name);
+    if (!sanitizedName) {
+      throw new Error('Board name is required');
+    }
+
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     // First create the access code
     const { error: accessCodeError } = await supabase
       .from('access_codes')
-      .insert([{ code: accessCode, name }]);
+      .insert([{ code: accessCode, name: sanitizedName }]);
 
     if (accessCodeError) throw accessCodeError;
 
@@ -148,7 +174,7 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
     const { data, error } = await supabase
       .from('boards')
       .insert([{ 
-        name, 
+        name: sanitizedName, 
         access_code: accessCode,
         owner_id: userId 
       }])
@@ -167,6 +193,15 @@ export const addUserToBoard = async (shareCode: string, userId: string): Promise
   try {
     if (!userId) {
       return { success: false, message: 'User ID is required' };
+    }
+
+    if (!validateAccessCodeFormat(shareCode)) {
+      return { success: false, message: 'Invalid share code format' };
+    }
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`addUserToBoard:${userId}`)) {
+      return { success: false, message: 'Too many requests. Please try again later.' };
     }
 
     // Use the database function to add user to board
@@ -199,6 +234,17 @@ export const addUserToBoard = async (shareCode: string, userId: string): Promise
 export const deleteBoard = async (boardId: string, userId: string): Promise<{ success: boolean; message: string }> => {
   try {
     if (!userId) throw new Error('User ID is required');
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`deleteBoard:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+
+    // Validate board access
+    const hasAccess = await validateBoardAccess(boardId, userId);
+    if (!hasAccess) {
+      return { success: false, message: 'Access denied to this board' };
+    }
 
     // First, remove the user from the board
     const { error: removeMemberError } = await supabase
@@ -265,6 +311,10 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<{ su
 // Memory operations
 export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
   try {
+    if (!validateAccessCodeFormat(accessCode)) {
+      throw new Error('Invalid access code format');
+    }
+
     const { data, error } = await supabase
       .from('memories')
       .select('*')
@@ -281,6 +331,10 @@ export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
 
 export const getMemory = async (id: string, accessCode: string): Promise<Memory | null> => {
   try {
+    if (!validateAccessCodeFormat(accessCode)) {
+      throw new Error('Invalid access code format');
+    }
+
     const { data, error } = await supabase
       .from('memories')
       .select('*')
@@ -298,6 +352,14 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
+    // Validate user authentication
+    const userId = await requireAuth();
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`createMemory:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+
     const newDbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
@@ -315,6 +377,14 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
   try {
+    // Validate user authentication
+    const userId = await requireAuth();
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`updateMemory:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+
     const dbMemory = memoryToDbMemory(memory);
     const { data, error } = await supabase
       .from('memories')
@@ -334,6 +404,18 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
 
 export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
   try {
+    // Validate user authentication
+    const userId = await requireAuth();
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`deleteMemory:${userId}`)) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+
+    if (!validateAccessCodeFormat(accessCode)) {
+      throw new Error('Invalid access code format');
+    }
+
     const { error } = await supabase
       .from('memories')
       .delete()
