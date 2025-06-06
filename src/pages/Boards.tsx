@@ -6,7 +6,7 @@ import { Board, fetchBoards, createBoard, deleteBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, Image } from 'lucide-react';
+import { Plus, UserMinus, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -87,25 +87,28 @@ const Boards = () => {
     }
   };
 
-  const handleDeleteBoard = async (boardId: string) => {
-    const boardToDelete = boards.find(board => board.id === boardId);
-    if (!boardToDelete) return;
-    
+  const handleLeaveBoard = async (boardId: string) => {
     try {
-      const success = await deleteBoard(boardId, boardToDelete.access_code);
+      const result = await deleteBoard(boardId);
       
-      if (success) {
+      if (result.success) {
         setBoards(boards.filter(board => board.id !== boardId));
         toast({
-          title: 'Board deleted',
-          description: 'Your board has been deleted successfully',
+          title: 'Success',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Error deleting board:', error);
+      console.error('Error leaving board:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete board',
+        description: 'Failed to leave board',
         variant: 'destructive',
       });
     }
@@ -211,27 +214,30 @@ const Boards = () => {
                       <p className="text-sm text-muted-foreground">
                         Created {new Date(board.created_at).toLocaleDateString()}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Share code: <span className="font-mono">{board.share_code}</span>
+                      </p>
                     </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10">
-                          <Trash2 className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50">
+                          <UserMinus className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Board</AlertDialogTitle>
+                          <AlertDialogTitle>Leave Board</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete this board? All memories in this board will be deleted.
+                            Are you sure you want to leave this board? If you are the last member, the board and all its memories will be deleted permanently.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDeleteBoard(board.id)}
-                            className="bg-destructive hover:bg-destructive/90"
+                            onClick={() => handleLeaveBoard(board.id)}
+                            className="bg-orange-600 hover:bg-orange-700"
                           >
-                            Delete
+                            Leave Board
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

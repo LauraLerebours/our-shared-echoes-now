@@ -244,7 +244,7 @@ export const addUserToBoard = async (shareCode: string): Promise<{ success: bool
   }
 };
 
-export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
+export const deleteBoard = async (boardId: string): Promise<{ success: boolean; message: string }> => {
   try {
     const {
       data: { user },
@@ -253,46 +253,65 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // Check if user is the owner
-    const { data: membership } = await supabase
+    // First, remove the user from the board
+    const { error: removeMemberError } = await supabase
       .from('board_members')
-      .select('role')
+      .delete()
       .eq('board_id', boardId)
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (!membership || membership.role !== 'owner') {
-      throw new Error('Only board owners can delete boards');
+    if (removeMemberError) throw removeMemberError;
+
+    // Check if there are any remaining members
+    const { data: remainingMembers, error: membersError } = await supabase
+      .from('board_members')
+      .select('id')
+      .eq('board_id', boardId);
+
+    if (membersError) throw membersError;
+
+    // If no members remain, delete the entire board and its data
+    if (!remainingMembers || remainingMembers.length === 0) {
+      // Get the board's access code for cleanup
+      const { data: boardData } = await supabase
+        .from('boards')
+        .select('access_code')
+        .eq('id', boardId)
+        .single();
+
+      // Delete all memories associated with the board
+      if (boardData?.access_code) {
+        const { error: memoriesError } = await supabase
+          .from('memories')
+          .delete()
+          .eq('access_code', boardData.access_code);
+
+        if (memoriesError) throw memoriesError;
+
+        // Delete the access code
+        const { error: accessCodeError } = await supabase
+          .from('access_codes')
+          .delete()
+          .eq('code', boardData.access_code);
+
+        if (accessCodeError) throw accessCodeError;
+      }
+
+      // Finally delete the board itself
+      const { error: boardError } = await supabase
+        .from('boards')
+        .delete()
+        .eq('id', boardId);
+
+      if (boardError) throw boardError;
+
+      return { success: true, message: 'Board deleted completely as you were the last member' };
+    } else {
+      return { success: true, message: 'You have been removed from the board' };
     }
-
-    // First delete all memories associated with the board
-    const { error: memoriesError } = await supabase
-      .from('memories')
-      .delete()
-      .eq('access_code', accessCode);
-
-    if (memoriesError) throw memoriesError;
-
-    // Then delete the board (this will cascade delete board_members)
-    const { error: boardError } = await supabase
-      .from('boards')
-      .delete()
-      .eq('id', boardId);
-
-    if (boardError) throw boardError;
-
-    // Finally delete the access code
-    const { error: accessCodeError } = await supabase
-      .from('access_codes')
-      .delete()
-      .eq('code', accessCode);
-
-    if (accessCodeError) throw accessCodeError;
-
-    return true;
   } catch (error) {
-    console.error('Error deleting board:', error);
-    return false;
+    console.error('Error removing user from board:', error);
+    return { success: false, message: 'Failed to remove user from board' };
   }
 };
 
