@@ -150,7 +150,7 @@ export const getBoardByShareCode = async (shareCode: string): Promise<Board | nu
       .from('boards')
       .select('*')
       .eq('share_code', shareCode)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data as Board;
