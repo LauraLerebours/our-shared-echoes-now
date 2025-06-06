@@ -1,26 +1,38 @@
 /*
-  # Create user profiles system
+  # Reset User Profiles System
 
-  1. New Tables
-    - `user_profiles`
-      - `id` (uuid, primary key, references auth.users)
-      - `name` (text, required)
-      - `created_at` (timestamp)
-      - `updated_at` (timestamp)
+  This migration completely resets the user profiles system by:
+  1. Dropping all existing user profile data
+  2. Dropping the user_profiles table
+  3. Dropping all related functions and triggers
+  4. Recreating everything from scratch
 
-  2. Security
-    - Enable RLS on `user_profiles` table
-    - Add policies for users to read their own and others' profiles
-    - Add policy for users to update their own profile
-
-  3. Functions and Triggers
-    - Function to automatically update `updated_at` timestamp
-    - Function to create user profile on signup
-    - Triggers to handle profile creation and updates
+  ## Changes Made
+  1. Complete cleanup of existing user profile system
+  2. Fresh user_profiles table with proper structure
+  3. RLS policies for secure access
+  4. Automatic profile creation on user signup
+  5. Timestamp management functions
 */
 
--- Create user_profiles table
-CREATE TABLE IF NOT EXISTS user_profiles (
+-- Drop existing triggers first
+DROP TRIGGER IF EXISTS create_user_profile_trigger ON auth.users;
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
+
+-- Drop existing functions
+DROP FUNCTION IF EXISTS create_user_profile();
+DROP FUNCTION IF EXISTS update_user_profile_updated_at();
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can read own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can read other profiles" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+
+-- Drop the entire user_profiles table (this will delete all data)
+DROP TABLE IF EXISTS user_profiles CASCADE;
+
+-- Create fresh user_profiles table
+CREATE TABLE user_profiles (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
   created_at timestamptz DEFAULT now(),
@@ -30,12 +42,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- Enable RLS
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist to avoid conflicts
-DROP POLICY IF EXISTS "Users can read own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Users can read other profiles" ON user_profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
-
--- Create policies
+-- Create RLS policies
 CREATE POLICY "Users can read own profile"
   ON user_profiles
   FOR SELECT
@@ -64,7 +71,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to create user profile
+-- Function to create user profile automatically on signup
 CREATE OR REPLACE FUNCTION create_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -77,17 +84,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Drop existing triggers if they exist
-DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
-DROP TRIGGER IF EXISTS create_user_profile_trigger ON auth.users;
-
 -- Trigger to update updated_at on profile changes
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON user_profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_user_profile_updated_at();
 
--- Trigger to create profile on user signup
+-- Trigger to create profile automatically on user signup
 CREATE TRIGGER create_user_profile_trigger
   AFTER INSERT ON auth.users
   FOR EACH ROW
