@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 
 const Header = () => {
-  const { signOut, user } = useAuth();
+  const { signOut, user, userProfile } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -29,15 +28,37 @@ const Header = () => {
     }
   };
 
+  const getInitials = () => {
+    if (userProfile?.name) {
+      return userProfile.name
+        .split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'US';
+  };
+
+  const getDisplayName = () => {
+    if (userProfile?.name) {
+      return userProfile.name.split(' ')[0]; // First name only
+    }
+    return user?.email?.split('@')[0] || 'User';
+  };
+
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
       <div className="flex items-center gap-3">
         <Avatar className="h-9 w-9 border-2 border-memory-purple">
           <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
-            {user?.email?.charAt(0).toUpperCase() || 'US'}
+            {getInitials()}
           </AvatarFallback>
           <AvatarImage src="/placeholder.svg" />
         </Avatar>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{getDisplayName()}</span>
+        </div>
         <Button
           variant="ghost"
           size="icon"

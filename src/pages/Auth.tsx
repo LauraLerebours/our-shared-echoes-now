@@ -22,6 +22,7 @@ const Auth = () => {
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
+  const [signUpName, setSignUpName] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -81,6 +82,15 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!signUpName.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Name required',
+        description: 'Please enter your name.',
+      });
+      return;
+    }
+
     if (signUpPassword.length < 6) {
       toast({
         variant: 'destructive',
@@ -93,7 +103,7 @@ const Auth = () => {
     setIsSigningUp(true);
 
     try {
-      const { error, user } = await signUp(signUpEmail, signUpPassword);
+      const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
 
       if (error) {
         toast({
@@ -177,6 +187,13 @@ const Auth = () => {
           <TabsContent value="sign-up">
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
+                <Input
+                  type="text"
+                  placeholder="Your Name"
+                  value={signUpName}
+                  onChange={(e) => setSignUpName(e.target.value)}
+                  required
+                />
                 <Input
                   type="email"
                   placeholder="Email"
