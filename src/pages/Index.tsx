@@ -29,6 +29,8 @@ import {
 import { Input } from '@/components/ui/input';
 
 const Index = () => {
+  console.log('Index component rendering...');
+  
   const [memories, setMemories] = useState<Memory[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
@@ -37,33 +39,49 @@ const Index = () => {
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const { user } = useAuth();
   
+  console.log('Auth user:', user);
+  console.log('Loading state:', loading);
+  console.log('Memories count:', memories.length);
+  
   // Load boards and memories
   useEffect(() => {
+    console.log('useEffect running - loadData');
     const loadData = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('No user found, skipping data load');
+        return;
+      }
       
       try {
+        console.log('Starting data load...');
         setLoading(true);
         
         // Load boards first
+        console.log('Fetching boards...');
         const boardsData = await fetchBoards();
+        console.log('Boards fetched:', boardsData);
         setBoards(boardsData);
         
         // If there are no boards, create a default one
         if (boardsData.length === 0) {
+          console.log('No boards found, creating default board...');
           const defaultBoard = await createBoard('My Memories');
           if (defaultBoard) {
+            console.log('Default board created:', defaultBoard);
             setBoards([defaultBoard]);
             setSelectedBoard(defaultBoard.id);
           }
         } else {
+          console.log('Setting selected board to first board:', boardsData[0].id);
           setSelectedBoard(boardsData[0].id);
         }
         
         // Load memories for the selected board
         if (boardsData.length > 0) {
           const selectedBoardData = boardsData[0];
+          console.log('Fetching memories for board:', selectedBoardData.access_code);
           const memoriesData = await fetchMemories(selectedBoardData.access_code);
+          console.log('Memories fetched:', memoriesData);
           setMemories(memoriesData);
         }
       } catch (error) {
@@ -74,6 +92,7 @@ const Index = () => {
           variant: 'destructive',
         });
       } finally {
+        console.log('Data load complete, setting loading to false');
         setLoading(false);
       }
     };
@@ -166,6 +185,8 @@ const Index = () => {
       });
     }
   };
+
+  console.log('About to render UI. Loading:', loading, 'Memories:', memories.length);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
