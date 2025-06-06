@@ -57,7 +57,7 @@ const Share = () => {
       return;
     }
 
-    const result = await createSharedBoard(selectedBoardData.name);
+    const result = await createSharedBoard(selectedBoardData.name, selectedBoardData.id);
     setGeneratingCode(false);
 
     if (result) {

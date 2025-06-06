@@ -35,6 +35,7 @@ export type SharedBoard = {
   share_code: string;
   name?: string;
   created_at: string;
+  board_id: string;
 };
 
 // Convert database memory to frontend memory
@@ -153,7 +154,7 @@ export const createBoard = async (name: string): Promise<Board | null> => {
   }
 };
 
-export const createSharedBoard = async (name: string): Promise<SharedBoard | null> => {
+export const createSharedBoard = async (name: string, boardId: string): Promise<SharedBoard | null> => {
   try {
     const {
       data: { user },
@@ -170,7 +171,8 @@ export const createSharedBoard = async (name: string): Promise<SharedBoard | nul
       .insert([{
         owner_id: user.id,
         share_code: shareCode,
-        name
+        name,
+        board_id: boardId
       }])
       .select()
       .single();
@@ -195,11 +197,11 @@ export const getSharedBoard = async (shareCode: string): Promise<Board | null> =
     if (sharedError) throw sharedError;
     if (!sharedData) return null;
 
-    // Then get the actual board
+    // Then get the actual board using the specific board_id
     const { data: boardData, error: boardError } = await supabase
       .from('boards')
       .select('*')
-      .eq('owner_id', sharedData.owner_id)
+      .eq('id', sharedData.board_id)
       .single();
 
     if (boardError) throw boardError;
