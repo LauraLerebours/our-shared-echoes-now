@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, Copy, Link, Share2, UserPlus } from 'lucide-react';
+import { Check, Copy, Share2, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchBoards, getBoardByShareCode, addUserToBoard } from '@/lib/db';
+import { fetchBoards, addUserToBoard } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -120,23 +120,6 @@ const Share = () => {
     }
   };
 
-  const handleViewShared = async () => {
-    const code = window.prompt('Enter the share code:');
-    if (code) {
-      // Validate the share code exists before navigating
-      const board = await getBoardByShareCode(code);
-      if (board) {
-        navigate(`/shared/${code}`);
-      } else {
-        toast({
-          title: 'Invalid code',
-          description: 'The share code you entered does not exist.',
-          variant: 'destructive',
-        });
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -223,23 +206,6 @@ const Share = () => {
             >
               <UserPlus className="h-4 w-4 mr-2" />
               {isJoining ? 'Joining...' : 'Join Board'}
-            </Button>
-          </div>
-            
-          {/* Quick View Section */}
-          <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Quick View</h2>
-            <p className="text-sm text-muted-foreground">
-              View a shared board without joining it
-            </p>
-            
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={handleViewShared}
-            >
-              <Link className="h-4 w-4 mr-2" />
-              View Shared Board
             </Button>
           </div>
         </div>
