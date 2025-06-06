@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, FilePlusIcon, Share2, Grid } from 'lucide-react';
+import { Home, Share2, Grid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FooterProps {
-  activeTab?: 'timeline' | 'share' | 'add-note' | 'boards';
+  activeTab?: 'timeline' | 'share' | 'boards';
 }
 
 const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
@@ -31,17 +31,6 @@ const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
         >
           <Grid className="h-6 w-6" />
           <span className="text-xs mt-1">Boards</span>
-        </Link>
-        
-        <Link 
-          to="/add-note" 
-          className={cn(
-            "flex flex-col items-center px-4 py-1", 
-            activeTab === 'add-note' ? "text-memory-purple" : "text-muted-foreground"
-          )}
-        >
-          <FilePlusIcon className="h-6 w-6" />
-          <span className="text-xs mt-1">Add Note</span>
         </Link>
         
         <Link 

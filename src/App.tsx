@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Index from "./pages/Index";
 import AddMemory from "./pages/AddMemory";
-import AddNote from "./pages/AddNote";
 import MemoryDetail from "./pages/MemoryDetail";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -71,14 +70,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AddMemory />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/add-note" 
-              element={
-                <ProtectedRoute>
-                  <AddNote />
                 </ProtectedRoute>
               } 
             />
