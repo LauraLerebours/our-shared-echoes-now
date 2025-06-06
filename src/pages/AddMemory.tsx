@@ -38,7 +38,7 @@ const AddMemory = () => {
 
       try {
         // Get all boards
-        const boards = await fetchBoards();
+        const boards = await fetchBoards(user.id);
         
         // If we have a boardId in location state, find that board's access code
         const boardId = location.state?.boardId;
@@ -55,7 +55,7 @@ const AddMemory = () => {
           setSelectedAccessCode(boards[0].access_code);
         } else {
           // Create a default board if none exist
-          const newBoard = await createBoard('My Memories');
+          const newBoard = await createBoard('My Memories', user.id);
           if (newBoard) {
             setSelectedAccessCode(newBoard.access_code);
           } else {
