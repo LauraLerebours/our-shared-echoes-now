@@ -27,7 +27,7 @@ export type Board = {
   created_at: string;
   access_code: string;
   owner_id?: string;
-  share_code: string; // Every board now has its own share code
+  share_code: string;
 };
 
 export type BoardMember = {
@@ -79,25 +79,14 @@ export const fetchBoards = async (): Promise<Board[]> => {
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // First get the board IDs where the user is a member
-    const { data: membershipData, error: membershipError } = await supabase
-      .from('board_members')
-      .select('board_id, role')
-      .eq('user_id', user.id);
-
-    if (membershipError) throw membershipError;
-
-    if (!membershipData || membershipData.length === 0) {
-      return [];
-    }
-
-    const boardIds = membershipData.map(membership => membership.board_id);
-
-    // Then fetch the boards using the board IDs
+    // Get boards where the user is a member (including owner)
     const { data, error } = await supabase
       .from('boards')
-      .select('*')
-      .in('id', boardIds)
+      .select(`
+        *,
+        board_members!inner(role)
+      `)
+      .eq('board_members.user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -117,24 +106,16 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // First check if user is a member of this board
-    const { data: membershipData, error: membershipError } = await supabase
-      .from('board_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('board_id', boardId)
-      .maybeSingle();
-
-    if (membershipError || !membershipData) {
-      throw new Error('User is not a member of this board');
-    }
-
-    // Then fetch the board
+    // Check if user is a member of this board and get board data
     const { data, error } = await supabase
       .from('boards')
-      .select('*')
+      .select(`
+        *,
+        board_members!inner(role)
+      `)
       .eq('id', boardId)
-      .maybeSingle();
+      .eq('board_members.user_id', user.id)
+      .single();
 
     if (error) throw error;
     return data as Board;
@@ -149,7 +130,7 @@ export const getBoardByShareCode = async (shareCode: string): Promise<Board | nu
     const { data, error } = await supabase
       .from('boards')
       .select('*')
-      .eq('share_code', shareCode)
+      .eq('share_code', shareCode.toUpperCase())
       .maybeSingle();
 
     if (error) throw error;
@@ -208,36 +189,27 @@ export const addUserToBoard = async (shareCode: string): Promise<{ success: bool
       return { success: false, message: 'User not authenticated' };
     }
 
-    // First check if the board exists
-    const board = await getBoardByShareCode(shareCode);
-    if (!board) {
-      return { success: false, message: 'Board not found with this share code' };
-    }
-
-    // Check if user is already a member
-    const { data: existingMember } = await supabase
-      .from('board_members')
-      .select('*')
-      .eq('board_id', board.id)
-      .eq('user_id', user.id)
-      .single();
-
-    if (existingMember) {
-      return { success: true, board, message: 'You are already a member of this board' };
-    }
-
-    // Add user to the board
-    const { error } = await supabase
-      .from('board_members')
-      .insert([{
-        board_id: board.id,
-        user_id: user.id,
-        role: 'member'
-      }]);
+    // Use the database function to add user to board
+    const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
+      share_code_param: shareCode.toUpperCase(),
+      user_id_param: user.id
+    });
 
     if (error) throw error;
 
-    return { success: true, board, message: 'Successfully joined the board!' };
+    const result = data as { success: boolean; message: string; board_id?: string; board_name?: string };
+
+    if (result.success && result.board_id) {
+      // Fetch the full board data
+      const board = await getBoardByShareCode(shareCode);
+      return { 
+        success: true, 
+        board: board || undefined, 
+        message: result.message 
+      };
+    }
+
+    return { success: result.success, message: result.message };
   } catch (error) {
     console.error('Error adding user to board:', error);
     return { success: false, message: 'Failed to join board' };
