@@ -79,14 +79,25 @@ export const fetchBoards = async (): Promise<Board[]> => {
 
     if (userError || !user) throw new Error('User not authenticated');
 
-    // Fetch boards where user is a member (owner or collaborator)
+    // First get the board IDs where the user is a member
+    const { data: membershipData, error: membershipError } = await supabase
+      .from('board_members')
+      .select('board_id, role')
+      .eq('user_id', user.id);
+
+    if (membershipError) throw membershipError;
+
+    if (!membershipData || membershipData.length === 0) {
+      return [];
+    }
+
+    const boardIds = membershipData.map(membership => membership.board_id);
+
+    // Then fetch the boards using the board IDs
     const { data, error } = await supabase
       .from('boards')
-      .select(`
-        *,
-        board_members!inner(role)
-      `)
-      .eq('board_members.user_id', user.id)
+      .select('*')
+      .in('id', boardIds)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -106,14 +117,23 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
 
     if (userError || !user) throw new Error('User not authenticated');
 
+    // First check if user is a member of this board
+    const { data: membershipData, error: membershipError } = await supabase
+      .from('board_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('board_id', boardId)
+      .single();
+
+    if (membershipError || !membershipData) {
+      throw new Error('User is not a member of this board');
+    }
+
+    // Then fetch the board
     const { data, error } = await supabase
       .from('boards')
-      .select(`
-        *,
-        board_members!inner(role)
-      `)
+      .select('*')
       .eq('id', boardId)
-      .eq('board_members.user_id', user.id)
       .single();
 
     if (error) throw error;
