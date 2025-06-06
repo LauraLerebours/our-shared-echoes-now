@@ -123,7 +123,7 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
       .select('role')
       .eq('user_id', user.id)
       .eq('board_id', boardId)
-      .single();
+      .maybeSingle();
 
     if (membershipError || !membershipData) {
       throw new Error('User is not a member of this board');
@@ -134,7 +134,7 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
       .from('boards')
       .select('*')
       .eq('id', boardId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data as Board;
