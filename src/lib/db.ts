@@ -30,6 +30,14 @@ export type Board = {
   share_code: string; // Every board now has its own share code
 };
 
+export type BoardMember = {
+  id: string;
+  board_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at: string;
+};
+
 // Convert database memory to frontend memory
 export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
   return {
@@ -71,10 +79,14 @@ export const fetchBoards = async (): Promise<Board[]> => {
 
     if (userError || !user) throw new Error('User not authenticated');
 
+    // Fetch boards where user is a member (owner or collaborator)
     const { data, error } = await supabase
       .from('boards')
-      .select('*')
-      .eq('owner_id', user.id)
+      .select(`
+        *,
+        board_members!inner(role)
+      `)
+      .eq('board_members.user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -96,9 +108,12 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
 
     const { data, error } = await supabase
       .from('boards')
-      .select('*')
+      .select(`
+        *,
+        board_members!inner(role)
+      `)
       .eq('id', boardId)
-      .eq('owner_id', user.id)
+      .eq('board_members.user_id', user.id)
       .single();
 
     if (error) throw error;
@@ -162,6 +177,53 @@ export const createBoard = async (name: string): Promise<Board | null> => {
   }
 };
 
+export const addUserToBoard = async (shareCode: string): Promise<{ success: boolean; board?: Board; message: string }> => {
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, message: 'User not authenticated' };
+    }
+
+    // First check if the board exists
+    const board = await getBoardByShareCode(shareCode);
+    if (!board) {
+      return { success: false, message: 'Board not found with this share code' };
+    }
+
+    // Check if user is already a member
+    const { data: existingMember } = await supabase
+      .from('board_members')
+      .select('*')
+      .eq('board_id', board.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingMember) {
+      return { success: true, board, message: 'You are already a member of this board' };
+    }
+
+    // Add user to the board
+    const { error } = await supabase
+      .from('board_members')
+      .insert([{
+        board_id: board.id,
+        user_id: user.id,
+        role: 'member'
+      }]);
+
+    if (error) throw error;
+
+    return { success: true, board, message: 'Successfully joined the board!' };
+  } catch (error) {
+    console.error('Error adding user to board:', error);
+    return { success: false, message: 'Failed to join board' };
+  }
+};
+
 export const deleteBoard = async (boardId: string, accessCode: string): Promise<boolean> => {
   try {
     const {
@@ -171,6 +233,18 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
 
     if (userError || !user) throw new Error('User not authenticated');
 
+    // Check if user is the owner
+    const { data: membership } = await supabase
+      .from('board_members')
+      .select('role')
+      .eq('board_id', boardId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!membership || membership.role !== 'owner') {
+      throw new Error('Only board owners can delete boards');
+    }
+
     // First delete all memories associated with the board
     const { error: memoriesError } = await supabase
       .from('memories')
@@ -179,12 +253,11 @@ export const deleteBoard = async (boardId: string, accessCode: string): Promise<
 
     if (memoriesError) throw memoriesError;
 
-    // Then delete the board
+    // Then delete the board (this will cascade delete board_members)
     const { error: boardError } = await supabase
       .from('boards')
       .delete()
-      .eq('id', boardId)
-      .eq('owner_id', user.id);
+      .eq('id', boardId);
 
     if (boardError) throw boardError;
 

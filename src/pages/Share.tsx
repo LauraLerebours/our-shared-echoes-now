@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, Copy, Link, Share2 } from 'lucide-react';
+import { Check, Copy, Link, Share2, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchBoards, getBoardByShareCode } from '@/lib/db';
+import { fetchBoards, getBoardByShareCode, addUserToBoard } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -21,6 +21,8 @@ const Share = () => {
   const [copied, setCopied] = useState(false);
   const [selectedBoard, setSelectedBoard] = useState<string>('');
   const [boards, setBoards] = useState<Array<{ id: string; name: string; share_code: string }>>([]);
+  const [joinCode, setJoinCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -72,6 +74,52 @@ const Share = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleJoinBoard = async () => {
+    if (!joinCode.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a share code.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      const result = await addUserToBoard(joinCode.trim().toUpperCase());
+      
+      if (result.success) {
+        toast({
+          title: 'Success!',
+          description: result.message,
+        });
+        setJoinCode('');
+        
+        // Refresh boards list
+        const boardsData = await fetchBoards();
+        setBoards(boardsData);
+        
+        // Navigate to boards page to see the newly added board
+        navigate('/boards');
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error joining board:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to join board. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const handleViewShared = async () => {
     const code = window.prompt('Enter the share code:');
     if (code) {
@@ -96,13 +144,19 @@ const Share = () => {
       <main className="flex-1 p-4">
         <div className="max-w-md mx-auto space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold">Share Your Board</h1>
+            <h1 className="text-2xl font-bold">Share & Collaborate</h1>
             <p className="text-muted-foreground mt-2">
-              Every board has a unique share code that never changes
+              Share your boards or join others' boards to collaborate
             </p>
           </div>
           
+          {/* Share Your Board Section */}
           <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Share Your Board</h2>
+            <p className="text-sm text-muted-foreground">
+              Every board has a unique share code that never changes
+            </p>
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Board to Share</label>
               <Select value={selectedBoard} onValueChange={setSelectedBoard}>
@@ -143,18 +197,50 @@ const Share = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Join a Board Section */}
+          <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Join a Board</h2>
+            <p className="text-sm text-muted-foreground">
+              Enter a share code to join someone else's board and collaborate
+            </p>
             
-            <div className="pt-4 border-t">
-              <h2 className="font-medium mb-2">Have a share code?</h2>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleViewShared}
-              >
-                <Link className="h-4 w-4 mr-2" />
-                View Shared Board
-              </Button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Share Code</label>
+              <Input
+                placeholder="Enter share code (e.g., ABC123)"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={6}
+              />
             </div>
+
+            <Button 
+              onClick={handleJoinBoard}
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={isJoining || !joinCode.trim()}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              {isJoining ? 'Joining...' : 'Join Board'}
+            </Button>
+          </div>
+            
+          {/* Quick View Section */}
+          <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Quick View</h2>
+            <p className="text-sm text-muted-foreground">
+              View a shared board without joining it
+            </p>
+            
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleViewShared}
+            >
+              <Link className="h-4 w-4 mr-2" />
+              View Shared Board
+            </Button>
           </div>
         </div>
       </main>
