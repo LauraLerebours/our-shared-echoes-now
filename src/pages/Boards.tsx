@@ -39,11 +39,11 @@ const Boards = () => {
 
   useEffect(() => {
     const loadBoards = async () => {
-      if (!user) return;
+      if (!user?.id) return;
       
       try {
         setLoading(true);
-        const boardsData = await fetchBoards();
+        const boardsData = await fetchBoards(user.id);
         setBoards(boardsData);
       } catch (error) {
         console.error('Error loading boards:', error);
@@ -58,14 +58,14 @@ const Boards = () => {
     };
     
     loadBoards();
-  }, [user]);
+  }, [user?.id]);
 
   const handleCreateBoard = async () => {
-    if (!user || !newBoardName.trim()) return;
+    if (!user?.id || !newBoardName.trim()) return;
     
     try {
       setIsCreatingBoard(true);
-      const newBoard = await createBoard(newBoardName.trim());
+      const newBoard = await createBoard(newBoardName.trim(), user.id);
       
       if (newBoard) {
         setBoards([...boards, newBoard]);
@@ -88,8 +88,10 @@ const Boards = () => {
   };
 
   const handleLeaveBoard = async (boardId: string) => {
+    if (!user?.id) return;
+    
     try {
-      const result = await deleteBoard(boardId);
+      const result = await deleteBoard(boardId, user.id);
       
       if (result.success) {
         setBoards(boards.filter(board => board.id !== boardId));

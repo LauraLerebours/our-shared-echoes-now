@@ -47,7 +47,7 @@ const Index = () => {
   useEffect(() => {
     console.log('useEffect running - loadData');
     const loadData = async () => {
-      if (!user) {
+      if (!user?.id) {
         console.log('No user found, skipping data load');
         return;
       }
@@ -58,14 +58,14 @@ const Index = () => {
         
         // Load boards first
         console.log('Fetching boards...');
-        const boardsData = await fetchBoards();
+        const boardsData = await fetchBoards(user.id);
         console.log('Boards fetched:', boardsData);
         setBoards(boardsData);
         
         // If there are no boards, create a default one
         if (boardsData.length === 0) {
           console.log('No boards found, creating default board...');
-          const defaultBoard = await createBoard('My Memories');
+          const defaultBoard = await createBoard('My Memories', user.id);
           if (defaultBoard) {
             console.log('Default board created:', defaultBoard);
             setBoards([defaultBoard]);
@@ -98,12 +98,12 @@ const Index = () => {
     };
     
     loadData();
-  }, [user]);
+  }, [user?.id]);
 
   // Load memories when selected board changes
   useEffect(() => {
     const loadMemories = async () => {
-      if (!user || !selectedBoard) return;
+      if (!user?.id || !selectedBoard) return;
       
       try {
         const selectedBoardData = boards.find(board => board.id === selectedBoard);
@@ -122,14 +122,14 @@ const Index = () => {
     };
     
     loadMemories();
-  }, [selectedBoard, user, boards]);
+  }, [selectedBoard, user?.id, boards]);
 
   const handleCreateBoard = async () => {
-    if (!user || !newBoardName.trim()) return;
+    if (!user?.id || !newBoardName.trim()) return;
     
     try {
       setIsCreatingBoard(true);
-      const newBoard = await createBoard(newBoardName.trim());
+      const newBoard = await createBoard(newBoardName.trim(), user.id);
       
       if (newBoard) {
         setBoards([...boards, newBoard]);
@@ -153,7 +153,7 @@ const Index = () => {
   };
 
   const handleDeleteMemory = async (id: string) => {
-    if (!user || !selectedBoard) return;
+    if (!user?.id || !selectedBoard) return;
     
     try {
       const selectedBoardData = boards.find(board => board.id === selectedBoard);

@@ -28,12 +28,12 @@ const Share = () => {
 
   useEffect(() => {
     const loadBoards = async () => {
-      if (!user) return;
-      const boardsData = await fetchBoards();
+      if (!user?.id) return;
+      const boardsData = await fetchBoards(user.id);
       setBoards(boardsData);
     };
     loadBoards();
-  }, [user]);
+  }, [user?.id]);
 
   const getShareCode = () => {
     if (!selectedBoard) {
@@ -75,6 +75,15 @@ const Share = () => {
   };
 
   const handleJoinBoard = async () => {
+    if (!user?.id) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to join a board.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!joinCode.trim()) {
       toast({
         title: 'Error',
@@ -86,7 +95,7 @@ const Share = () => {
 
     setIsJoining(true);
     try {
-      const result = await addUserToBoard(joinCode.trim().toUpperCase());
+      const result = await addUserToBoard(joinCode.trim().toUpperCase(), user.id);
       
       if (result.success) {
         toast({
@@ -96,7 +105,7 @@ const Share = () => {
         setJoinCode('');
         
         // Refresh boards list
-        const boardsData = await fetchBoards();
+        const boardsData = await fetchBoards(user.id);
         setBoards(boardsData);
         
         // Navigate to boards page to see the newly added board

@@ -7,21 +7,23 @@ import { Memory } from '@/components/MemoryList';
 import { fetchMemories, getBoardById, deleteMemory } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { Board } from '@/lib/db';
+import { useAuth } from '@/contexts/AuthContext';
 
 const BoardView = () => {
   const { boardId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadBoard = async () => {
-      if (!boardId) return;
+      if (!boardId || !user?.id) return;
 
       try {
         setLoading(true);
-        const boardData = await getBoardById(boardId);
+        const boardData = await getBoardById(boardId, user.id);
         
         if (!boardData) {
           toast({
@@ -51,7 +53,7 @@ const BoardView = () => {
     };
 
     loadBoard();
-  }, [boardId, navigate]);
+  }, [boardId, user?.id, navigate]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!board) return;

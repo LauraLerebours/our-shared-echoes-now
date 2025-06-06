@@ -70,14 +70,9 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
 };
 
 // Board operations
-export const fetchBoards = async (): Promise<Board[]> => {
+export const fetchBoards = async (userId: string): Promise<Board[]> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
+    if (!userId) throw new Error('User ID is required');
 
     // Get boards where the user is a member (including owner)
     const { data, error } = await supabase
@@ -86,7 +81,7 @@ export const fetchBoards = async (): Promise<Board[]> => {
         *,
         board_members!inner(role)
       `)
-      .eq('board_members.user_id', user.id)
+      .eq('board_members.user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -97,14 +92,9 @@ export const fetchBoards = async (): Promise<Board[]> => {
   }
 };
 
-export const getBoardById = async (boardId: string): Promise<Board | null> => {
+export const getBoardById = async (boardId: string, userId: string): Promise<Board | null> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
+    if (!userId) throw new Error('User ID is required');
 
     // Check if user is a member of this board and get board data
     const { data, error } = await supabase
@@ -114,7 +104,7 @@ export const getBoardById = async (boardId: string): Promise<Board | null> => {
         board_members!inner(role)
       `)
       .eq('id', boardId)
-      .eq('board_members.user_id', user.id)
+      .eq('board_members.user_id', userId)
       .single();
 
     if (error) throw error;
@@ -141,14 +131,9 @@ export const getBoardByShareCode = async (shareCode: string): Promise<Board | nu
   }
 };
 
-export const createBoard = async (name: string): Promise<Board | null> => {
+export const createBoard = async (name: string, userId: string): Promise<Board | null> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
+    if (!userId) throw new Error('User ID is required');
 
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
@@ -165,7 +150,7 @@ export const createBoard = async (name: string): Promise<Board | null> => {
       .insert([{ 
         name, 
         access_code: accessCode,
-        owner_id: user.id 
+        owner_id: userId 
       }])
       .select()
       .single();
@@ -178,21 +163,16 @@ export const createBoard = async (name: string): Promise<Board | null> => {
   }
 };
 
-export const addUserToBoard = async (shareCode: string): Promise<{ success: boolean; board?: Board; message: string }> => {
+export const addUserToBoard = async (shareCode: string, userId: string): Promise<{ success: boolean; board?: Board; message: string }> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return { success: false, message: 'User not authenticated' };
+    if (!userId) {
+      return { success: false, message: 'User ID is required' };
     }
 
     // Use the database function to add user to board
     const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
       share_code_param: shareCode.toUpperCase(),
-      user_id_param: user.id
+      user_id_param: userId
     });
 
     if (error) throw error;
@@ -216,21 +196,16 @@ export const addUserToBoard = async (shareCode: string): Promise<{ success: bool
   }
 };
 
-export const deleteBoard = async (boardId: string): Promise<{ success: boolean; message: string }> => {
+export const deleteBoard = async (boardId: string, userId: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const {
-      data: { user },
-      error: userError
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) throw new Error('User not authenticated');
+    if (!userId) throw new Error('User ID is required');
 
     // First, remove the user from the board
     const { error: removeMemberError } = await supabase
       .from('board_members')
       .delete()
       .eq('board_id', boardId)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (removeMemberError) throw removeMemberError;
 
