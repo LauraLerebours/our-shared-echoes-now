@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Heart, MapPin, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -83,8 +83,8 @@ const MemoryDetail = () => {
       
       if (success) {
         toast({
-          title: "Memory deleted",
-          description: "Your memory has been deleted successfully",
+          title: memory.type === 'note' ? "Note deleted" : "Memory deleted",
+          description: memory.type === 'note' ? "Your note has been deleted successfully" : "Your memory has been deleted successfully",
         });
         navigate('/boards', { replace: true });
       } else {
@@ -94,7 +94,7 @@ const MemoryDetail = () => {
       console.error('Error deleting memory:', error);
       toast({
         title: "Error",
-        description: "Could not delete memory",
+        description: memory?.type === 'note' ? "Could not delete note" : "Could not delete memory",
         variant: "destructive",
       });
     }
@@ -118,6 +118,8 @@ const MemoryDetail = () => {
       </div>
     );
   }
+
+  const isNote = memory.type === 'note';
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -126,7 +128,9 @@ const MemoryDetail = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         
-        <h1 className="text-lg font-medium">{format(memory.date, 'MMMM d, yyyy')}</h1>
+        <h1 className="text-lg font-medium">
+          {isNote ? 'Note' : format(memory.date, 'MMMM d, yyyy')}
+        </h1>
         
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -140,9 +144,9 @@ const MemoryDetail = () => {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+              <AlertDialogTitle>Delete {isNote ? 'Note' : 'Memory'}</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete this memory? This action cannot be undone.
+                Are you sure you want to delete this {isNote ? 'note' : 'memory'}? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -159,51 +163,94 @@ const MemoryDetail = () => {
       </header>
       
       <main className="flex-1">
-        <div className="relative">
-          {memory.isVideo ? (
-            <video 
-              src={memory.image} 
-              className="w-full aspect-square object-cover" 
-              controls
-            />
-          ) : (
-            <img 
-              src={memory.image} 
-              alt={memory.caption || "Memory"} 
-              className="w-full aspect-square object-cover" 
-            />
-          )}
-        </div>
-        
-        <div className="p-4">
-          {memory.caption && (
-            <p className="text-foreground mb-4">{memory.caption}</p>
-          )}
-          
-          {memory.location && (
-            <div className="flex items-center text-sm text-muted-foreground mb-4">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span>{memory.location}</span>
+        {isNote ? (
+          // Note layout
+          <div className="p-4">
+            <div className="bg-gradient-to-r from-memory-lightpurple/10 to-white border-l-4 border-l-memory-purple rounded-lg p-6 mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-memory-purple/10 rounded-full flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-memory-purple" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-memory-purple">Note</h2>
+                  <p className="text-sm text-muted-foreground">{format(memory.date, 'MMMM d, yyyy')}</p>
+                </div>
+              </div>
+              
+              {memory.caption && (
+                <div className="prose prose-sm max-w-none">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">{memory.caption}</p>
+                </div>
+              )}
             </div>
-          )}
-          
-          <div className="flex items-center border-t py-3 mb-6">
-            <Button 
-              variant="ghost" 
-              className="p-2 h-auto"
-              onClick={() => setIsLiked(!isLiked)}
-            >
-              <Heart className={cn(
-                "h-6 w-6 mr-1.5", 
-                isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
-              )} />
-              <span className={cn(
-                "font-medium", 
-                isLiked ? "text-memory-pink" : "text-muted-foreground"
-              )}>{likes}</span>
-            </Button>
+            
+            <div className="flex items-center border-t py-3">
+              <Button 
+                variant="ghost" 
+                className="p-2 h-auto"
+                onClick={() => setIsLiked(!isLiked)}
+              >
+                <Heart className={cn(
+                  "h-6 w-6 mr-1.5", 
+                  isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+                )} />
+                <span className={cn(
+                  "font-medium", 
+                  isLiked ? "text-memory-pink" : "text-muted-foreground"
+                )}>{likes}</span>
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          // Regular memory layout
+          <>
+            <div className="relative">
+              {memory.isVideo ? (
+                <video 
+                  src={memory.image} 
+                  className="w-full aspect-square object-cover" 
+                  controls
+                />
+              ) : (
+                <img 
+                  src={memory.image} 
+                  alt={memory.caption || "Memory"} 
+                  className="w-full aspect-square object-cover" 
+                />
+              )}
+            </div>
+            
+            <div className="p-4">
+              {memory.caption && (
+                <p className="text-foreground mb-4">{memory.caption}</p>
+              )}
+              
+              {memory.location && (
+                <div className="flex items-center text-sm text-muted-foreground mb-4">
+                  <MapPin className="h-4 w-4 mr-1" />
+                  <span>{memory.location}</span>
+                </div>
+              )}
+              
+              <div className="flex items-center border-t py-3 mb-6">
+                <Button 
+                  variant="ghost" 
+                  className="p-2 h-auto"
+                  onClick={() => setIsLiked(!isLiked)}
+                >
+                  <Heart className={cn(
+                    "h-6 w-6 mr-1.5", 
+                    isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+                  )} />
+                  <span className={cn(
+                    "font-medium", 
+                    isLiked ? "text-memory-pink" : "text-muted-foreground"
+                  )}>{likes}</span>
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
