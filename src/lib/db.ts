@@ -82,7 +82,7 @@ export const fetchBoards = async (userId: string): Promise<Board[]> => {
       throw new Error('Too many requests. Please try again later.');
     }
 
-    // Simplified query - rely on RLS policies to filter boards
+    // Simple query - RLS policies will handle filtering
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -105,13 +105,7 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
   try {
     if (!userId) throw new Error('User ID is required');
 
-    // Validate board access
-    const hasAccess = await validateBoardAccess(boardId, userId);
-    if (!hasAccess) {
-      throw new Error('Access denied to this board');
-    }
-
-    // Simplified query - rely on RLS policies
+    // Simple query - RLS policies will handle access control
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -175,8 +169,8 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       throw accessCodeError;
     }
 
-    // Use the new safe function to create board with owner
-    const { data, error } = await supabase.rpc('create_board_with_owner', {
+    // Use the safe function to create board with owner
+    const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
       board_name: sanitizedName,
       owner_user_id: userId,
       access_code_param: accessCode,
@@ -192,7 +186,7 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
     const { data: boardData, error: fetchError } = await supabase
       .from('boards')
       .select('*')
-      .eq('id', data)
+      .eq('id', boardId)
       .single();
 
     if (fetchError) {
