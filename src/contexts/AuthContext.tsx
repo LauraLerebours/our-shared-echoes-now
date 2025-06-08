@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,15 +32,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching user profile for:', userId);
       
-      // Get user profile
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Get user profile with retry logic
+      let retries = 3;
+      let data = null;
+      let error = null;
+
+      while (retries > 0 && !data) {
+        const result = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        data = result.data;
+        error = result.error;
+
+        if (error) {
+          console.error('Error fetching user profile (attempt', 4 - retries, '):', error);
+          retries--;
+          if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
+        } else {
+          break;
+        }
+      }
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('Final error fetching user profile:', error);
         return null;
       }
 
@@ -61,28 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('AuthContext: Initializing...');
     
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email || 'No user');
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log('User found, fetching profile...');
-          const profile = await fetchUserProfile(session.user.id);
-          setUserProfile(profile);
-        } else {
-          setUserProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    const initializeAuth = async () => {
+    // Get initial session first
+    const getInitialSession = async () => {
       try {
         console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -94,24 +92,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         console.log('Initial session:', session?.user?.email || 'No session');
+        
+        if (session?.user) {
+          setSession(session);
+          setUser(session.user);
+          
+          // Fetch profile with delay to ensure database is ready
+          setTimeout(async () => {
+            const profile = await fetchUserProfile(session.user.id);
+            setUserProfile(profile);
+            setLoading(false);
+          }, 500);
+        } else {
+          setLoading(false);
+        }
+        
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setLoading(false);
+      }
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email || 'No user');
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           console.log('User found, fetching profile...');
-          const profile = await fetchUserProfile(session.user.id);
-          setUserProfile(profile);
+          // Add delay for profile fetch to ensure database consistency
+          setTimeout(async () => {
+            const profile = await fetchUserProfile(session.user.id);
+            setUserProfile(profile);
+            setLoading(false);
+          }, 500);
+        } else {
+          setUserProfile(null);
+          setLoading(false);
         }
-        
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        console.log('Auth initialization complete');
-        setLoading(false);
       }
-    };
+    );
 
-    initializeAuth();
+    // Get initial session
+    getInitialSession();
 
     return () => {
       console.log('Cleaning up auth subscription');
@@ -125,27 +151,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
       if (error) {
         console.error('Sign in error:', error);
+        setLoading(false);
         return { error };
       }
 
       if (!data.session) {
         console.error('No session after sign in');
+        setLoading(false);
         return { error: new Error('No session created') };
       }
 
       console.log('Sign in successful');
+      // Don't set loading to false here - let the auth state change handler do it
       return { error: null };
     } catch (err) {
       console.error('Sign in exception:', err);
-      return { error: err };
-    } finally {
       setLoading(false);
+      return { error: err };
     }
   };
 
@@ -155,28 +183,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            name: name,
+            name: name.trim(),
           }
         }
       });
 
       if (error) {
         console.error('Sign up error:', error);
+        setLoading(false);
         return { error, user: null };
       }
 
       console.log('Sign up successful:', data.user?.email);
+      setLoading(false);
       return { error: null, user: data.user };
     } catch (err) {
       console.error('Sign up exception:', err);
-      return { error: err, user: null };
-    } finally {
       setLoading(false);
+      return { error: err, user: null };
     }
   };
 
@@ -189,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Updating profile for user:', user.id, 'with name:', name);
       const { error } = await supabase
         .from('user_profiles')
-        .update({ name })
+        .update({ name: name.trim() })
         .eq('id', user.id);
 
       if (error) {

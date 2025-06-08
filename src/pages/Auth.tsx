@@ -10,13 +10,13 @@ import { toast } from '@/hooks/use-toast';
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, loading } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
@@ -43,6 +43,16 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!signInEmail.trim() || !signInPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing information',
+        description: 'Please enter both email and password.',
+      });
+      return;
+    }
+
     setIsSigningIn(true);
 
     try {
@@ -54,7 +64,13 @@ const Auth = () => {
         if (error.message?.includes('Email not confirmed')) {
           errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
         } else if (error.message?.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password.';
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (error.message?.includes('Email rate limit exceeded')) {
+          errorMessage = 'Too many login attempts. Please wait a few minutes before trying again.';
+        } else if (error.message?.includes('signup_disabled')) {
+          errorMessage = 'New signups are currently disabled. Please contact support.';
+        } else {
+          errorMessage = error.message || 'Failed to sign in. Please try again.';
         }
 
         toast({
@@ -66,13 +82,13 @@ const Auth = () => {
       }
 
       toast({ title: 'Welcome back!' });
-      navigate('/');
+      // Navigation will be handled by the useEffect when user state changes
     } catch (error) {
       console.error('Sign in error:', error);
       toast({
         variant: 'destructive',
         title: 'Sign in failed',
-        description: 'An unexpected error occurred.',
+        description: 'An unexpected error occurred. Please try again.',
       });
     } finally {
       setIsSigningIn(false);
@@ -91,11 +107,20 @@ const Auth = () => {
       return;
     }
 
+    if (!signUpEmail.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Email required',
+        description: 'Please enter your email address.',
+      });
+      return;
+    }
+
     if (signUpPassword.length < 6) {
       toast({
         variant: 'destructive',
         title: 'Weak password',
-        description: 'Password must be at least 6 characters.',
+        description: 'Password must be at least 6 characters long.',
       });
       return;
     }
@@ -106,10 +131,22 @@ const Auth = () => {
       const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
 
       if (error) {
+        let errorMessage = 'Something went wrong.';
+        
+        if (error.message?.includes('User already registered')) {
+          errorMessage = 'An account with this email already exists. Please sign in instead.';
+        } else if (error.message?.includes('signup_disabled')) {
+          errorMessage = 'New signups are currently disabled. Please contact support.';
+        } else if (error.message?.includes('Password should be at least')) {
+          errorMessage = 'Password must be at least 6 characters long.';
+        } else {
+          errorMessage = error.message || 'Failed to create account. Please try again.';
+        }
+
         toast({
           variant: 'destructive',
           title: 'Sign up failed',
-          description: error.message || 'Something went wrong.',
+          description: errorMessage,
         });
         return;
       }
@@ -126,19 +163,33 @@ const Auth = () => {
       toast({
         variant: 'destructive',
         title: 'Sign up failed',
-        description: 'An unexpected error occurred.',
+        description: 'An unexpected error occurred. Please try again.',
       });
     } finally {
       setIsSigningUp(false);
     }
   };
 
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Memory Timeline</h1>
-          <p className="text-muted-foreground">Sign in to access your memories</p>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
+            This Is Us
+          </h1>
+          <p className="text-muted-foreground mt-2">Sign in to access your memories</p>
         </div>
 
         {emailSent && (
@@ -165,6 +216,7 @@ const Auth = () => {
                   value={signInEmail}
                   onChange={(e) => setSignInEmail(e.target.value)}
                   required
+                  disabled={isSigningIn}
                 />
                 <Input
                   type="password"
@@ -172,12 +224,13 @@ const Auth = () => {
                   value={signInPassword}
                   onChange={(e) => setSignInPassword(e.target.value)}
                   required
+                  disabled={isSigningIn}
                 />
               </div>
               <Button
                 type="submit"
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isSigningIn}
+                disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
               >
                 {isSigningIn ? 'Signing In...' : 'Sign In'}
               </Button>
@@ -193,6 +246,7 @@ const Auth = () => {
                   value={signUpName}
                   onChange={(e) => setSignUpName(e.target.value)}
                   required
+                  disabled={isSigningUp}
                 />
                 <Input
                   type="email"
@@ -200,19 +254,22 @@ const Auth = () => {
                   value={signUpEmail}
                   onChange={(e) => setSignUpEmail(e.target.value)}
                   required
+                  disabled={isSigningUp}
                 />
                 <Input
                   type="password"
-                  placeholder="Password"
+                  placeholder="Password (min 6 characters)"
                   value={signUpPassword}
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   required
+                  disabled={isSigningUp}
+                  minLength={6}
                 />
               </div>
               <Button
                 type="submit"
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isSigningUp}
+                disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
               >
                 {isSigningUp ? 'Signing Up...' : 'Sign Up'}
               </Button>
