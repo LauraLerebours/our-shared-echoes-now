@@ -64,9 +64,14 @@ const Index = () => {
         setLoading(true);
         setError(null);
         
-        // Load boards first
+        // Load boards first with timeout
         console.log('Fetching boards...');
-        const boardsData = await fetchBoards(user.id);
+        const boardsPromise = fetchBoards(user.id);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+        
+        const boardsData = await Promise.race([boardsPromise, timeoutPromise]) as Board[];
         console.log('Boards fetched:', boardsData.length, 'boards');
         setBoards(boardsData);
         
@@ -91,18 +96,24 @@ const Index = () => {
           console.log('Setting selected board to first board:', boardsData[0].name);
           setSelectedBoard(boardsData[0].id);
           
-          // Load memories for the selected board
+          // Load memories for the selected board with timeout
           console.log('Fetching memories for board:', boardsData[0].access_code);
-          const memoriesData = await fetchMemories(boardsData[0].access_code);
+          const memoriesPromise = fetchMemories(boardsData[0].access_code);
+          const memoriesTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Memories request timeout')), 10000)
+          );
+          
+          const memoriesData = await Promise.race([memoriesPromise, memoriesTimeoutPromise]) as Memory[];
           console.log('Memories fetched:', memoriesData.length);
           setMemories(memoriesData);
         }
       } catch (error) {
         console.error('Error loading data:', error);
-        setError('Failed to load your memories');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load your memories';
+        setError(errorMessage);
         toast({
           title: 'Error',
-          description: 'Failed to load your memories',
+          description: errorMessage,
           variant: 'destructive',
         });
       } finally {
@@ -117,7 +128,7 @@ const Index = () => {
   // Load memories when selected board changes
   useEffect(() => {
     const loadMemories = async () => {
-      if (!user?.id || !selectedBoard || authLoading) return;
+      if (!user?.id || !selectedBoard || authLoading || loading) return;
       
       try {
         console.log('Loading memories for selected board:', selectedBoard);
@@ -138,7 +149,7 @@ const Index = () => {
     };
     
     loadMemories();
-  }, [selectedBoard, user?.id, boards, authLoading]);
+  }, [selectedBoard, user?.id, boards, authLoading, loading]);
 
   const handleCreateBoard = async () => {
     if (!user?.id || !newBoardName.trim()) return;
