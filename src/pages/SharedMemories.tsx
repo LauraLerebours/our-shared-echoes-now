@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
@@ -64,7 +65,8 @@ const SharedMemories = () => {
 
     setIsJoining(true);
     try {
-      const result = await addUserToBoard(code);
+      // Pass both the share code and user ID as required by the function
+      const result = await addUserToBoard(code, user.id);
       
       if (result.success) {
         toast({
