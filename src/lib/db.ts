@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
@@ -83,14 +82,10 @@ export const fetchBoards = async (userId: string): Promise<Board[]> => {
       throw new Error('Too many requests. Please try again later.');
     }
 
-    // Get boards where the user is a member (including owner)
+    // Simplified query - rely on RLS policies to filter boards
     const { data, error } = await supabase
       .from('boards')
-      .select(`
-        *,
-        board_members!inner(role)
-      `)
-      .eq('board_members.user_id', userId)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -116,15 +111,11 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
       throw new Error('Access denied to this board');
     }
 
-    // Check if user is a member of this board and get board data
+    // Simplified query - rely on RLS policies
     const { data, error } = await supabase
       .from('boards')
-      .select(`
-        *,
-        board_members!inner(role)
-      `)
+      .select('*')
       .eq('id', boardId)
-      .eq('board_members.user_id', userId)
       .single();
 
     if (error) throw error;
@@ -186,7 +177,7 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
     // Generate a share code for the board
     const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Then create the board with share_code
+    // Create the board with share_code
     const { data, error } = await supabase
       .from('boards')
       .insert([{ 
@@ -201,6 +192,21 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
     if (error) {
       console.error('Error creating board:', error);
       throw error;
+    }
+
+    // Explicitly add the owner as a board member to ensure proper association
+    const { error: memberError } = await supabase
+      .from('board_members')
+      .insert([{
+        board_id: data.id,
+        user_id: userId,
+        role: 'owner'
+      }]);
+
+    if (memberError) {
+      console.error('Error adding owner as board member:', memberError);
+      // Don't throw here as the board was created successfully
+      // The trigger should handle this, but we're being explicit
     }
 
     console.log('Board created successfully:', data);
