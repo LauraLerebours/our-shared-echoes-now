@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,14 +33,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching user profile for:', userId);
       
-      // First try to get existing profile
+      // Get user profile
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching user profile:', error);
         return null;
       }
@@ -49,35 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return data as UserProfile;
       }
 
-      // If no profile exists, create one
-      console.log('No profile found, creating one...');
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData.user) {
-        console.error('No authenticated user found');
-        return null;
-      }
-
-      const profileName = userData.user.user_metadata?.name || 
-                         userData.user.email?.split('@')[0] || 
-                         'User';
-
-      const { data: newProfile, error: createError } = await supabase
-        .from('user_profiles')
-        .insert([{
-          id: userId,
-          name: profileName
-        }])
-        .select()
-        .single();
-      
-      if (createError) {
-        console.error('Error creating profile:', createError);
-        return null;
-      }
-
-      console.log('Profile created successfully:', newProfile);
-      return newProfile as UserProfile;
+      console.log('No profile found for user:', userId);
+      return null;
     } catch (error) {
       console.error('Unexpected error in fetchUserProfile:', error);
       return null;
@@ -87,6 +61,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('AuthContext: Initializing...');
     
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email || 'No user');
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          console.log('User found, fetching profile...');
+          const profile = await fetchUserProfile(session.user.id);
+          setUserProfile(profile);
+        } else {
+          setUserProfile(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    // THEN check for existing session
     const initializeAuth = async () => {
       try {
         console.log('Getting initial session...');
@@ -117,24 +112,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email || 'No user');
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const profile = await fetchUserProfile(session.user.id);
-          setUserProfile(profile);
-        } else {
-          setUserProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
 
     return () => {
       console.log('Cleaning up auth subscription');
@@ -181,10 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             name: name,
-            email_confirm: false,
           }
         }
       });

@@ -210,22 +210,22 @@ export type Database = {
       }
       user_profiles: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           name: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id: string
           name: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           name?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -241,6 +241,10 @@ export type Database = {
       add_user_to_board_by_share_code: {
         Args: { share_code_param: string; user_id_param?: string }
         Returns: Json
+      }
+      uid: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
     }
     Enums: {
