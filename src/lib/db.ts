@@ -163,6 +163,7 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
     }
 
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     // First create the access code
     const { error: accessCodeError } = await supabase
@@ -174,29 +175,33 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       throw accessCodeError;
     }
 
-    // Generate a share code for the board
-    const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Create the board with share_code
-    // The database trigger will automatically add the owner as a board member
-    const { data, error } = await supabase
-      .from('boards')
-      .insert([{ 
-        name: sanitizedName, 
-        access_code: accessCode,
-        owner_id: userId,
-        share_code: shareCode
-      }])
-      .select()
-      .single();
+    // Use the new safe function to create board with owner
+    const { data, error } = await supabase.rpc('create_board_with_owner', {
+      board_name: sanitizedName,
+      owner_user_id: userId,
+      access_code_param: accessCode,
+      share_code_param: shareCode
+    });
 
     if (error) {
       console.error('Error creating board:', error);
       throw error;
     }
 
-    console.log('Board created successfully:', data);
-    return data as Board;
+    // Fetch the created board
+    const { data: boardData, error: fetchError } = await supabase
+      .from('boards')
+      .select('*')
+      .eq('id', data)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching created board:', fetchError);
+      throw fetchError;
+    }
+
+    console.log('Board created successfully:', boardData);
+    return boardData as Board;
   } catch (error) {
     console.error('Error creating board:', error);
     return null;
