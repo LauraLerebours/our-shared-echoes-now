@@ -100,7 +100,7 @@ const MemoryCard = ({
     // Special formatting for notes
     return (
       <Card className="overflow-hidden mb-6 animate-fade-in border-l-4 border-l-memory-purple shadow-md bg-gradient-to-r from-memory-lightpurple/10 to-white">
-        <CardContent className="p-4" onClick={() => onViewDetail(id)}>
+        <CardContent className="p-4\" onClick={() => onViewDetail(id)}>
           <div className="flex items-start gap-3 mb-3">
             <div className="flex-shrink-0 w-10 h-10 bg-memory-purple/10 rounded-full flex items-center justify-center">
               <FileText className="h-5 w-5 text-memory-purple" />
