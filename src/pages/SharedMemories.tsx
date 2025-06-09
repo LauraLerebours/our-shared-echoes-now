@@ -1,8 +1,8 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import MemoryList from '@/components/MemoryList';
+import ScrollToBottom from '@/components/ScrollToBottom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Memory } from '@/components/MemoryList';
@@ -18,6 +18,7 @@ const SharedMemories = () => {
   const [loading, setLoading] = useState(true);
   const [board, setBoard] = useState<Board | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const loadSharedMemories = async () => {
@@ -119,7 +120,7 @@ const SharedMemories = () => {
         )}
       </header>
       
-      <main className="flex-1">
+      <main ref={mainRef} className="flex-1 relative">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <p>Loading shared memories...</p>
@@ -163,7 +164,10 @@ const SharedMemories = () => {
                 )}
               </div>
             ) : (
-              <MemoryList memories={memories} />
+              <>
+                <MemoryList memories={memories} />
+                <ScrollToBottom containerRef={mainRef} />
+              </>
             )}
           </>
         )}

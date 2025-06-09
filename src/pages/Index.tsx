@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import MemoryList from '@/components/MemoryList';
 import EmptyState from '@/components/EmptyState';
 import Footer from '@/components/Footer';
+import ScrollToBottom from '@/components/ScrollToBottom';
 import { Memory } from '@/components/MemoryList';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMemories, deleteMemory, fetchBoards, createBoard, Board } from '@/lib/db';
@@ -39,6 +40,7 @@ const Index = () => {
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
+  const mainRef = useRef<HTMLElement>(null);
   
   console.log('Auth state - Loading:', authLoading, 'User:', user?.email || 'None');
   console.log('Component state - Loading:', loading, 'Memories count:', memories.length, 'Boards count:', boards.length);
@@ -294,7 +296,7 @@ const Index = () => {
         </Dialog>
       </div>
       
-      <main className="flex-1">
+      <main ref={mainRef} className="flex-1 relative">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="text-center">
@@ -305,7 +307,10 @@ const Index = () => {
         ) : memories.length === 0 ? (
           <EmptyState />
         ) : (
-          <MemoryList memories={memories} onDeleteMemory={handleDeleteMemory} />
+          <>
+            <MemoryList memories={memories} onDeleteMemory={handleDeleteMemory} />
+            <ScrollToBottom containerRef={mainRef} />
+          </>
         )}
       </main>
       

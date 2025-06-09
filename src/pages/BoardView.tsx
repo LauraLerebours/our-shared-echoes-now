@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MemoryList from '@/components/MemoryList';
+import ScrollToBottom from '@/components/ScrollToBottom';
 import { Memory } from '@/components/MemoryList';
 import { fetchMemories, getBoardById, deleteMemory } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ const BoardView = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const loadBoard = async () => {
@@ -96,7 +98,7 @@ const BoardView = () => {
         </Button>
       </header>
       
-      <main className="flex-1">
+      <main ref={mainRef} className="flex-1 relative">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <p>Loading board content...</p>
@@ -112,10 +114,13 @@ const BoardView = () => {
             </Button>
           </div>
         ) : (
-          <MemoryList 
-            memories={memories} 
-            onDeleteMemory={handleDeleteMemory}
-          />
+          <>
+            <MemoryList 
+              memories={memories} 
+              onDeleteMemory={handleDeleteMemory}
+            />
+            <ScrollToBottom containerRef={mainRef} />
+          </>
         )}
       </main>
     </div>
