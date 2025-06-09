@@ -34,6 +34,7 @@ const Boards = () => {
   const [loading, setLoading] = useState(true);
   const [newBoardName, setNewBoardName] = useState('');
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -88,9 +89,10 @@ const Boards = () => {
   };
 
   const handleLeaveBoard = async (boardId: string) => {
-    if (!user?.id) return;
+    if (!user?.id || isDeleting) return;
     
     try {
+      setIsDeleting(true);
       const result = await deleteBoard(boardId, user.id);
       
       if (result.success) {
@@ -113,6 +115,8 @@ const Boards = () => {
         description: 'Failed to leave board',
         variant: 'destructive',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -222,7 +226,12 @@ const Boards = () => {
                     </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-orange-600 hover:bg-orange-50"
+                          disabled={isDeleting}
+                        >
                           <UserMinus className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -234,12 +243,13 @@ const Boards = () => {
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleLeaveBoard(board.id)}
                             className="bg-orange-600 hover:bg-orange-700"
+                            disabled={isDeleting}
                           >
-                            Leave Board
+                            {isDeleting ? 'Leaving...' : 'Leave Board'}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
