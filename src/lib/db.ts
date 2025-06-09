@@ -208,6 +208,47 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
   }
 };
 
+export const renameBoard = async (boardId: string, newName: string, userId: string): Promise<{ success: boolean; message: string; newName?: string }> => {
+  try {
+    if (!userId) {
+      return { success: false, message: 'User ID is required' };
+    }
+
+    if (!newName.trim()) {
+      return { success: false, message: 'Board name cannot be empty' };
+    }
+
+    // Rate limiting
+    if (!rateLimiter.isAllowed(`renameBoard:${userId}`)) {
+      return { success: false, message: 'Too many requests. Please try again later.' };
+    }
+
+    // Use the database function to rename the board
+    const { data, error } = await supabase.rpc('rename_board', {
+      board_id: boardId,
+      new_name: newName.trim(),
+      user_id: userId
+    });
+
+    if (error) throw error;
+
+    const result = data as { success: boolean; message: string; new_name?: string };
+    
+    if (result.success) {
+      return { 
+        success: true, 
+        message: result.message,
+        newName: result.new_name 
+      };
+    } else {
+      return { success: false, message: result.message };
+    }
+  } catch (error) {
+    console.error('Error renaming board:', error);
+    return { success: false, message: 'Failed to rename board' };
+  }
+};
+
 export const addUserToBoard = async (shareCode: string, userId: string): Promise<{ success: boolean; board?: Board; message: string }> => {
   try {
     if (!userId) {

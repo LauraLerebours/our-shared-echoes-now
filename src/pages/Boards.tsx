@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BoardMembersDialog from '@/components/BoardMembersDialog';
+import BoardRenameDialog from '@/components/BoardRenameDialog';
 import { Board, fetchBoards, createBoard, removeUserFromBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, UserMinus, Image, Trash2, CheckSquare, Square, Users } from 'lucide-react';
+import { Plus, UserMinus, Image, Trash2, CheckSquare, Square, Users, Edit2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -125,6 +126,14 @@ const Boards = () => {
     }
   };
 
+  const handleBoardRename = (boardId: string, newName: string) => {
+    setBoards(boards.map(board => 
+      board.id === boardId 
+        ? { ...board, name: newName }
+        : board
+    ));
+  };
+
   const handleBoardSelection = (boardId: string, checked: boolean) => {
     const newSelection = new Set(selectedBoards);
     if (checked) {
@@ -201,6 +210,10 @@ const Boards = () => {
 
   const getMemberCount = (board: Board) => {
     return board.member_ids?.length || 0;
+  };
+
+  const isOwner = (board: Board) => {
+    return board.owner_id === user?.id;
   };
 
   return (
@@ -386,7 +399,20 @@ const Boards = () => {
                   
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
-                      <h2 className="text-xl font-semibold mb-1">{board.name}</h2>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-xl font-semibold">{board.name}</h2>
+                        {isOwner(board) && !isSelectionMode && (
+                          <BoardRenameDialog
+                            boardId={board.id}
+                            currentName={board.name}
+                            onRename={(newName) => handleBoardRename(board.id, newName)}
+                          >
+                            <Button variant="ghost" size="sm" className="p-1 h-auto text-muted-foreground hover:text-memory-purple">
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </BoardRenameDialog>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         Created {new Date(board.created_at).toLocaleDateString()}
                       </p>
