@@ -14,6 +14,7 @@ export type DbMemory = {
   likes?: number;
   is_video?: boolean;
   is_liked?: boolean;
+  created_by?: string; // Add created_by field
 };
 
 export type AccessCode = {
@@ -53,11 +54,12 @@ export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
     isVideo: dbMemory.is_video,
     type: 'memory',
     accessCode: dbMemory.access_code,
+    createdBy: dbMemory.created_by, // Add created_by to frontend memory
   };
 };
 
 // Convert frontend memory to database memory
-export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> => {
+export const memoryToDbMemory = (memory: Memory, userId?: string): Omit<DbMemory, 'created_at'> => {
   return {
     id: memory.id,
     access_code: memory.accessCode,
@@ -68,6 +70,7 @@ export const memoryToDbMemory = (memory: Memory): Omit<DbMemory, 'created_at'> =
     likes: memory.likes,
     is_video: memory.isVideo,
     is_liked: memory.isLiked,
+    created_by: userId, // Add created_by field
   };
 };
 
@@ -340,7 +343,7 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
       throw new Error('Too many requests. Please try again later.');
     }
 
-    const newDbMemory = memoryToDbMemory(memory);
+    const newDbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
       .insert([newDbMemory])
@@ -365,7 +368,7 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
       throw new Error('Too many requests. Please try again later.');
     }
 
-    const dbMemory = memoryToDbMemory(memory);
+    const dbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
       .update(dbMemory)

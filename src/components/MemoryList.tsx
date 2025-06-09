@@ -14,6 +14,7 @@ export interface Memory {
   isVideo?: boolean;
   type: 'memory' | 'note';
   accessCode: string;
+  createdBy?: string; // Add createdBy field
 }
 
 interface MemoryListProps {
@@ -55,6 +56,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
           onLike={handleLike}
           onViewDetail={() => handleViewDetail(memory.id, memory.accessCode)}
           onDelete={handleDelete}
+          createdBy={memory.createdBy}
         />
       ))}
     </div>

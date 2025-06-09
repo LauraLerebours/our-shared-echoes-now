@@ -1,9 +1,11 @@
-import React from 'react';
-import { Heart, Trash2, Video, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, Trash2, Video, FileText, User } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,12 @@ export interface MemoryCardProps {
   onLike: (id: string) => void;
   onViewDetail: (id: string) => void;
   onDelete?: (id: string) => void;
+  createdBy?: string; // User ID who created this memory
+}
+
+interface UserProfile {
+  id: string;
+  name: string;
 }
 
 const MemoryCard = ({
@@ -44,8 +52,49 @@ const MemoryCard = ({
   onLike,
   onViewDetail,
   onDelete,
+  createdBy,
 }: MemoryCardProps) => {
+  const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
   const isNote = type === 'note';
+
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      if (!createdBy) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('id, name')
+          .eq('id', createdBy)
+          .single();
+
+        if (error) {
+          console.error('Error fetching creator profile:', error);
+          return;
+        }
+
+        setCreatorProfile(data);
+      } catch (error) {
+        console.error('Error fetching creator profile:', error);
+      }
+    };
+
+    fetchCreatorProfile();
+  }, [createdBy]);
+
+  const getCreatorInitials = () => {
+    if (!creatorProfile?.name) return 'U';
+    return creatorProfile.name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const getCreatorName = () => {
+    return creatorProfile?.name || 'Unknown User';
+  };
 
   if (isNote) {
     // Special formatting for notes
@@ -64,6 +113,16 @@ const MemoryCard = ({
               </div>
               {caption && (
                 <p className="text-foreground leading-relaxed line-clamp-4">{caption}</p>
+              )}
+              {creatorProfile && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
+                      {getCreatorInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-muted-foreground">by {getCreatorName()}</span>
+                </div>
               )}
             </div>
           </div>
@@ -151,6 +210,16 @@ const MemoryCard = ({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
           <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}
+          {creatorProfile && (
+            <div className="flex items-center gap-2 mt-1">
+              <Avatar className="h-5 w-5">
+                <AvatarFallback className="bg-white/20 text-white text-xs">
+                  {getCreatorInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-white/80 text-xs">by {getCreatorName()}</span>
+            </div>
+          )}
         </div>
       </div>
       

@@ -2,9 +2,10 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, LogOut } from 'lucide-react';
+import { Plus, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import UserProfileDialog from './UserProfileDialog';
 
 const Header = () => {
   const { signOut, user, userProfile } = useAuth();
@@ -50,14 +51,24 @@ const Header = () => {
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
       <div className="flex items-center gap-3">
-        <Avatar className="h-9 w-9 border-2 border-memory-purple">
-          <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
-            {getInitials()}
-          </AvatarFallback>
-          <AvatarImage src="/placeholder.svg" />
-        </Avatar>
+        <UserProfileDialog>
+          <Button variant="ghost" className="p-0 h-auto">
+            <Avatar className="h-9 w-9 border-2 border-memory-purple">
+              <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
+                {getInitials()}
+              </AvatarFallback>
+              <AvatarImage src="/placeholder.svg" />
+            </Avatar>
+          </Button>
+        </UserProfileDialog>
         <div className="flex flex-col">
           <span className="text-sm font-medium">{getDisplayName()}</span>
+          <UserProfileDialog>
+            <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-memory-purple">
+              <Settings className="h-3 w-3 mr-1" />
+              Edit Profile
+            </Button>
+          </UserProfileDialog>
         </div>
         <Button
           variant="ghost"

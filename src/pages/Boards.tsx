@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import BoardMembersDialog from '@/components/BoardMembersDialog';
 import { Board, fetchBoards, createBoard, removeUserFromBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Plus, UserMinus, Image, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Plus, UserMinus, Image, Trash2, CheckSquare, Square, Users } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -198,6 +199,10 @@ const Boards = () => {
     setSelectedBoards(new Set());
   };
 
+  const getMemberCount = (board: Board) => {
+    return board.member_ids?.length || 0;
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -380,7 +385,7 @@ const Boards = () => {
                   )}
                   
                   <div className="flex justify-between items-start mb-4">
-                    <div>
+                    <div className="flex-1">
                       <h2 className="text-xl font-semibold mb-1">{board.name}</h2>
                       <p className="text-sm text-muted-foreground">
                         Created {new Date(board.created_at).toLocaleDateString()}
@@ -388,6 +393,14 @@ const Boards = () => {
                       <p className="text-xs text-muted-foreground mt-1">
                         Share code: <span className="font-mono">{board.share_code}</span>
                       </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <BoardMembersDialog boardId={board.id} boardName={board.name}>
+                          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-memory-purple p-1 h-auto">
+                            <Users className="h-3 w-3 mr-1" />
+                            {getMemberCount(board)} member{getMemberCount(board) !== 1 ? 's' : ''}
+                          </Button>
+                        </BoardMembersDialog>
+                      </div>
                     </div>
                     
                     {!isSelectionMode && (
