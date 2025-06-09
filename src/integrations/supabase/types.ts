@@ -89,33 +89,6 @@ export type Database = {
         }
         Relationships: []
       }
-      love_notes: {
-        Row: {
-          content: string
-          created_at: string
-          delivered: boolean
-          id: string
-          scheduled_for: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          delivered?: boolean
-          id?: string
-          scheduled_for: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          delivered?: boolean
-          id?: string
-          scheduled_for?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       memories: {
         Row: {
           access_code: string | null
@@ -218,7 +191,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id: string
-          name: string
+          name?: string
           updated_at?: string | null
         }
         Update: {
@@ -241,6 +214,19 @@ export type Database = {
       add_user_to_board_by_share_code: {
         Args: { share_code_param: string; user_id_param?: string }
         Returns: Json
+      }
+      create_board_with_owner: {
+        Args: {
+          board_name: string
+          owner_user_id: string
+          access_code_param: string
+          share_code_param: string
+        }
+        Returns: string
+      }
+      create_missing_user_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       uid: {
         Args: Record<PropertyKey, never>
