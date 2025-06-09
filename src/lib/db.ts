@@ -245,12 +245,12 @@ export const addUserToBoard = async (shareCode: string, userId: string): Promise
   }
 };
 
-export const deleteBoard = async (boardId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+export const removeUserFromBoard = async (boardId: string, userId: string): Promise<{ success: boolean; message: string }> => {
   try {
     if (!userId) throw new Error('User ID is required');
 
     // Rate limiting
-    if (!rateLimiter.isAllowed(`deleteBoard:${userId}`)) {
+    if (!rateLimiter.isAllowed(`removeUserFromBoard:${userId}`)) {
       throw new Error('Too many requests. Please try again later.');
     }
 
@@ -267,56 +267,140 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<{ su
 
     const board = boardData as Board;
     const isOwner = board.owner_id === userId;
-    const isMember = board.member_ids?.includes(userId) || false;
 
-    if (!isOwner && !isMember) {
-      return { success: false, message: 'Access denied to this board' };
+    // Check if user is a member of this board
+    const { data: memberData, error: memberError } = await supabase
+      .from('board_members')
+      .select('*')
+      .eq('board_id', boardId)
+      .eq('user_id', userId)
+      .single();
+
+    if (memberError || !memberData) {
+      return { success: false, message: 'You are not a member of this board' };
     }
 
-    if (isOwner) {
-      // If user is owner, check if there are other members
-      const memberCount = board.member_ids?.length || 0;
-      
-      if (memberCount === 0) {
-        // Delete the entire board and its data
-        // Delete all memories associated with the board
-        if (board.access_code) {
-          const { error: memoriesError } = await supabase
-            .from('memories')
-            .delete()
-            .eq('access_code', board.access_code);
+    // Count total members in the board
+    const { data: allMembers, error: countError } = await supabase
+      .from('board_members')
+      .select('user_id')
+      .eq('board_id', boardId);
 
-          if (memoriesError) throw memoriesError;
+    if (countError) {
+      console.error('Error counting board members:', countError);
+      return { success: false, message: 'Failed to check board membership' };
+    }
 
-          // Delete the access code
-          const { error: accessCodeError } = await supabase
-            .from('access_codes')
-            .delete()
-            .eq('code', board.access_code);
+    const memberCount = allMembers?.length || 0;
 
-          if (accessCodeError) throw accessCodeError;
+    if (memberCount === 1) {
+      // User is the last member, delete the entire board and its data
+      console.log('User is the last member, deleting entire board');
+
+      // Delete all memories associated with the board
+      if (board.access_code) {
+        const { error: memoriesError } = await supabase
+          .from('memories')
+          .delete()
+          .eq('access_code', board.access_code);
+
+        if (memoriesError) {
+          console.error('Error deleting memories:', memoriesError);
+          // Continue with board deletion even if memories deletion fails
         }
 
-        // Finally delete the board itself
-        const { error: deleteBoardError } = await supabase
-          .from('boards')
+        // Delete the access code
+        const { error: accessCodeError } = await supabase
+          .from('access_codes')
           .delete()
+          .eq('code', board.access_code);
+
+        if (accessCodeError) {
+          console.error('Error deleting access code:', accessCodeError);
+          // Continue with board deletion even if access code deletion fails
+        }
+      }
+
+      // Delete all board members
+      const { error: membersError } = await supabase
+        .from('board_members')
+        .delete()
+        .eq('board_id', boardId);
+
+      if (membersError) {
+        console.error('Error deleting board members:', membersError);
+        // Continue with board deletion even if members deletion fails
+      }
+
+      // Finally delete the board itself
+      const { error: deleteBoardError } = await supabase
+        .from('boards')
+        .delete()
+        .eq('id', boardId);
+
+      if (deleteBoardError) {
+        console.error('Error deleting board:', deleteBoardError);
+        return { success: false, message: 'Failed to delete board' };
+      }
+
+      return { success: true, message: 'Board deleted completely as you were the last member' };
+    } else {
+      // Remove the user from the board but keep the board intact
+      console.log('Removing user from board, keeping board intact');
+
+      const { error: removeError } = await supabase
+        .from('board_members')
+        .delete()
+        .eq('board_id', boardId)
+        .eq('user_id', userId);
+
+      if (removeError) {
+        console.error('Error removing user from board:', removeError);
+        return { success: false, message: 'Failed to remove user from board' };
+      }
+
+      // If the user was the owner and there are other members, transfer ownership to another member
+      if (isOwner && memberCount > 1) {
+        // Find another member to make the new owner
+        const { data: otherMembers, error: otherMembersError } = await supabase
+          .from('board_members')
+          .select('user_id')
+          .eq('board_id', boardId)
+          .neq('user_id', userId)
+          .limit(1);
+
+        if (otherMembersError || !otherMembers || otherMembers.length === 0) {
+          console.error('Error finding other members:', otherMembersError);
+          return { success: false, message: 'Failed to transfer board ownership' };
+        }
+
+        const newOwnerId = otherMembers[0].user_id;
+
+        // Update the board owner
+        const { error: updateOwnerError } = await supabase
+          .from('boards')
+          .update({ owner_id: newOwnerId })
           .eq('id', boardId);
 
-        if (deleteBoardError) throw deleteBoardError;
+        if (updateOwnerError) {
+          console.error('Error updating board owner:', updateOwnerError);
+          return { success: false, message: 'Failed to transfer board ownership' };
+        }
 
-        return { success: true, message: 'Board deleted completely as you were the last member' };
-      } else {
-        return { success: false, message: 'Cannot delete board while it has members. Remove all members first.' };
+        // Update the new owner's role in board_members
+        const { error: updateRoleError } = await supabase
+          .from('board_members')
+          .update({ role: 'owner' })
+          .eq('board_id', boardId)
+          .eq('user_id', newOwnerId);
+
+        if (updateRoleError) {
+          console.error('Error updating member role:', updateRoleError);
+          // This is not critical, continue
+        }
+
+        return { success: true, message: 'You have been removed from the board and ownership has been transferred' };
       }
-    } else {
-      // User is a member, remove them from the board
-      const { error: removeError } = await supabase.rpc('remove_board_member', {
-        board_id: boardId,
-        user_id: userId
-      });
-
-      if (removeError) throw removeError;
 
       return { success: true, message: 'You have been removed from the board' };
     }
@@ -325,6 +409,9 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<{ su
     return { success: false, message: 'Failed to remove user from board' };
   }
 };
+
+// Keep the old function name for backward compatibility
+export const deleteBoard = removeUserFromBoard;
 
 // Memory operations
 export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {

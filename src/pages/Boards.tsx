@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Board, fetchBoards, createBoard, deleteBoard } from '@/lib/db';
+import { Board, fetchBoards, createBoard, removeUserFromBoard } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -35,10 +35,10 @@ const Boards = () => {
   const [loading, setLoading] = useState(true);
   const [newBoardName, setNewBoardName] = useState('');
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [selectedBoards, setSelectedBoards] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkRemoving, setIsBulkRemoving] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -92,12 +92,12 @@ const Boards = () => {
     }
   };
 
-  const handleLeaveBoard = async (boardId: string) => {
-    if (!user?.id || isDeleting) return;
+  const handleRemoveFromBoard = async (boardId: string) => {
+    if (!user?.id || isRemoving) return;
     
     try {
-      setIsDeleting(true);
-      const result = await deleteBoard(boardId, user.id);
+      setIsRemoving(true);
+      const result = await removeUserFromBoard(boardId, user.id);
       
       if (result.success) {
         setBoards(boards.filter(board => board.id !== boardId));
@@ -113,14 +113,14 @@ const Boards = () => {
         });
       }
     } catch (error) {
-      console.error('Error leaving board:', error);
+      console.error('Error removing from board:', error);
       toast({
         title: 'Error',
-        description: 'Failed to leave board',
+        description: 'Failed to remove from board',
         variant: 'destructive',
       });
     } finally {
-      setIsDeleting(false);
+      setIsRemoving(false);
     }
   };
 
@@ -142,54 +142,54 @@ const Boards = () => {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkRemove = async () => {
     if (!user?.id || selectedBoards.size === 0) return;
     
     try {
-      setIsBulkDeleting(true);
-      const deletePromises = Array.from(selectedBoards).map(boardId => 
-        deleteBoard(boardId, user.id)
+      setIsBulkRemoving(true);
+      const removePromises = Array.from(selectedBoards).map(boardId => 
+        removeUserFromBoard(boardId, user.id)
       );
       
-      const results = await Promise.all(deletePromises);
-      const successfulDeletes = results.filter(result => result.success);
-      const failedDeletes = results.filter(result => !result.success);
+      const results = await Promise.all(removePromises);
+      const successfulRemovals = results.filter(result => result.success);
+      const failedRemovals = results.filter(result => !result.success);
       
-      // Update boards list by removing successfully deleted boards
-      const deletedBoardIds = new Set();
+      // Update boards list by removing successfully processed boards
+      const removedBoardIds = new Set();
       results.forEach((result, index) => {
         if (result.success) {
-          deletedBoardIds.add(Array.from(selectedBoards)[index]);
+          removedBoardIds.add(Array.from(selectedBoards)[index]);
         }
       });
       
-      setBoards(boards.filter(board => !deletedBoardIds.has(board.id)));
+      setBoards(boards.filter(board => !removedBoardIds.has(board.id)));
       setSelectedBoards(new Set());
       setIsSelectionMode(false);
       
-      if (successfulDeletes.length > 0) {
+      if (successfulRemovals.length > 0) {
         toast({
           title: 'Success',
-          description: `Successfully removed from ${successfulDeletes.length} board(s)`,
+          description: `Successfully removed from ${successfulRemovals.length} board(s)`,
         });
       }
       
-      if (failedDeletes.length > 0) {
+      if (failedRemovals.length > 0) {
         toast({
           title: 'Partial success',
-          description: `Failed to remove from ${failedDeletes.length} board(s)`,
+          description: `Failed to remove from ${failedRemovals.length} board(s)`,
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Error bulk deleting boards:', error);
+      console.error('Error bulk removing from boards:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete selected boards',
+        description: 'Failed to remove from selected boards',
         variant: 'destructive',
       });
     } finally {
-      setIsBulkDeleting(false);
+      setIsBulkRemoving(false);
     }
   };
 
@@ -285,28 +285,29 @@ const Boards = () => {
                       <Button
                         variant="destructive"
                         size="sm"
-                        disabled={isBulkDeleting}
+                        disabled={isBulkRemoving}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        {isBulkDeleting ? 'Deleting...' : `Delete ${selectedBoards.size} Board(s)`}
+                        {isBulkRemoving ? 'Removing...' : `Remove from ${selectedBoards.size} Board(s)`}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Selected Boards</AlertDialogTitle>
+                        <AlertDialogTitle>Remove from Selected Boards</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to leave {selectedBoards.size} board(s)? 
+                          Are you sure you want to remove yourself from {selectedBoards.size} board(s)? 
                           If you are the last member of any board, that board and all its memories will be deleted permanently.
+                          Otherwise, the boards will remain intact for other members.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isBulkDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isBulkRemoving}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={handleBulkDelete}
+                          onClick={handleBulkRemove}
                           className="bg-destructive hover:bg-destructive/90"
-                          disabled={isBulkDeleting}
+                          disabled={isBulkRemoving}
                         >
-                          {isBulkDeleting ? 'Deleting...' : 'Delete Selected'}
+                          {isBulkRemoving ? 'Removing...' : 'Remove from Selected'}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -396,26 +397,26 @@ const Boards = () => {
                             variant="ghost" 
                             size="sm" 
                             className="text-orange-600 hover:bg-orange-50"
-                            disabled={isDeleting}
+                            disabled={isRemoving}
                           >
                             <UserMinus className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Leave Board</AlertDialogTitle>
+                            <AlertDialogTitle>Remove from Board</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to leave this board? If you are the last member, the board and all its memories will be deleted permanently.
+                              Are you sure you want to remove yourself from this board? If you are the last member, the board and all its memories will be deleted permanently. Otherwise, the board will remain intact for other members.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleLeaveBoard(board.id)}
+                              onClick={() => handleRemoveFromBoard(board.id)}
                               className="bg-orange-600 hover:bg-orange-700"
-                              disabled={isDeleting}
+                              disabled={isRemoving}
                             >
-                              {isDeleting ? 'Leaving...' : 'Leave Board'}
+                              {isRemoving ? 'Removing...' : 'Remove from Board'}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
