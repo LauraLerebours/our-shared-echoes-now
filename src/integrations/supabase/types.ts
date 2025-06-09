@@ -66,6 +66,7 @@ export type Database = {
           board_id: string | null
           caption: string | null
           created_at: string
+          created_by: string | null
           event_date: string
           id: string
           is_liked: boolean | null
@@ -79,6 +80,7 @@ export type Database = {
           board_id?: string | null
           caption?: string | null
           created_at?: string
+          created_by?: string | null
           event_date: string
           id?: string
           is_liked?: boolean | null
@@ -92,6 +94,7 @@ export type Database = {
           board_id?: string | null
           caption?: string | null
           created_at?: string
+          created_by?: string | null
           event_date?: string
           id?: string
           is_liked?: boolean | null
@@ -107,6 +110,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "access_codes"
             referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "memories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -168,7 +178,7 @@ export type Database = {
         Returns: boolean
       }
       add_user_to_board: {
-        Args: { board_share_code: string; user_id_param: string }
+        Args: { board_id: string; user_id: string }
         Returns: boolean
       }
       add_user_to_board_by_share_code: {
