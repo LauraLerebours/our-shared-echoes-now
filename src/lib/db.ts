@@ -267,31 +267,14 @@ export const removeUserFromBoard = async (boardId: string, userId: string): Prom
 
     const board = boardData as Board;
     const isOwner = board.owner_id === userId;
+    const memberIds = board.member_ids || [];
 
     // Check if user is a member of this board
-    const { data: memberData, error: memberError } = await supabase
-      .from('board_members')
-      .select('*')
-      .eq('board_id', boardId)
-      .eq('user_id', userId)
-      .single();
-
-    if (memberError || !memberData) {
+    if (!memberIds.includes(userId)) {
       return { success: false, message: 'You are not a member of this board' };
     }
 
-    // Count total members in the board
-    const { data: allMembers, error: countError } = await supabase
-      .from('board_members')
-      .select('user_id')
-      .eq('board_id', boardId);
-
-    if (countError) {
-      console.error('Error counting board members:', countError);
-      return { success: false, message: 'Failed to check board membership' };
-    }
-
-    const memberCount = allMembers?.length || 0;
+    const memberCount = memberIds.length;
 
     if (memberCount === 1) {
       // User is the last member, delete the entire board and its data
@@ -321,17 +304,6 @@ export const removeUserFromBoard = async (boardId: string, userId: string): Prom
         }
       }
 
-      // Delete all board members
-      const { error: membersError } = await supabase
-        .from('board_members')
-        .delete()
-        .eq('board_id', boardId);
-
-      if (membersError) {
-        console.error('Error deleting board members:', membersError);
-        // Continue with board deletion even if members deletion fails
-      }
-
       // Finally delete the board itself
       const { error: deleteBoardError } = await supabase
         .from('boards')
@@ -348,57 +320,28 @@ export const removeUserFromBoard = async (boardId: string, userId: string): Prom
       // Remove the user from the board but keep the board intact
       console.log('Removing user from board, keeping board intact');
 
-      const { error: removeError } = await supabase
-        .from('board_members')
-        .delete()
-        .eq('board_id', boardId)
-        .eq('user_id', userId);
+      // Remove user from member_ids array
+      const updatedMemberIds = memberIds.filter(id => id !== userId);
 
-      if (removeError) {
-        console.error('Error removing user from board:', removeError);
+      // If the user was the owner and there are other members, transfer ownership to another member
+      let updateData: any = { member_ids: updatedMemberIds };
+      
+      if (isOwner && updatedMemberIds.length > 0) {
+        // Transfer ownership to the first remaining member
+        updateData.owner_id = updatedMemberIds[0];
+      }
+
+      const { error: updateError } = await supabase
+        .from('boards')
+        .update(updateData)
+        .eq('id', boardId);
+
+      if (updateError) {
+        console.error('Error updating board:', updateError);
         return { success: false, message: 'Failed to remove user from board' };
       }
 
-      // If the user was the owner and there are other members, transfer ownership to another member
-      if (isOwner && memberCount > 1) {
-        // Find another member to make the new owner
-        const { data: otherMembers, error: otherMembersError } = await supabase
-          .from('board_members')
-          .select('user_id')
-          .eq('board_id', boardId)
-          .neq('user_id', userId)
-          .limit(1);
-
-        if (otherMembersError || !otherMembers || otherMembers.length === 0) {
-          console.error('Error finding other members:', otherMembersError);
-          return { success: false, message: 'Failed to transfer board ownership' };
-        }
-
-        const newOwnerId = otherMembers[0].user_id;
-
-        // Update the board owner
-        const { error: updateOwnerError } = await supabase
-          .from('boards')
-          .update({ owner_id: newOwnerId })
-          .eq('id', boardId);
-
-        if (updateOwnerError) {
-          console.error('Error updating board owner:', updateOwnerError);
-          return { success: false, message: 'Failed to transfer board ownership' };
-        }
-
-        // Update the new owner's role in board_members
-        const { error: updateRoleError } = await supabase
-          .from('board_members')
-          .update({ role: 'owner' })
-          .eq('board_id', boardId)
-          .eq('user_id', newOwnerId);
-
-        if (updateRoleError) {
-          console.error('Error updating member role:', updateRoleError);
-          // This is not critical, continue
-        }
-
+      if (isOwner && updatedMemberIds.length > 0) {
         return { success: true, message: 'You have been removed from the board and ownership has been transferred' };
       }
 
