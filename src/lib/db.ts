@@ -29,6 +29,7 @@ export type Board = {
   access_code: string;
   owner_id?: string;
   share_code: string;
+  member_ids?: string[]; // New field for member IDs array
 };
 
 export type BoardMember = {
@@ -253,66 +254,70 @@ export const deleteBoard = async (boardId: string, userId: string): Promise<{ su
       throw new Error('Too many requests. Please try again later.');
     }
 
-    // Validate board access
-    const hasAccess = await validateBoardAccess(boardId, userId);
-    if (!hasAccess) {
+    // Get the board to check ownership and member status
+    const { data: boardData, error: boardError } = await supabase
+      .from('boards')
+      .select('*')
+      .eq('id', boardId)
+      .single();
+
+    if (boardError || !boardData) {
+      return { success: false, message: 'Board not found or access denied' };
+    }
+
+    const board = boardData as Board;
+    const isOwner = board.owner_id === userId;
+    const isMember = board.member_ids?.includes(userId) || false;
+
+    if (!isOwner && !isMember) {
       return { success: false, message: 'Access denied to this board' };
     }
 
-    // First, remove the user from the board
-    const { error: removeMemberError } = await supabase
-      .from('board_members')
-      .delete()
-      .eq('board_id', boardId)
-      .eq('user_id', userId);
+    if (isOwner) {
+      // If user is owner, check if there are other members
+      const memberCount = board.member_ids?.length || 0;
+      
+      if (memberCount === 0) {
+        // Delete the entire board and its data
+        // Delete all memories associated with the board
+        if (board.access_code) {
+          const { error: memoriesError } = await supabase
+            .from('memories')
+            .delete()
+            .eq('access_code', board.access_code);
 
-    if (removeMemberError) throw removeMemberError;
+          if (memoriesError) throw memoriesError;
 
-    // Check if there are any remaining members
-    const { data: remainingMembers, error: membersError } = await supabase
-      .from('board_members')
-      .select('id')
-      .eq('board_id', boardId);
+          // Delete the access code
+          const { error: accessCodeError } = await supabase
+            .from('access_codes')
+            .delete()
+            .eq('code', board.access_code);
 
-    if (membersError) throw membersError;
+          if (accessCodeError) throw accessCodeError;
+        }
 
-    // If no members remain, delete the entire board and its data
-    if (!remainingMembers || remainingMembers.length === 0) {
-      // Get the board's access code for cleanup
-      const { data: boardData } = await supabase
-        .from('boards')
-        .select('access_code')
-        .eq('id', boardId)
-        .single();
-
-      // Delete all memories associated with the board
-      if (boardData?.access_code) {
-        const { error: memoriesError } = await supabase
-          .from('memories')
+        // Finally delete the board itself
+        const { error: deleteBoardError } = await supabase
+          .from('boards')
           .delete()
-          .eq('access_code', boardData.access_code);
+          .eq('id', boardId);
 
-        if (memoriesError) throw memoriesError;
+        if (deleteBoardError) throw deleteBoardError;
 
-        // Delete the access code
-        const { error: accessCodeError } = await supabase
-          .from('access_codes')
-          .delete()
-          .eq('code', boardData.access_code);
-
-        if (accessCodeError) throw accessCodeError;
+        return { success: true, message: 'Board deleted completely as you were the last member' };
+      } else {
+        return { success: false, message: 'Cannot delete board while it has members. Remove all members first.' };
       }
-
-      // Finally delete the board itself
-      const { error: boardError } = await supabase
-        .from('boards')
-        .delete()
-        .eq('id', boardId);
-
-      if (boardError) throw boardError;
-
-      return { success: true, message: 'Board deleted completely as you were the last member' };
     } else {
+      // User is a member, remove them from the board
+      const { error: removeError } = await supabase.rpc('remove_board_member', {
+        board_id: boardId,
+        user_id: userId
+      });
+
+      if (removeError) throw removeError;
+
       return { success: true, message: 'You have been removed from the board' };
     }
   } catch (error) {

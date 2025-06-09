@@ -27,45 +27,14 @@ export type Database = {
         }
         Relationships: []
       }
-      board_members: {
-        Row: {
-          board_id: string
-          id: string
-          joined_at: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          board_id: string
-          id?: string
-          joined_at?: string
-          role?: string
-          user_id: string
-        }
-        Update: {
-          board_id?: string
-          id?: string
-          joined_at?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "board_members_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       boards: {
         Row: {
           access_code: string | null
           created_at: string
           id: string
-          name: string | null
-          owner_id: string | null
+          member_ids: string[] | null
+          name: string
+          owner_id: string
           share_code: string
           updated_at: string | null
         }
@@ -73,8 +42,9 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
-          name?: string | null
-          owner_id?: string | null
+          member_ids?: string[] | null
+          name: string
+          owner_id: string
           share_code: string
           updated_at?: string | null
         }
@@ -82,8 +52,9 @@ export type Database = {
           access_code?: string | null
           created_at?: string
           id?: string
-          name?: string | null
-          owner_id?: string | null
+          member_ids?: string[] | null
+          name?: string
+          owner_id?: string
           share_code?: string
           updated_at?: string | null
         }
@@ -137,13 +108,6 @@ export type Database = {
             referencedRelation: "access_codes"
             referencedColumns: ["code"]
           },
-          {
-            foreignKeyName: "memories_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
         ]
       }
       shared_boards: {
@@ -171,15 +135,7 @@ export type Database = {
           owner_id?: string
           share_code?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "shared_boards_board_id_fkey"
-            columns: ["board_id"]
-            isOneToOne: false
-            referencedRelation: "boards"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_profiles: {
         Row: {
@@ -207,6 +163,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_board_member: {
+        Args: { board_id: string; user_id: string }
+        Returns: boolean
+      }
       add_user_to_board: {
         Args: { board_share_code: string; user_id_param: string }
         Returns: boolean
@@ -227,6 +187,10 @@ export type Database = {
       create_missing_user_profiles: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      remove_board_member: {
+        Args: { board_id: string; user_id: string }
+        Returns: boolean
       }
       uid: {
         Args: Record<PropertyKey, never>

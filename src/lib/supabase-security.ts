@@ -1,3 +1,4 @@
+
 // Security utilities for Supabase operations
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,10 +30,9 @@ export const requireAuth = async (): Promise<string> => {
 export const validateBoardAccess = async (boardId: string, userId: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase
-      .from('board_members')
-      .select('id')
-      .eq('board_id', boardId)
-      .eq('user_id', userId)
+      .from('boards')
+      .select('owner_id, member_ids')
+      .eq('id', boardId)
       .single();
     
     if (error) {
@@ -40,7 +40,17 @@ export const validateBoardAccess = async (boardId: string, userId: string): Prom
       return false;
     }
     
-    return !!data;
+    // Check if user is owner
+    if (data.owner_id === userId) {
+      return true;
+    }
+    
+    // Check if user is in member_ids array
+    if (data.member_ids && Array.isArray(data.member_ids)) {
+      return data.member_ids.includes(userId);
+    }
+    
+    return false;
   } catch (error) {
     console.error('Board access validation error:', error);
     return false;
@@ -56,11 +66,10 @@ export const validateBoardAccess = async (boardId: string, userId: string): Prom
 export const validateBoardOwnership = async (boardId: string, userId: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase
-      .from('board_members')
-      .select('role')
-      .eq('board_id', boardId)
-      .eq('user_id', userId)
-      .eq('role', 'owner')
+      .from('boards')
+      .select('owner_id')
+      .eq('id', boardId)
+      .eq('owner_id', userId)
       .single();
     
     if (error) {
