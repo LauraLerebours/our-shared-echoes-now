@@ -111,13 +111,6 @@ export type Database = {
             referencedRelation: "access_codes"
             referencedColumns: ["code"]
           },
-          {
-            foreignKeyName: "memories_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       shared_boards: {
@@ -178,7 +171,7 @@ export type Database = {
         Returns: boolean
       }
       add_user_to_board: {
-        Args: { board_id: string; user_id: string }
+        Args: { board_share_code: string; user_id_param: string }
         Returns: boolean
       }
       add_user_to_board_by_share_code: {
@@ -198,9 +191,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      delete_empty_boards: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       remove_board_member: {
         Args: { board_id: string; user_id: string }
         Returns: boolean
+      }
+      rename_board: {
+        Args: { board_id: string; new_name: string; user_id?: string }
+        Returns: Json
       }
       uid: {
         Args: Record<PropertyKey, never>
