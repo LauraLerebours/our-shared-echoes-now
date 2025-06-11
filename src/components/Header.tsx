@@ -57,7 +57,8 @@ const Header = () => {
               <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                 {getInitials()}
               </AvatarFallback>
-              <AvatarImage src="/placeholder.svg" />
+              {/* You can add a custom profile image here */}
+              <AvatarImage src="/your-logo.png" alt="Profile" />
             </Avatar>
           </Button>
         </UserProfileDialog>
@@ -81,9 +82,14 @@ const Header = () => {
         </Button>
       </div>
       
-      <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
-        This Is Us
-      </h1>
+      {/* You can replace this with your own logo/branding */}
+      <div className="flex items-center gap-2">
+        {/* Optional: Add your logo image here */}
+        {/* <img src="/your-logo.png" alt="Logo" className="h-8 w-8" /> */}
+        <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
+          This Is Us
+        </h1>
+      </div>
       
       <Button variant="ghost" size="icon" asChild className="text-memory-purple hover:text-memory-pink hover:bg-memory-lightpurple">
         <Link to="/add">
