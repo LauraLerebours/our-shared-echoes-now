@@ -3,24 +3,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { Memory } from '@/components/MemoryList';
 import { requireAuth, validateBoardAccess, sanitizeInput, validateAccessCodeFormat, rateLimiter } from './supabase-security';
 
-// Types for the database
+// Simplified types
 export type DbMemory = {
   id: string;
   access_code: string;
-  media_url: string; // Make this required to match database schema
+  media_url: string;
   caption?: string;
   event_date: string;
   location?: string;
   likes?: number;
   is_video?: boolean;
   is_liked?: boolean;
-  created_by?: string; // Add created_by field
-};
-
-export type AccessCode = {
-  code: string;
-  name: string;
-  created_at: string;
+  created_by?: string;
 };
 
 export type Board = {
@@ -30,87 +24,72 @@ export type Board = {
   access_code: string;
   owner_id?: string;
   share_code: string;
-  member_ids?: string[]; // New field for member IDs array
+  member_ids?: string[];
 };
 
-export type BoardMember = {
-  id: string;
-  board_id: string;
-  user_id: string;
-  role: 'owner' | 'member';
-  joined_at: string;
-};
+// Utility functions
+export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => ({
+  id: dbMemory.id,
+  image: dbMemory.media_url || '',
+  caption: dbMemory.caption,
+  date: dbMemory.event_date ? new Date(dbMemory.event_date) : new Date(),
+  location: dbMemory.location,
+  likes: dbMemory.likes || 0,
+  isLiked: dbMemory.is_liked || false,
+  isVideo: dbMemory.is_video,
+  type: 'memory',
+  accessCode: dbMemory.access_code,
+  createdBy: dbMemory.created_by,
+});
 
-// Convert database memory to frontend memory
-export const dbMemoryToMemory = (dbMemory: DbMemory): Memory => {
-  return {
-    id: dbMemory.id,
-    image: dbMemory.media_url || '',
-    caption: dbMemory.caption,
-    date: dbMemory.event_date ? new Date(dbMemory.event_date) : new Date(),
-    location: dbMemory.location,
-    likes: dbMemory.likes || 0,
-    isLiked: dbMemory.is_liked || false,
-    isVideo: dbMemory.is_video,
-    type: 'memory',
-    accessCode: dbMemory.access_code,
-    createdBy: dbMemory.created_by, // Add created_by to frontend memory
-  };
-};
+export const memoryToDbMemory = (memory: Memory, userId?: string): Omit<DbMemory, 'created_at'> => ({
+  id: memory.id,
+  access_code: memory.accessCode,
+  media_url: memory.image || '',
+  caption: sanitizeInput(memory.caption || ''),
+  event_date: memory.date.toISOString(),
+  location: memory.location ? sanitizeInput(memory.location) : undefined,
+  likes: memory.likes,
+  is_video: memory.isVideo,
+  is_liked: memory.isLiked,
+  created_by: userId,
+});
 
-// Convert frontend memory to database memory
-export const memoryToDbMemory = (memory: Memory, userId?: string): Omit<DbMemory, 'created_at'> => {
-  return {
-    id: memory.id,
-    access_code: memory.accessCode,
-    media_url: memory.image || '', // Ensure media_url is always provided
-    caption: sanitizeInput(memory.caption || ''),
-    event_date: memory.date.toISOString(),
-    location: memory.location ? sanitizeInput(memory.location) : undefined,
-    likes: memory.likes,
-    is_video: memory.isVideo,
-    is_liked: memory.isLiked,
-    created_by: userId, // Add created_by field
-  };
+// Generic database operation wrapper
+const withErrorHandling = async <T>(
+  operation: () => Promise<T>,
+  errorMessage: string
+): Promise<T | null> => {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error(`${errorMessage}:`, error);
+    return null;
+  }
 };
 
 // Board operations
 export const fetchBoards = async (userId: string): Promise<Board[]> => {
-  try {
-    if (!userId) throw new Error('User ID is required');
+  if (!userId || !rateLimiter.isAllowed(`fetchBoards:${userId}`)) {
+    return [];
+  }
 
-    console.log('Fetching boards for user:', userId);
-
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`fetchBoards:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
-    // Query boards where user is owner or member
+  return withErrorHandling(async () => {
     const { data, error } = await supabase
       .from('boards')
       .select('*')
       .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching boards:', error);
-      throw error;
-    }
-
-    console.log('Boards fetched successfully:', data?.length || 0);
+    if (error) throw error;
     return data as Board[];
-  } catch (error) {
-    console.error('Error fetching boards:', error);
-    return [];
-  }
+  }, 'Error fetching boards') || [];
 };
 
 export const getBoardById = async (boardId: string, userId: string): Promise<Board | null> => {
-  try {
-    if (!userId) throw new Error('User ID is required');
+  if (!userId) return null;
 
-    // Query board where user is owner or member
+  return withErrorHandling(async () => {
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -120,18 +99,13 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
 
     if (error) throw error;
     return data as Board;
-  } catch (error) {
-    console.error('Error fetching board by ID:', error);
-    return null;
-  }
+  }, 'Error fetching board by ID');
 };
 
 export const getBoardByShareCode = async (shareCode: string): Promise<Board | null> => {
-  try {
-    if (!validateAccessCodeFormat(shareCode)) {
-      throw new Error('Invalid share code format');
-    }
+  if (!validateAccessCodeFormat(shareCode)) return null;
 
+  return withErrorHandling(async () => {
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -140,42 +114,25 @@ export const getBoardByShareCode = async (shareCode: string): Promise<Board | nu
 
     if (error) throw error;
     return data as Board;
-  } catch (error) {
-    console.error('Error fetching board by share code:', error);
-    return null;
-  }
+  }, 'Error fetching board by share code');
 };
 
 export const createBoard = async (name: string, userId: string): Promise<Board | null> => {
-  try {
-    if (!userId) throw new Error('User ID is required');
+  if (!userId || !rateLimiter.isAllowed(`createBoard:${userId}`)) return null;
 
-    console.log('Creating board:', name, 'for user:', userId);
+  const sanitizedName = sanitizeInput(name);
+  if (!sanitizedName) return null;
 
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`createBoard:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
-    const sanitizedName = sanitizeInput(name);
-    if (!sanitizedName) {
-      throw new Error('Board name is required');
-    }
-
+  return withErrorHandling(async () => {
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // First create the access code
-    const { error: accessCodeError } = await supabase
+    // Create access code first
+    await supabase
       .from('access_codes')
       .insert([{ code: accessCode, name: sanitizedName }]);
 
-    if (accessCodeError) {
-      console.error('Error creating access code:', accessCodeError);
-      throw accessCodeError;
-    }
-
-    // Use the safe function to create board with owner
+    // Use the safe function to create board
     const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
       board_name: sanitizedName,
       owner_user_id: userId,
@@ -183,10 +140,7 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       share_code_param: shareCode
     });
 
-    if (error) {
-      console.error('Error creating board:', error);
-      throw error;
-    }
+    if (error) throw error;
 
     // Fetch the created board
     const { data: boardData, error: fetchError } = await supabase
@@ -195,35 +149,21 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       .eq('id', boardId)
       .single();
 
-    if (fetchError) {
-      console.error('Error fetching created board:', fetchError);
-      throw fetchError;
-    }
-
-    console.log('Board created successfully:', boardData);
+    if (fetchError) throw fetchError;
     return boardData as Board;
-  } catch (error) {
-    console.error('Error creating board:', error);
-    return null;
-  }
+  }, 'Error creating board');
 };
 
-export const renameBoard = async (boardId: string, newName: string, userId: string): Promise<{ success: boolean; message: string; newName?: string }> => {
+export const renameBoard = async (
+  boardId: string, 
+  newName: string, 
+  userId: string
+): Promise<{ success: boolean; message: string; newName?: string }> => {
+  if (!userId || !newName.trim() || !rateLimiter.isAllowed(`renameBoard:${userId}`)) {
+    return { success: false, message: 'Invalid request' };
+  }
+
   try {
-    if (!userId) {
-      return { success: false, message: 'User ID is required' };
-    }
-
-    if (!newName.trim()) {
-      return { success: false, message: 'Board name cannot be empty' };
-    }
-
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`renameBoard:${userId}`)) {
-      return { success: false, message: 'Too many requests. Please try again later.' };
-    }
-
-    // Use the database function to rename the board
     const { data, error } = await supabase.rpc('rename_board', {
       board_id: boardId,
       new_name: newName.trim(),
@@ -233,38 +173,26 @@ export const renameBoard = async (boardId: string, newName: string, userId: stri
     if (error) throw error;
 
     const result = data as { success: boolean; message: string; new_name?: string };
-    
-    if (result.success) {
-      return { 
-        success: true, 
-        message: result.message,
-        newName: result.new_name 
-      };
-    } else {
-      return { success: false, message: result.message };
-    }
+    return { 
+      success: result.success, 
+      message: result.message,
+      newName: result.new_name 
+    };
   } catch (error) {
     console.error('Error renaming board:', error);
     return { success: false, message: 'Failed to rename board' };
   }
 };
 
-export const addUserToBoard = async (shareCode: string, userId: string): Promise<{ success: boolean; board?: Board; message: string }> => {
+export const addUserToBoard = async (
+  shareCode: string, 
+  userId: string
+): Promise<{ success: boolean; board?: Board; message: string }> => {
+  if (!userId || !validateAccessCodeFormat(shareCode) || !rateLimiter.isAllowed(`addUserToBoard:${userId}`)) {
+    return { success: false, message: 'Invalid request' };
+  }
+
   try {
-    if (!userId) {
-      return { success: false, message: 'User ID is required' };
-    }
-
-    if (!validateAccessCodeFormat(shareCode)) {
-      return { success: false, message: 'Invalid share code format' };
-    }
-
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`addUserToBoard:${userId}`)) {
-      return { success: false, message: 'Too many requests. Please try again later.' };
-    }
-
-    // Use the database function to add user to board
     const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
       share_code_param: shareCode.toUpperCase(),
       user_id_param: userId
@@ -272,16 +200,11 @@ export const addUserToBoard = async (shareCode: string, userId: string): Promise
 
     if (error) throw error;
 
-    const result = data as { success: boolean; message: string; board_id?: string; board_name?: string };
+    const result = data as { success: boolean; message: string; board_id?: string };
 
     if (result.success && result.board_id) {
-      // Fetch the full board data
       const board = await getBoardByShareCode(shareCode);
-      return { 
-        success: true, 
-        board: board || undefined, 
-        message: result.message 
-      };
+      return { success: true, board: board || undefined, message: result.message };
     }
 
     return { success: result.success, message: result.message };
@@ -291,74 +214,52 @@ export const addUserToBoard = async (shareCode: string, userId: string): Promise
   }
 };
 
-export const removeUserFromBoard = async (boardId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+export const removeUserFromBoard = async (
+  boardId: string, 
+  userId: string
+): Promise<{ success: boolean; message: string }> => {
+  if (!userId || !rateLimiter.isAllowed(`removeUserFromBoard:${userId}`)) {
+    return { success: false, message: 'Invalid request' };
+  }
+
   try {
-    if (!userId) throw new Error('User ID is required');
-
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`removeUserFromBoard:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
-    // Use the database function to remove user from board
     const { data: success, error } = await supabase.rpc('remove_board_member', {
       board_id: boardId,
       user_id: userId
     });
 
-    if (error) {
-      console.error('Error removing user from board:', error);
-      return { success: false, message: 'Failed to remove user from board' };
-    }
+    if (error) throw error;
 
-    if (success) {
-      return { success: true, message: 'Successfully removed from board' };
-    } else {
-      return { success: false, message: 'You are not a member of this board or board not found' };
-    }
+    return {
+      success: !!success,
+      message: success ? 'Successfully removed from board' : 'You are not a member of this board'
+    };
   } catch (error) {
     console.error('Error removing user from board:', error);
     return { success: false, message: 'Failed to remove user from board' };
   }
 };
 
-// Keep the old function name for backward compatibility
-export const deleteBoard = removeUserFromBoard;
-
 // Memory operations
 export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
-  try {
-    if (!validateAccessCodeFormat(accessCode)) {
-      throw new Error('Invalid access code format');
-    }
+  if (!validateAccessCodeFormat(accessCode)) return [];
 
-    console.log('Fetching memories for access code:', accessCode);
-
+  return withErrorHandling(async () => {
     const { data, error } = await supabase
       .from('memories')
       .select('*')
       .eq('access_code', accessCode)
       .order('event_date', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching memories:', error);
-      throw error;
-    }
-
-    console.log('Memories fetched successfully:', data?.length || 0);
+    if (error) throw error;
     return (data as DbMemory[]).map(dbMemoryToMemory);
-  } catch (error) {
-    console.error('Error fetching memories:', error);
-    return [];
-  }
+  }, 'Error fetching memories') || [];
 };
 
 export const getMemory = async (id: string, accessCode: string): Promise<Memory | null> => {
-  try {
-    if (!validateAccessCodeFormat(accessCode)) {
-      throw new Error('Invalid access code format');
-    }
+  if (!validateAccessCodeFormat(accessCode)) return null;
 
+  return withErrorHandling(async () => {
     const { data, error } = await supabase
       .from('memories')
       .select('*')
@@ -368,22 +269,14 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
 
     if (error) throw error;
     return data ? dbMemoryToMemory(data as DbMemory) : null;
-  } catch (error) {
-    console.error('Error fetching memory:', error);
-    return null;
-  }
+  }, 'Error fetching memory');
 };
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
-  try {
-    // Validate user authentication
-    const userId = await requireAuth();
+  const userId = await requireAuth();
+  if (!rateLimiter.isAllowed(`createMemory:${userId}`)) return null;
 
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`createMemory:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
+  return withErrorHandling(async () => {
     const newDbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
@@ -393,22 +286,14 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
 
     if (error) throw error;
     return dbMemoryToMemory(data as DbMemory);
-  } catch (error) {
-    console.error('Error creating memory:', error);
-    return null;
-  }
+  }, 'Error creating memory');
 };
 
 export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
-  try {
-    // Validate user authentication
-    const userId = await requireAuth();
+  const userId = await requireAuth();
+  if (!rateLimiter.isAllowed(`updateMemory:${userId}`)) return null;
 
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`updateMemory:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
+  return withErrorHandling(async () => {
     const dbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
@@ -420,26 +305,16 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
 
     if (error) throw error;
     return dbMemoryToMemory(data as DbMemory);
-  } catch (error) {
-    console.error('Error updating memory:', error);
-    return null;
-  }
+  }, 'Error updating memory');
 };
 
 export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
-  try {
-    // Validate user authentication
-    const userId = await requireAuth();
+  const userId = await requireAuth();
+  if (!rateLimiter.isAllowed(`deleteMemory:${userId}`) || !validateAccessCodeFormat(accessCode)) {
+    return false;
+  }
 
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`deleteMemory:${userId}`)) {
-      throw new Error('Too many requests. Please try again later.');
-    }
-
-    if (!validateAccessCodeFormat(accessCode)) {
-      throw new Error('Invalid access code format');
-    }
-
+  return withErrorHandling(async () => {
     const { error } = await supabase
       .from('memories')
       .delete()
@@ -448,8 +323,8 @@ export const deleteMemory = async (memoryId: string, accessCode: string): Promis
 
     if (error) throw error;
     return true;
-  } catch (error) {
-    console.error('Error deleting memory:', error);
-    return false;
-  }
+  }, 'Error deleting memory') || false;
 };
+
+// Keep backward compatibility
+export const deleteBoard = removeUserFromBoard;
