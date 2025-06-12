@@ -129,7 +129,7 @@ const MemoryCard = ({
         video.removeEventListener('error', handleError);
       };
     }
-  }, [isVideo]);
+  }, [isVideo, image]); // Added image to dependency array
 
   const handleLike = async () => {
     if (isLiking) return; // Prevent double-clicking
