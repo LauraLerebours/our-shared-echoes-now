@@ -192,8 +192,19 @@ const Auth = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-4">
+    <div 
+      className="flex min-h-screen items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: 'url(/best2.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Overlay for better readability */}
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
+      
+      <div className="w-full max-w-md space-y-4 relative z-10">
         <div className="text-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
             This Is Us
@@ -210,81 +221,83 @@ const Auth = () => {
           </Alert>
         )}
 
-        <Tabs defaultValue="sign-in" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-            <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
-          </TabsList>
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6">
+          <Tabs defaultValue="sign-in" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="sign-in">
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  required
-                  disabled={isSigningIn}
-                />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={signInPassword}
-                  onChange={(e) => setSignInPassword(e.target.value)}
-                  required
-                  disabled={isSigningIn}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
-              >
-                {isSigningIn ? 'Signing In...' : 'Sign In'}
-              </Button>
-            </form>
-          </TabsContent>
+            <TabsContent value="sign-in">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    required
+                    disabled={isSigningIn}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    required
+                    disabled={isSigningIn}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                  disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
+                >
+                  {isSigningIn ? 'Signing In...' : 'Sign In'}
+                </Button>
+              </form>
+            </TabsContent>
 
-          <TabsContent value="sign-up">
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="text"
-                  placeholder="Your Name"
-                  value={signUpName}
-                  onChange={(e) => setSignUpName(e.target.value)}
-                  required
-                  disabled={isSigningUp}
-                />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={signUpEmail}
-                  onChange={(e) => setSignUpEmail(e.target.value)}
-                  required
-                  disabled={isSigningUp}
-                />
-                <Input
-                  type="password"
-                  placeholder="Password (min 6 characters)"
-                  value={signUpPassword}
-                  onChange={(e) => setSignUpPassword(e.target.value)}
-                  required
-                  disabled={isSigningUp}
-                  minLength={6}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
-              >
-                {isSigningUp ? 'Signing Up...' : 'Sign Up'}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="sign-up">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Your Name"
+                    value={signUpName}
+                    onChange={(e) => setSignUpName(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={signUpEmail}
+                    onChange={(e) => setSignUpEmail(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password (min 6 characters)"
+                    value={signUpPassword}
+                    onChange={(e) => setSignUpPassword(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                    minLength={6}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                  disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
+                >
+                  {isSigningUp ? 'Signing Up...' : 'Sign Up'}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
