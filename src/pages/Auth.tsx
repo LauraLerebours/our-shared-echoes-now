@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -25,7 +26,10 @@ const Auth = () => {
   const [signUpName, setSignUpName] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -50,6 +54,43 @@ const Auth = () => {
     }
   }, [searchParams]);
 
+  const handleResendConfirmation = async () => {
+    if (!unconfirmedEmail) return;
+
+    setIsResendingEmail(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: unconfirmedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
+        }
+      });
+
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to resend email',
+          description: error.message,
+        });
+      } else {
+        toast({
+          title: 'Confirmation email sent',
+          description: 'Please check your email (including spam folder) for the verification link.',
+        });
+      }
+    } catch (error) {
+      console.error('Resend confirmation error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to resend email',
+        description: 'An unexpected error occurred. Please try again.',
+      });
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -63,6 +104,7 @@ const Auth = () => {
     }
 
     setIsSigningIn(true);
+    setShowEmailNotConfirmed(false);
 
     try {
       const { error } = await signIn(signInEmail, signInPassword);
@@ -71,7 +113,9 @@ const Auth = () => {
         let errorMessage = 'Something went wrong.';
         
         if (error.message?.includes('Email not confirmed')) {
-          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+          setUnconfirmedEmail(signInEmail);
+          setShowEmailNotConfirmed(true);
+          errorMessage = 'Please verify your email address before signing in. Check your inbox and spam folder for the verification link.';
         } else if (error.message?.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (error.message?.includes('Email rate limit exceeded')) {
@@ -217,6 +261,34 @@ const Auth = () => {
             <AlertDescription>
               Please check your email and click the verification link to complete your registration.
               You may need to check your spam folder.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showEmailNotConfirmed && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertDescription className="space-y-3">
+              <div>
+                <strong>Email verification required</strong>
+              </div>
+              <p className="text-sm">
+                Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
+                Please check your inbox (and spam folder) for the verification email.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResendConfirmation}
+                  disabled={isResendingEmail}
+                  className="w-full"
+                >
+                  {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Didn't receive the email? Check your spam folder or try resending.
+                </p>
+              </div>
             </AlertDescription>
           </Alert>
         )}
