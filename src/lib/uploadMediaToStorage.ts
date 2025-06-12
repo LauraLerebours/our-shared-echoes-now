@@ -18,14 +18,14 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       throw new Error('File size exceeds 10MB limit');
     }
 
-    // Validate file type - Updated to include more video formats and better MIME type checking
+    // Validate file type - Updated to remove unsupported video/quicktime
     const allowedImageTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'
     ];
     
     const allowedVideoTypes = [
-      'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv',
-      'video/avi', 'video/mov', 'video/wmv'
+      'video/mp4', 'video/x-msvideo', 'video/x-ms-wmv',
+      'video/avi', 'video/wmv'
     ];
     
     const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
@@ -36,10 +36,10 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
     if (!allowedTypes.includes(file.type)) {
       // If MIME type check fails, check file extension as fallback
       const fileExt = file.name.split('.').pop()?.toLowerCase();
-      const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'wmv'];
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'avi', 'wmv'];
       
       if (!fileExt || !allowedExtensions.includes(fileExt)) {
-        throw new Error(`File type not supported. Supported formats: Images (JPG, PNG, GIF, WebP) and Videos (MP4, MOV, AVI, WMV). Detected type: ${file.type}`);
+        throw new Error(`File type not supported. Supported formats: Images (JPG, PNG, GIF, WebP) and Videos (MP4, AVI, WMV). Detected type: ${file.type}`);
       }
     }
 

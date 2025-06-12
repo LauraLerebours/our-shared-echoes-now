@@ -28,14 +28,14 @@ export const validateMemoryCaption = (caption: string): { isValid: boolean; erro
 export const validateFileUpload = (file: File): { isValid: boolean; error?: string } => {
   const maxSize = 10 * 1024 * 1024; // 10MB
   
-  // Updated to include more video MIME types and better validation
+  // Updated to remove unsupported video/quicktime
   const allowedImageTypes = [
     'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'
   ];
   
   const allowedVideoTypes = [
-    'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv',
-    'video/avi', 'video/mov', 'video/wmv'
+    'video/mp4', 'video/x-msvideo', 'video/x-ms-wmv',
+    'video/avi', 'video/wmv'
   ];
   
   const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
@@ -48,12 +48,12 @@ export const validateFileUpload = (file: File): { isValid: boolean; error?: stri
   if (!allowedTypes.includes(file.type)) {
     // If MIME type check fails, check file extension as fallback
     const fileExt = file.name.split('.').pop()?.toLowerCase();
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'wmv'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'avi', 'wmv'];
     
     if (!fileExt || !allowedExtensions.includes(fileExt)) {
       return { 
         isValid: false, 
-        error: `File type not supported. Please use images (JPG, PNG, GIF, WebP) or videos (MP4, MOV, AVI, WMV). Detected: ${file.type}` 
+        error: `File type not supported. Please use images (JPG, PNG, GIF, WebP) or videos (MP4, AVI, WMV). Detected: ${file.type}` 
       };
     }
   }
