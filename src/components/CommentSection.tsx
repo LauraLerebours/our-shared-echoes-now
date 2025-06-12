@@ -62,7 +62,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
         .from('comments')
         .select(`
           *,
-          user_profiles!fk_comments_user_profile_id(name)
+          user_profiles(name)
         `)
         .eq('memory_id', memoryId)
         .order('created_at', { ascending: true });
