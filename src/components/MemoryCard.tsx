@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Trash2, Video, FileText, User } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,9 @@ const MemoryCard = ({
   const [isLiking, setIsLiking] = useState(false);
   const [currentLikes, setCurrentLikes] = useState(likes);
   const [currentIsLiked, setCurrentIsLiked] = useState(isLiked);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [showVideoIcon, setShowVideoIcon] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isNote = type === 'note';
 
   useEffect(() => {
@@ -94,6 +97,39 @@ const MemoryCard = ({
     setCurrentLikes(likes);
     setCurrentIsLiked(isLiked);
   }, [likes, isLiked]);
+
+  // Handle video loading and playback
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      const video = videoRef.current;
+      
+      const handleLoadedData = () => {
+        setIsVideoLoaded(true);
+        // Hide the video icon after a short delay once video starts playing
+        setTimeout(() => {
+          setShowVideoIcon(false);
+        }, 1000);
+      };
+
+      const handleError = () => {
+        console.error('Video failed to load');
+        setIsVideoLoaded(false);
+      };
+
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('error', handleError);
+
+      // Start playing the video
+      video.play().catch(error => {
+        console.error('Video autoplay failed:', error);
+      });
+
+      return () => {
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('error', handleError);
+      };
+    }
+  }, [isVideo]);
 
   const handleLike = async () => {
     if (isLiking) return; // Prevent double-clicking
@@ -242,13 +278,28 @@ const MemoryCard = ({
         {isVideo ? (
           <div className="relative">
             <video 
+              ref={videoRef}
               src={image}
               className="w-full aspect-[4/3] object-cover" 
-              poster={image + '?poster=true'}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              onLoadedData={() => setIsVideoLoaded(true)}
+              onError={() => setIsVideoLoaded(false)}
             />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Video className="h-12 w-12 text-white opacity-80" />
-            </div>
+            {/* Video icon overlay - shows initially and fades out */}
+            {showVideoIcon && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000">
+                <Video className="h-12 w-12 text-white opacity-80" />
+              </div>
+            )}
+            {/* Fallback for when video fails to load */}
+            {!isVideoLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+                <Video className="h-12 w-12 text-gray-400" />
+              </div>
+            )}
           </div>
         ) : (
           <img 
