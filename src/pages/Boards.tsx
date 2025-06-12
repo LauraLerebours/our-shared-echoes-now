@@ -179,14 +179,15 @@ const Boards = () => {
 
     if (photos.length === 2) {
       return (
-        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-1">
+        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-0.5">
           {photos.map((photo, index) => (
-            <img 
-              key={index}
-              src={photo} 
-              alt={`Board preview ${index + 1}`} 
-              className="flex-1 h-full object-cover"
-            />
+            <div key={index} className="flex-1 h-full">
+              <img 
+                src={photo} 
+                alt={`Board preview ${index + 1}`} 
+                className="w-full h-full object-cover"
+              />
+            </div>
           ))}
         </div>
       );
@@ -194,23 +195,29 @@ const Boards = () => {
 
     if (photos.length === 3) {
       return (
-        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-1">
-          <img 
-            src={photos[0]} 
-            alt="Board preview 1" 
-            className="flex-1 h-full object-cover"
-          />
-          <div className="flex-1 flex flex-col gap-1">
+        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-0.5">
+          <div className="flex-1 h-full">
             <img 
-              src={photos[1]} 
-              alt="Board preview 2" 
-              className="w-full flex-1 object-cover"
+              src={photos[0]} 
+              alt="Board preview 1" 
+              className="w-full h-full object-cover"
             />
-            <img 
-              src={photos[2]} 
-              alt="Board preview 3" 
-              className="w-full flex-1 object-cover"
-            />
+          </div>
+          <div className="flex-1 flex flex-col gap-0.5">
+            <div className="flex-1">
+              <img 
+                src={photos[1]} 
+                alt="Board preview 2" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1">
+              <img 
+                src={photos[2]} 
+                alt="Board preview 3" 
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
         </div>
       );
@@ -218,14 +225,15 @@ const Boards = () => {
 
     // 4 photos
     return (
-      <div className="w-full h-32 rounded-lg overflow-hidden grid grid-cols-2 gap-1">
+      <div className="w-full h-32 rounded-lg overflow-hidden grid grid-cols-2 gap-0.5">
         {photos.map((photo, index) => (
-          <img 
-            key={index}
-            src={photo} 
-            alt={`Board preview ${index + 1}`} 
-            className="w-full h-full object-cover"
-          />
+          <div key={index} className="w-full h-full">
+            <img 
+              src={photo} 
+              alt={`Board preview ${index + 1}`} 
+              className="w-full h-full object-cover"
+            />
+          </div>
         ))}
       </div>
     );
