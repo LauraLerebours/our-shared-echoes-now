@@ -244,14 +244,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
       
+      // Check for specific Supabase errors that indicate the session is already invalid
+      if (error) {
+        // If it's a session_not_found error or 403 status, log a warning but don't throw
+        if (error.message?.includes('session_not_found') || 
+            error.message?.includes('Session from session_id claim in JWT does not exist') ||
+            (error as any)?.status === 403) {
+          console.warn('Session already invalid on server, proceeding with client-side logout:', error.message);
+        } else {
+          // For other errors, still throw
+          throw error;
+        }
+      }
+      
+      // Always clear local state regardless of server response
       setUser(null);
       setUserProfile(null);
       setSession(null);
       console.log('Sign out successful');
     } catch (error) {
       console.error('Sign out error:', error);
+      // Even if there's an error, clear local state to ensure user appears logged out
+      setUser(null);
+      setUserProfile(null);
+      setSession(null);
       throw error;
     } finally {
       setLoading(false);
