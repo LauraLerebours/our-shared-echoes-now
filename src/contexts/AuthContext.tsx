@@ -2,13 +2,22 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+interface UserProfile {
+  id: string;
+  name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; user: User | null }>;
   signOut: () => Promise<void>;
+  updateProfile: (name: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,21 +33,92 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  };
+
+  const updateProfile = async (name: string) => {
+    if (!user) {
+      return { error: new Error('No user logged in') };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ name })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        return { error: new Error(error.message) };
+      }
+
+      setUserProfile(data);
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return { error: error as Error };
+    }
+  };
 
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error('Error getting initial session:', error);
+          
+          // Check if the error is related to invalid refresh token
+          if (error.message?.includes('Invalid Refresh Token') || 
+              error.message?.includes('Refresh Token Not Found')) {
+            console.log('Invalid refresh token detected, clearing session...');
+            // Clear any stale session data
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserProfile(null);
+          }
         } else {
           setSession(session);
           setUser(session?.user ?? null);
+          
+          // Fetch user profile if user exists
+          if (session?.user) {
+            const profile = await fetchUserProfile(session.user.id);
+            setUserProfile(profile);
+          }
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
+        
+        // Handle any other authentication errors by clearing session
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
       } finally {
         setLoading(false);
       }
@@ -54,18 +134,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Create user profile if user just signed up and confirmed email
-        if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            // Check if user profile exists
-            const { data: existingProfile, error: profileError } = await supabase
-              .from('user_profiles')
-              .select('id')
-              .eq('id', session.user.id)
-              .single();
+        if (session?.user) {
+          // Fetch user profile
+          const profile = await fetchUserProfile(session.user.id);
+          setUserProfile(profile);
 
-            if (profileError && profileError.code === 'PGRST116') {
-              // Profile doesn't exist, create it
+          // Create user profile if user just signed up and confirmed email
+          if (event === 'SIGNED_IN' && !profile) {
+            try {
               const { error: insertError } = await supabase
                 .from('user_profiles')
                 .insert({
@@ -75,11 +151,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               if (insertError) {
                 console.error('Error creating user profile:', insertError);
+              } else {
+                // Fetch the newly created profile
+                const newProfile = await fetchUserProfile(session.user.id);
+                setUserProfile(newProfile);
               }
+            } catch (error) {
+              console.error('Error handling user profile:', error);
             }
-          } catch (error) {
-            console.error('Error handling user profile:', error);
           }
+        } else {
+          // Clear user profile when user signs out
+          setUserProfile(null);
         }
       }
     );
@@ -137,6 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('Sign out error:', error);
       }
+      // Clear user profile state
+      setUserProfile(null);
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -145,10 +230,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     session,
+    userProfile,
     loading,
     signIn,
     signUp,
     signOut,
+    updateProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
