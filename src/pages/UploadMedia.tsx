@@ -3,21 +3,15 @@ import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
-import { extractImageMetadata, extractVideoMetadata } from '@/lib/extractMetadata';
 
 interface UploadMediaProps {
   userId: string;
   mediaType: 'image' | 'video';
-  onUploadSuccess: (publicUrl: string, metadata?: any) => void;
+  onUploadSuccess: (publicUrl: string) => void;
   disabled?: boolean;
 }
 
-const UploadMedia: React.FC<UploadMediaProps> = ({ 
-  userId, 
-  mediaType, 
-  onUploadSuccess, 
-  disabled 
-}) => {
+const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSuccess, disabled }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -37,24 +31,11 @@ const UploadMedia: React.FC<UploadMediaProps> = ({
     setIsUploading(true);
     
     try {
-      // Extract metadata before uploading
-      let metadata = {};
-      
-      if (file.type.startsWith('image/')) {
-        metadata = await extractImageMetadata(file);
-        console.log('Extracted image metadata:', metadata);
-      } else if (file.type.startsWith('video/')) {
-        metadata = await extractVideoMetadata(file);
-        console.log('Extracted video metadata:', metadata);
-      }
-
-      // Upload the file to storage
+      // Upload directly to the storage bucket
       const publicUrl = await uploadMediaToStorage(file, userId);
 
       if (publicUrl) {
-        // Pass both the URL and metadata to the parent component
-        onUploadSuccess(publicUrl, metadata);
-        
+        onUploadSuccess(publicUrl);
         toast({
           title: "Upload successful",
           description: `Your ${mediaType} has been uploaded successfully.`,

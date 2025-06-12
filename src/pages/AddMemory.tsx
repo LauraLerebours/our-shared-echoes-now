@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
 import UploadMedia from './UploadMedia';
-import { ImageMetadata } from '@/lib/extractMetadata';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -76,43 +75,13 @@ const AddMemory = () => {
     initializeBoard();
   }, [user, location.state]);
 
-  const handleUploadSuccess = (publicUrl: string, metadata?: ImageMetadata) => {
+  const handleUploadSuccess = (publicUrl: string) => {
     setPreviewMedia(publicUrl);
-    
     // Determine media type based on URL
     if (publicUrl.match(/\.(mp4|mov|avi|wmv)$/i)) {
       setMediaType('video');
     } else {
       setMediaType('image');
-    }
-
-    // Auto-fill fields based on metadata
-    if (metadata) {
-      // Auto-fill date if available
-      if (metadata.dateTaken && metadata.dateTaken instanceof Date && !isNaN(metadata.dateTaken.getTime())) {
-        setDate(metadata.dateTaken);
-        toast({
-          title: "Date auto-filled",
-          description: `Set date to ${format(metadata.dateTaken, 'MMMM d, yyyy')} from photo metadata`,
-        });
-      }
-
-      // Auto-fill location if available
-      if (metadata.location?.address) {
-        setLocation(metadata.location.address);
-        toast({
-          title: "Location auto-filled",
-          description: `Set location to ${metadata.location.address} from photo GPS data`,
-        });
-      }
-
-      // Show camera info if available (just for user info, not stored)
-      if (metadata.camera?.make && metadata.camera?.model) {
-        toast({
-          title: "Photo info",
-          description: `Taken with ${metadata.camera.make} ${metadata.camera.model}`,
-        });
-      }
     }
   };
 
@@ -276,9 +245,6 @@ const AddMemory = () => {
                   )}
                   <p className="text-muted-foreground mb-4 text-center">
                     Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-4 text-center">
-                    Date and location will be automatically extracted from photo metadata
                   </p>
                   
                   {user && (
