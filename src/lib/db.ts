@@ -55,15 +55,28 @@ export const memoryToDbMemory = (memory: Memory, userId?: string): Omit<DbMemory
   created_by: userId,
 });
 
-// Generic database operation wrapper
+// Generic database operation wrapper with better error handling
 const withErrorHandling = async <T>(
   operation: () => Promise<T>,
   errorMessage: string
 ): Promise<T | null> => {
   try {
-    return await operation();
+    console.log(`Starting operation: ${errorMessage}`);
+    const result = await operation();
+    console.log(`Operation completed successfully: ${errorMessage}`);
+    return result;
   } catch (error) {
     console.error(`${errorMessage}:`, error);
+    
+    // Log more details about the error
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    }
+    
     return null;
   }
 };
@@ -71,25 +84,38 @@ const withErrorHandling = async <T>(
 // Board operations
 export const fetchBoards = async (userId: string): Promise<Board[]> => {
   if (!userId || !rateLimiter.isAllowed(`fetchBoards:${userId}`)) {
+    console.warn('fetchBoards: Invalid userId or rate limited');
     return [];
   }
 
   return withErrorHandling(async () => {
+    console.log('Fetching boards for user:', userId);
+    
     const { data, error } = await supabase
       .from('boards')
       .select('*')
       .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in fetchBoards:', error);
+      throw error;
+    }
+    
+    console.log('Boards fetched successfully:', data?.length || 0);
     return data as Board[];
   }, 'Error fetching boards') || [];
 };
 
 export const getBoardById = async (boardId: string, userId: string): Promise<Board | null> => {
-  if (!userId) return null;
+  if (!userId) {
+    console.warn('getBoardById: No userId provided');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Fetching board by ID:', boardId, 'for user:', userId);
+    
     const { data, error } = await supabase
       .from('boards')
       .select('*')
@@ -97,40 +123,68 @@ export const getBoardById = async (boardId: string, userId: string): Promise<Boa
       .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in getBoardById:', error);
+      throw error;
+    }
+    
+    console.log('Board fetched successfully:', data?.name);
     return data as Board;
   }, 'Error fetching board by ID');
 };
 
 export const getBoardByShareCode = async (shareCode: string): Promise<Board | null> => {
-  if (!validateAccessCodeFormat(shareCode)) return null;
+  if (!validateAccessCodeFormat(shareCode)) {
+    console.warn('getBoardByShareCode: Invalid share code format');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Fetching board by share code:', shareCode);
+    
     const { data, error } = await supabase
       .from('boards')
       .select('*')
       .eq('share_code', shareCode.toUpperCase())
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in getBoardByShareCode:', error);
+      throw error;
+    }
+    
+    console.log('Board fetched by share code:', data?.name || 'not found');
     return data as Board;
   }, 'Error fetching board by share code');
 };
 
 export const createBoard = async (name: string, userId: string): Promise<Board | null> => {
-  if (!userId || !rateLimiter.isAllowed(`createBoard:${userId}`)) return null;
+  if (!userId || !rateLimiter.isAllowed(`createBoard:${userId}`)) {
+    console.warn('createBoard: Invalid userId or rate limited');
+    return null;
+  }
 
   const sanitizedName = sanitizeInput(name);
-  if (!sanitizedName) return null;
+  if (!sanitizedName) {
+    console.warn('createBoard: Invalid board name');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Creating board:', sanitizedName, 'for user:', userId);
+    
     const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const shareCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     // Create access code first
-    await supabase
+    const { error: accessCodeError } = await supabase
       .from('access_codes')
       .insert([{ code: accessCode, name: sanitizedName }]);
+
+    if (accessCodeError) {
+      console.error('Error creating access code:', accessCodeError);
+      throw accessCodeError;
+    }
 
     // Use the safe function to create board
     const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
@@ -140,7 +194,10 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       share_code_param: shareCode
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating board:', error);
+      throw error;
+    }
 
     // Fetch the created board
     const { data: boardData, error: fetchError } = await supabase
@@ -149,7 +206,12 @@ export const createBoard = async (name: string, userId: string): Promise<Board |
       .eq('id', boardId)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      console.error('Error fetching created board:', fetchError);
+      throw fetchError;
+    }
+    
+    console.log('Board created successfully:', boardData.name);
     return boardData as Board;
   }, 'Error creating board');
 };
@@ -160,19 +222,27 @@ export const renameBoard = async (
   userId: string
 ): Promise<{ success: boolean; message: string; newName?: string }> => {
   if (!userId || !newName.trim() || !rateLimiter.isAllowed(`renameBoard:${userId}`)) {
+    console.warn('renameBoard: Invalid parameters or rate limited');
     return { success: false, message: 'Invalid request' };
   }
 
   try {
+    console.log('Renaming board:', boardId, 'to:', newName.trim());
+    
     const { data, error } = await supabase.rpc('rename_board', {
       board_id: boardId,
       new_name: newName.trim(),
       user_id: userId
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error renaming board:', error);
+      throw error;
+    }
 
     const result = data as { success: boolean; message: string; new_name?: string };
+    console.log('Board renamed successfully:', result);
+    
     return { 
       success: result.success, 
       message: result.message,
@@ -189,18 +259,25 @@ export const addUserToBoard = async (
   userId: string
 ): Promise<{ success: boolean; board?: Board; message: string }> => {
   if (!userId || !validateAccessCodeFormat(shareCode) || !rateLimiter.isAllowed(`addUserToBoard:${userId}`)) {
+    console.warn('addUserToBoard: Invalid parameters or rate limited');
     return { success: false, message: 'Invalid request' };
   }
 
   try {
+    console.log('Adding user to board with share code:', shareCode);
+    
     const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
       share_code_param: shareCode.toUpperCase(),
       user_id_param: userId
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error adding user to board:', error);
+      throw error;
+    }
 
     const result = data as { success: boolean; message: string; board_id?: string };
+    console.log('User added to board result:', result);
 
     if (result.success && result.board_id) {
       const board = await getBoardByShareCode(shareCode);
@@ -219,16 +296,24 @@ export const removeUserFromBoard = async (
   userId: string
 ): Promise<{ success: boolean; message: string }> => {
   if (!userId || !rateLimiter.isAllowed(`removeUserFromBoard:${userId}`)) {
+    console.warn('removeUserFromBoard: Invalid parameters or rate limited');
     return { success: false, message: 'Invalid request' };
   }
 
   try {
+    console.log('Removing user from board:', boardId);
+    
     const { data: success, error } = await supabase.rpc('remove_board_member', {
       board_id: boardId,
       user_id: userId
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error removing user from board:', error);
+      throw error;
+    }
+
+    console.log('User removed from board result:', success);
 
     return {
       success: !!success,
@@ -242,24 +327,39 @@ export const removeUserFromBoard = async (
 
 // Memory operations
 export const fetchMemories = async (accessCode: string): Promise<Memory[]> => {
-  if (!validateAccessCodeFormat(accessCode)) return [];
+  if (!validateAccessCodeFormat(accessCode)) {
+    console.warn('fetchMemories: Invalid access code format');
+    return [];
+  }
 
   return withErrorHandling(async () => {
+    console.log('Fetching memories for access code:', accessCode);
+    
     const { data, error } = await supabase
       .from('memories')
       .select('*')
       .eq('access_code', accessCode)
       .order('event_date', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in fetchMemories:', error);
+      throw error;
+    }
+    
+    console.log('Memories fetched successfully:', data?.length || 0);
     return (data as DbMemory[]).map(dbMemoryToMemory);
   }, 'Error fetching memories') || [];
 };
 
 export const getMemory = async (id: string, accessCode: string): Promise<Memory | null> => {
-  if (!validateAccessCodeFormat(accessCode)) return null;
+  if (!validateAccessCodeFormat(accessCode)) {
+    console.warn('getMemory: Invalid access code format');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Fetching memory:', id, 'with access code:', accessCode);
+    
     const { data, error } = await supabase
       .from('memories')
       .select('*')
@@ -267,16 +367,26 @@ export const getMemory = async (id: string, accessCode: string): Promise<Memory 
       .eq('access_code', accessCode)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in getMemory:', error);
+      throw error;
+    }
+    
+    console.log('Memory fetched successfully:', data?.caption || 'no caption');
     return data ? dbMemoryToMemory(data as DbMemory) : null;
   }, 'Error fetching memory');
 };
 
 export const createMemory = async (memory: Memory): Promise<Memory | null> => {
   const userId = await requireAuth();
-  if (!rateLimiter.isAllowed(`createMemory:${userId}`)) return null;
+  if (!rateLimiter.isAllowed(`createMemory:${userId}`)) {
+    console.warn('createMemory: Rate limited');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Creating memory:', memory.caption || 'no caption');
+    
     const newDbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
@@ -284,16 +394,26 @@ export const createMemory = async (memory: Memory): Promise<Memory | null> => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in createMemory:', error);
+      throw error;
+    }
+    
+    console.log('Memory created successfully');
     return dbMemoryToMemory(data as DbMemory);
   }, 'Error creating memory');
 };
 
 export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
   const userId = await requireAuth();
-  if (!rateLimiter.isAllowed(`updateMemory:${userId}`)) return null;
+  if (!rateLimiter.isAllowed(`updateMemory:${userId}`)) {
+    console.warn('updateMemory: Rate limited');
+    return null;
+  }
 
   return withErrorHandling(async () => {
+    console.log('Updating memory:', memory.id);
+    
     const dbMemory = memoryToDbMemory(memory, userId);
     const { data, error } = await supabase
       .from('memories')
@@ -303,7 +423,12 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in updateMemory:', error);
+      throw error;
+    }
+    
+    console.log('Memory updated successfully');
     return dbMemoryToMemory(data as DbMemory);
   }, 'Error updating memory');
 };
@@ -311,17 +436,25 @@ export const updateMemory = async (memory: Memory): Promise<Memory | null> => {
 export const deleteMemory = async (memoryId: string, accessCode: string): Promise<boolean> => {
   const userId = await requireAuth();
   if (!rateLimiter.isAllowed(`deleteMemory:${userId}`) || !validateAccessCodeFormat(accessCode)) {
+    console.warn('deleteMemory: Invalid parameters or rate limited');
     return false;
   }
 
   return withErrorHandling(async () => {
+    console.log('Deleting memory:', memoryId);
+    
     const { error } = await supabase
       .from('memories')
       .delete()
       .eq('id', memoryId)
       .eq('access_code', accessCode);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error in deleteMemory:', error);
+      throw error;
+    }
+    
+    console.log('Memory deleted successfully');
     return true;
   }, 'Error deleting memory') || false;
 };
@@ -330,10 +463,13 @@ export const deleteMemory = async (memoryId: string, accessCode: string): Promis
 export const toggleMemoryLike = async (memoryId: string, accessCode: string): Promise<{ success: boolean; likes: number; isLiked: boolean } | null> => {
   const userId = await requireAuth();
   if (!rateLimiter.isAllowed(`toggleLike:${userId}`) || !validateAccessCodeFormat(accessCode)) {
+    console.warn('toggleMemoryLike: Invalid parameters or rate limited');
     return null;
   }
 
   return withErrorHandling(async () => {
+    console.log('Toggling like for memory:', memoryId);
+    
     // First, get the current memory data
     const { data: currentMemory, error: fetchError } = await supabase
       .from('memories')
@@ -343,7 +479,10 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .order('id')
       .limit(1);
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      console.error('Error fetching current memory for like toggle:', fetchError);
+      throw fetchError;
+    }
 
     // Check if memory was found
     if (!currentMemory || currentMemory.length === 0) {
@@ -372,7 +511,10 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .order('id')
       .limit(1);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating memory likes:', error);
+      throw error;
+    }
 
     // Check if update was successful
     if (!data || data.length === 0) {
@@ -381,6 +523,8 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
     }
 
     const updatedData = data[0];
+    console.log('Like toggled successfully:', { likes: updatedData.likes, isLiked: updatedData.is_liked });
+    
     return {
       success: true,
       likes: updatedData.likes || 0,
