@@ -104,7 +104,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_comments_user_id"
+            foreignKeyName: "fk_comments_user_profile_id"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
