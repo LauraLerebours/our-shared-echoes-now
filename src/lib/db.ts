@@ -340,9 +340,15 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .select('likes, is_liked')
       .eq('id', memoryId)
       .eq('access_code', accessCode)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
+
+    // Check if memory was found
+    if (!currentMemory) {
+      console.warn('Memory not found or not accessible:', memoryId);
+      return null;
+    }
 
     const currentLikes = currentMemory.likes || 0;
     const currentIsLiked = currentMemory.is_liked || false;
@@ -361,9 +367,15 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .eq('id', memoryId)
       .eq('access_code', accessCode)
       .select('likes, is_liked')
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+
+    // Check if update was successful
+    if (!data) {
+      console.warn('Memory update failed or not accessible:', memoryId);
+      return null;
+    }
 
     return {
       success: true,
