@@ -40,7 +40,7 @@ const Index = () => {
         // Load boards with timeout
         const boardsPromise = fetchBoards(user.id);
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 10000)
+          setTimeout(() => reject(new Error('Request timeout')), 30000)
         );
         
         const boardsData = await Promise.race([boardsPromise, timeoutPromise]) as Board[];
