@@ -238,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: email.trim().toLowerCase(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
           data: {
             name: name.trim(),
           }

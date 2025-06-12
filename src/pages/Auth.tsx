@@ -30,6 +30,15 @@ const Auth = () => {
   useEffect(() => {
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
+    const type = searchParams.get('type');
+    
+    // Handle email confirmation success
+    if (type === 'signup') {
+      toast({
+        title: 'Email confirmed!',
+        description: 'Your email has been verified. You can now sign in to your account.',
+      });
+    }
     
     if (error) {
       console.error('Auth error from URL:', error, errorDescription);
