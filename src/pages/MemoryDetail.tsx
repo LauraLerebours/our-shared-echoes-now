@@ -200,7 +200,7 @@ const MemoryDetail = () => {
       
       <main className="flex-1">
         {isNote ? (
-          // Note layout
+          // Note layout - no image/media display
           <div className="p-4">
             <div className="bg-gradient-to-r from-memory-lightpurple/10 to-white border-l-4 border-l-memory-purple rounded-lg p-6 mb-6">
               <div className="flex items-center gap-3 mb-4">
@@ -239,7 +239,7 @@ const MemoryDetail = () => {
             </div>
           </div>
         ) : (
-          // Regular memory layout
+          // Regular memory layout - with image/video
           <>
             <div className="relative">
               {memory.isVideo ? (
