@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -6,6 +6,7 @@ import BoardMembersDialog from '@/components/BoardMembersDialog';
 import BoardRenameDialog from '@/components/BoardRenameDialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import ScrollToBottom from '@/components/ScrollToBottom';
 import { useBoards } from '@/hooks/useBoards';
 import { Button } from '@/components/ui/button';
 import { Plus, UserMinus, Image, Trash2, CheckSquare, Square, Users, Edit2 } from 'lucide-react';
@@ -37,6 +38,7 @@ const Boards = () => {
   const [selectedBoards, setSelectedBoards] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
 
   const {
     boards,
@@ -110,7 +112,7 @@ const Boards = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         
-        <main className="flex-1 p-4">
+        <main ref={mainRef} className="flex-1 p-4 relative">
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">My Boards</h1>
@@ -265,7 +267,7 @@ const Boards = () => {
                 </Dialog>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
                 {boards.map((board) => (
                   <div
                     key={board.id}
@@ -361,6 +363,11 @@ const Boards = () => {
               </div>
             )}
           </div>
+          
+          {/* Add scroll to bottom component when there are boards */}
+          {boards.length > 0 && (
+            <ScrollToBottom containerRef={mainRef} />
+          )}
         </main>
         
         <Footer activeTab="boards" />
