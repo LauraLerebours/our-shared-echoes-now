@@ -191,22 +191,6 @@ const AddMemory = () => {
       
     } catch (error) {
       console.error('Error saving memory:', error);
-      
-      // Check if the error is related to authentication
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('Authentication error') || 
-          errorMessage.includes('User not authenticated') ||
-          errorMessage.includes('session_not_found') ||
-          errorMessage.includes('Auth session missing')) {
-        toast({
-          title: "Session expired",
-          description: "Please sign in again to continue",
-          variant: "destructive",
-        });
-        navigate('/auth');
-        return;
-      }
-      
       toast({
         title: "Save failed",
         description: mediaType === 'note' ? "Failed to save note" : "Failed to save memory",
