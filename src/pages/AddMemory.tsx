@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, FileText } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, FileText, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
-import UploadMedia from './UploadMedia';
+import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -75,33 +75,54 @@ const AddMemory = () => {
     initializeBoard();
   }, [user, location.state]);
 
-  const handleUploadSuccess = (publicUrl: string, metadata?: { date?: Date; location?: string }) => {
-    setPreviewMedia(publicUrl);
-    
-    // Determine media type based on URL
-    if (publicUrl.match(/\.(mp4|mov|avi|wmv)$/i)) {
-      setMediaType('video');
-    } else {
-      setMediaType('image');
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 10MB",
+        variant: "destructive"
+      });
+      return;
     }
 
-    // Auto-fill metadata if available
-    if (metadata) {
-      if (metadata.date) {
-        setDate(metadata.date);
+    setUploading(true);
+    
+    try {
+      const publicUrl = await uploadMediaToStorage(file, user.id);
+
+      if (publicUrl) {
+        setPreviewMedia(publicUrl);
+        
+        // Determine media type based on file type
+        if (file.type.startsWith('video/')) {
+          setMediaType('video');
+        } else {
+          setMediaType('image');
+        }
+        
         toast({
-          title: "Date auto-filled",
-          description: `Set date to ${format(metadata.date, 'MMMM d, yyyy')} from photo metadata`,
+          title: "Upload successful",
+          description: `Your ${file.type.startsWith('video/') ? 'video' : 'image'} has been uploaded successfully.`,
+        });
+      } else {
+        toast({
+          title: "Upload failed",
+          description: "Could not upload file to storage. Please check if you're logged in and try again.",
+          variant: "destructive"
         });
       }
-      
-      if (metadata.location) {
-        setLocation(metadata.location);
-        toast({
-          title: "Location auto-filled",
-          description: `Set location to "${metadata.location}" from photo metadata`,
-        });
-      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "An error occurred during upload. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -267,14 +288,34 @@ const AddMemory = () => {
                     Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
                   </p>
                   
-                  {user && (
-                    <UploadMedia 
-                      userId={user.id}
-                      mediaType={mediaType}
-                      onUploadSuccess={handleUploadSuccess}
+                  <div className="relative inline-block">
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      onClick={() => document.getElementById('file-input')?.click()}
+                      className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? (
+                        <span className="flex items-center">
+                          <span className="animate-spin mr-2">⏳</span>
+                          Uploading...
+                        </span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Select {mediaType === 'video' ? 'Video' : 'Photo'}
+                        </>
+                      )}
+                    </button>
+                    <input
+                      id="file-input"
+                      type="file"
+                      accept={mediaType === 'video' ? 'video/*' : 'image/*'}
+                      className="absolute inset-0 opacity-0 pointer-events-none"
+                      onChange={handleFileChange}
                       disabled={uploading}
                     />
-                  )}
+                  </div>
                 </div>
               )}
             </div>
