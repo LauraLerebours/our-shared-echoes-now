@@ -9,19 +9,13 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       'image/png',
       'image/gif',
       'image/webp',
-      // Note: video/mp4 may not be supported by the current bucket configuration
-      // 'video/mp4',
-      // 'video/quicktime',
-      // 'video/x-msvideo'
+      'video/mp4',
+      'video/quicktime',
+      'video/x-msvideo'
     ];
 
     if (!supportedTypes.includes(file.type)) {
-      // Provide specific guidance for video files
-      if (file.type.startsWith('video/')) {
-        throw new Error(`Video uploads are currently not supported. The storage bucket needs to be configured to allow ${file.type}. Please contact the administrator to enable video uploads.`);
-      } else {
-        throw new Error(`File type ${file.type} is not supported. Supported types: ${supportedTypes.join(', ')}`);
-      }
+      throw new Error(`File type ${file.type} is not supported. Supported types: ${supportedTypes.join(', ')}`);
     }
 
     // Generate a unique filename
