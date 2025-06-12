@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,7 +27,7 @@ const AddMemory = () => {
   const [caption, setCaption] = useState('');
   const [location_, setLocation] = useState('');
   const [previewMedia, setPreviewMedia] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'note'>('image');
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [uploading, setUploading] = useState(false);
   const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   const { user } = useAuth();
@@ -129,7 +129,7 @@ const AddMemory = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (mediaType !== 'note' && !previewMedia) {
+    if (!previewMedia) {
       toast({
         title: "Error",
         description: "Please select an image or video for your memory",
@@ -141,7 +141,7 @@ const AddMemory = () => {
     if (!caption.trim()) {
       toast({
         title: "Error",
-        description: mediaType === 'note' ? "Please write your note content" : "Please add a caption for your memory",
+        description: "Please add a caption for your memory",
         variant: "destructive",
       });
       return;
@@ -162,14 +162,14 @@ const AddMemory = () => {
       // Create a new memory object
       const newMemory: Memory = {
         id: uuidv4(),
-        image: previewMedia || '',
+        image: previewMedia,
         caption,
         date,
         location: location_ || undefined,
         likes: 0,
         isLiked: false,
         isVideo: mediaType === 'video',
-        type: mediaType === 'note' ? 'note' : 'memory',
+        type: 'memory',
         accessCode: selectedAccessCode
       };
       
@@ -182,8 +182,8 @@ const AddMemory = () => {
       
       // Show success notification
       toast({
-        title: mediaType === 'note' ? "Note saved" : "Memory saved",
-        description: mediaType === 'note' ? "Your note has been added successfully" : "Your memory has been added successfully",
+        title: "Memory saved",
+        description: "Your memory has been added successfully",
       });
       
       // Navigate back to the home page
@@ -193,7 +193,7 @@ const AddMemory = () => {
       console.error('Error saving memory:', error);
       toast({
         title: "Save failed",
-        description: mediaType === 'note' ? "Failed to save note" : "Failed to save memory",
+        description: "Failed to save memory",
         variant: "destructive",
       });
     } finally {
@@ -210,14 +210,12 @@ const AddMemory = () => {
           </Link>
         </Button>
         
-        <h1 className="text-lg font-medium">
-          {mediaType === 'note' ? 'Add New Note' : 'Add New Memory'}
-        </h1>
+        <h1 className="text-lg font-medium">Add New Memory</h1>
         
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!caption.trim() || uploading || !selectedAccessCode || (mediaType !== 'note' && !previewMedia)}
+          disabled={!caption.trim() || uploading || !selectedAccessCode || !previewMedia}
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
           {uploading ? 'Saving...' : 'Save'}
@@ -226,8 +224,8 @@ const AddMemory = () => {
       
       <main className="flex-1 p-4">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="image" className="mb-4" onValueChange={(value) => setMediaType(value as 'image' | 'video' | 'note')}>
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="image" className="mb-4" onValueChange={(value) => setMediaType(value as 'image' | 'video')}>
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="image" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Photo
@@ -236,103 +234,97 @@ const AddMemory = () => {
                 <Video className="h-4 w-4" />
                 Video
               </TabsTrigger>
-              <TabsTrigger value="note" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Note
-              </TabsTrigger>
             </TabsList>
           </Tabs>
           
-          {mediaType !== 'note' && (
-            <div className={cn(
-              "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
-              previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
-            )}>
-              {uploading ? (
-                <div className="flex flex-col items-center justify-center h-[200px]">
-                  <p>Uploading...</p>
-                </div>
-              ) : previewMedia ? (
-                <div className="relative w-full">
-                  {mediaType === 'video' ? (
-                    <video 
-                      src={previewMedia} 
-                      className="w-full aspect-[4/3] object-cover rounded-lg"
-                      controls
-                    />
-                  ) : (
-                    <img 
-                      src={previewMedia} 
-                      alt="Memory preview" 
-                      className="w-full aspect-[4/3] object-cover rounded-lg" 
-                    />
-                  )}
-                  <Button
+          <div className={cn(
+            "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
+            previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
+          )}>
+            {uploading ? (
+              <div className="flex flex-col items-center justify-center h-[200px]">
+                <p>Uploading...</p>
+              </div>
+            ) : previewMedia ? (
+              <div className="relative w-full">
+                {mediaType === 'video' ? (
+                  <video 
+                    src={previewMedia} 
+                    className="w-full aspect-[4/3] object-cover rounded-lg"
+                    controls
+                  />
+                ) : (
+                  <img 
+                    src={previewMedia} 
+                    alt="Memory preview" 
+                    className="w-full aspect-[4/3] object-cover rounded-lg" 
+                  />
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="absolute bottom-4 right-4"
+                  onClick={() => setPreviewMedia(null)}
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center w-full">
+                {mediaType === 'video' ? (
+                  <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
+                ) : (
+                  <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
+                )}
+                <p className="text-muted-foreground mb-4 text-center">
+                  Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
+                </p>
+                
+                <div className="relative inline-block">
+                  <button
                     type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="absolute bottom-4 right-4"
-                    onClick={() => setPreviewMedia(null)}
+                    disabled={uploading}
+                    onClick={() => document.getElementById('file-input')?.click()}
+                    className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Change
-                  </Button>
+                    {uploading ? (
+                      <span className="flex items-center">
+                        <span className="animate-spin mr-2">⏳</span>
+                        Uploading...
+                      </span>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Select {mediaType === 'video' ? 'Video' : 'Photo'}
+                      </>
+                    )}
+                  </button>
+                  <input
+                    id="file-input"
+                    type="file"
+                    accept={mediaType === 'video' ? 'video/*' : 'image/*'}
+                    className="absolute inset-0 opacity-0 pointer-events-none"
+                    onChange={handleFileChange}
+                    disabled={uploading}
+                  />
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center w-full">
-                  {mediaType === 'video' ? (
-                    <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
-                  ) : (
-                    <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
-                  )}
-                  <p className="text-muted-foreground mb-4 text-center">
-                    Tap to add a {mediaType === 'video' ? 'video' : 'photo'} for this memory
-                  </p>
-                  
-                  <div className="relative inline-block">
-                    <button
-                      type="button"
-                      disabled={uploading}
-                      onClick={() => document.getElementById('file-input')?.click()}
-                      className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {uploading ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⏳</span>
-                          Uploading...
-                        </span>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Select {mediaType === 'video' ? 'Video' : 'Photo'}
-                        </>
-                      )}
-                    </button>
-                    <input
-                      id="file-input"
-                      type="file"
-                      accept={mediaType === 'video' ? 'video/*' : 'image/*'}
-                      className="absolute inset-0 opacity-0 pointer-events-none"
-                      onChange={handleFileChange}
-                      disabled={uploading}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
           
           <div className="space-y-4">
             <div>
               <label htmlFor="caption" className="block text-sm font-medium text-muted-foreground mb-1">
-                {mediaType === 'note' ? 'Note Content' : 'Caption'}
+                Caption
               </label>
               <Textarea
                 id="caption"
-                placeholder={mediaType === 'note' ? "Write your note here..." : "Write something about this memory..."}
+                placeholder="Write something about this memory..."
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 className="resize-none"
-                rows={mediaType === 'note' ? 6 : 3}
+                rows={3}
                 required
               />
             </div>
@@ -363,23 +355,21 @@ const AddMemory = () => {
               </Popover>
             </div>
             
-            {mediaType !== 'note' && (
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-muted-foreground mb-1">
-                  Location (optional)
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="location"
-                    placeholder="Add a location"
-                    value={location_}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-muted-foreground mb-1">
+                Location (optional)
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="location"
+                  placeholder="Add a location"
+                  value={location_}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            )}
+            </div>
           </div>
         </form>
       </main>

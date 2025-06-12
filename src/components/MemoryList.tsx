@@ -12,7 +12,7 @@ export interface Memory {
   likes: number;
   isLiked: boolean;
   isVideo?: boolean;
-  type: 'memory' | 'note';
+  type: 'memory';
   accessCode: string;
   createdBy?: string; // Add createdBy field
 }

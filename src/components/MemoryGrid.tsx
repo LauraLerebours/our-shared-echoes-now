@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Memory } from './MemoryList';
-import { Heart, Video, FileText, User } from 'lucide-react';
+import { Heart, Video, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -195,57 +195,6 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
     <TooltipProvider>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 pb-20">
         {sortedMemories.map((memory) => {
-          const isNote = memory.type === 'note';
-          
-          if (isNote) {
-            // Note card in grid
-            return (
-              <Tooltip key={memory.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className="aspect-square bg-gradient-to-br from-memory-lightpurple/20 to-white border border-memory-purple/20 rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow flex flex-col"
-                    onClick={() => onViewDetail(memory.id, memory.accessCode)}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="h-4 w-4 text-memory-purple" />
-                      <span className="text-xs text-memory-purple font-medium">Note</span>
-                    </div>
-                    <p className="text-xs text-foreground line-clamp-4 flex-1">
-                      {memory.caption}
-                    </p>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-memory-purple/10">
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(memory.date), 'MMM d')}
-                      </span>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="p-0 h-auto" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLike(memory);
-                        }}
-                        disabled={likingMemories.has(memory.id)}
-                      >
-                        <Heart className={cn(
-                          "h-3 w-3 mr-1", 
-                          memory.isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
-                        )} />
-                        <span className={cn(
-                          "text-xs", 
-                          memory.isLiked ? "text-memory-pink" : "text-muted-foreground"
-                        )}>{memory.likes}</span>
-                      </Button>
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Posted by {getCreatorName(memory)}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          }
-
           // Regular memory card in grid
           return (
             <Tooltip key={memory.id}>
