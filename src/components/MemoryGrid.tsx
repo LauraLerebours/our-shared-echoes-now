@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Memory } from './MemoryList';
 import { Heart, Video, FileText, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,72 @@ interface MemoryGridProps {
   onViewDetail: (id: string, accessCode: string) => void;
   onUpdateMemory?: (id: string, updates: Partial<Memory>) => void;
 }
+
+const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [showVideoIcon, setShowVideoIcon] = useState(true);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      
+      const handleLoadedData = () => {
+        setIsVideoLoaded(true);
+        // Hide the video icon after a short delay once video starts playing
+        setTimeout(() => {
+          setShowVideoIcon(false);
+        }, 1000);
+      };
+
+      const handleError = () => {
+        console.error('Video failed to load');
+        setIsVideoLoaded(false);
+      };
+
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('error', handleError);
+
+      // Start playing the video
+      video.play().catch(error => {
+        console.error('Video autoplay failed:', error);
+      });
+
+      return () => {
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('error', handleError);
+      };
+    }
+  }, [src]);
+
+  return (
+    <div className="relative w-full h-full">
+      <video 
+        ref={videoRef}
+        src={src}
+        className="w-full h-full object-cover" 
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onLoadedData={() => setIsVideoLoaded(true)}
+        onError={() => setIsVideoLoaded(false)}
+      />
+      {/* Video icon overlay - shows initially and fades out */}
+      {showVideoIcon && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000">
+          <Video className="h-6 w-6 text-white opacity-80" />
+        </div>
+      )}
+      {/* Fallback for when video fails to load */}
+      {!isVideoLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+          <Video className="h-6 w-6 text-gray-400" />
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdateMemory }) => {
   const [likingMemories, setLikingMemories] = useState<Set<string>>(new Set());
@@ -125,17 +191,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
           >
             <div className="relative h-full">
               {memory.isVideo ? (
-                <div className="relative h-full">
-                  <video 
-                    src={memory.image}
-                    className="w-full h-full object-cover" 
-                    muted
-                    preload="metadata"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <Video className="h-6 w-6 text-white opacity-80" />
-                  </div>
-                </div>
+                <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
               ) : (
                 <img 
                   src={memory.image} 
