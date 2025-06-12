@@ -182,39 +182,36 @@ const MemoryCard = ({
   };
 
   if (isNote) {
-    // Special formatting for notes
+    // Special formatting for notes - display as a simple text bubble
     return (
-      <Card className="overflow-hidden mb-6 animate-fade-in border-l-4 border-l-memory-purple shadow-md bg-gradient-to-r from-memory-lightpurple/10 to-white">
-        <CardContent className="p-4" onClick={() => onViewDetail(id)}>
-          <div className="flex items-start gap-3 mb-3">
-            <div className="flex-shrink-0 w-10 h-10 bg-memory-purple/10 rounded-full flex items-center justify-center">
-              <FileText className="h-5 w-5 text-memory-purple" />
+      <div className="mb-6 animate-fade-in">
+        <div 
+          className="bg-gradient-to-r from-memory-lightpurple/20 to-white border border-memory-purple/20 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => onViewDetail(id)}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-8 h-8 bg-memory-purple/10 rounded-full flex items-center justify-center">
+              <FileText className="h-4 w-4 text-memory-purple" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium text-memory-purple">Note</span>
-                <span className="text-sm text-muted-foreground">•</span>
-                <span className="text-sm text-muted-foreground">{format(new Date(date), 'MMM d, yyyy')}</span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium text-memory-purple">Note</span>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">{format(new Date(date), 'MMM d, yyyy')}</span>
+                {creatorProfile && (
+                  <>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <span className="text-xs text-muted-foreground">by {getCreatorName()}</span>
+                  </>
+                )}
               </div>
               {caption && (
-                <p className="text-foreground leading-relaxed line-clamp-4">{caption}</p>
-              )}
-              {creatorProfile && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Avatar className="h-5 w-5">
-                    <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
-                      {getCreatorInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs text-muted-foreground">by {getCreatorName()}</span>
-                </div>
+                <p className="text-foreground leading-relaxed text-sm line-clamp-4">{caption}</p>
               )}
             </div>
           </div>
-        </CardContent>
-        
-        <CardFooter className="px-4 py-2 flex justify-between border-t bg-white/50">
-          <div className="flex items-center">
+          
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-memory-purple/10">
             <Button 
               size="sm" 
               variant="ghost" 
@@ -226,48 +223,48 @@ const MemoryCard = ({
               disabled={isLiking}
             >
               <Heart className={cn(
-                "h-5 w-5 mr-1", 
+                "h-4 w-4 mr-1", 
                 currentIsLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
               )} />
               <span className={cn(
-                "text-sm", 
+                "text-xs", 
                 currentIsLiked ? "text-memory-pink" : "text-muted-foreground"
               )}>{currentLikes}</span>
             </Button>
-          </div>
-          
-          {onDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="p-1 h-auto text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Note</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete this note? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => onDelete(id)}
-                    className="bg-destructive hover:bg-destructive/90"
+            
+            {onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="p-1 h-auto text-destructive hover:bg-destructive/10"
                   >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </CardFooter>
-      </Card>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this note? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => onDelete(id)}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
