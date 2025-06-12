@@ -85,7 +85,7 @@ serve(async (req) => {
     // Send emails to all members
     const emailPromises = memberEmails.map(async (email) => {
       try {
-        // Using a simple email service - you can replace this with your preferred email provider
+        // Using Resend with custom domain
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -97,39 +97,52 @@ serve(async (req) => {
             to: [email],
             subject: `New memory added to "${board_name}"`,
             html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #FFA5BA, #9b87f5); padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                  <h1 style="color: white; margin: 0; font-size: 24px;">This Is Us</h1>
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); padding: 32px 24px; text-align: center; border-radius: 12px 12px 0 0;">
+                  <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">This Is Us</h1>
+                  <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 16px;">Shared Memories</p>
                 </div>
                 
-                <div style="background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                  <h2 style="color: #333; margin-top: 0;">New Memory Added! 📸</h2>
-                  
-                  <p style="color: #666; font-size: 16px; line-height: 1.5;">
-                    <strong>${creator_name}</strong> just added a new memory to your shared board "<strong>${board_name}</strong>".
-                  </p>
+                <!-- Content -->
+                <div style="padding: 40px 32px; background: white; border-radius: 0 0 12px 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);">
+                  <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                      <span style="font-size: 28px;">📸</span>
+                    </div>
+                    <h2 style="color: #1a1a1a; margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">New Memory Added!</h2>
+                    <p style="color: #666; font-size: 16px; margin: 0; line-height: 1.5;">
+                      <strong style="color: #9b87f5;">${creator_name}</strong> just shared a new memory in "<strong>${board_name}</strong>"
+                    </p>
+                  </div>
                   
                   ${memory_caption ? `
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #9b87f5;">
-                      <p style="margin: 0; color: #555; font-style: italic;">"${memory_caption}"</p>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #9b87f5;">
+                      <p style="margin: 0; color: #333; font-size: 16px; line-height: 1.6; font-style: italic;">"${memory_caption}"</p>
                     </div>
                   ` : ''}
                   
-                  <div style="text-align: center; margin: 30px 0;">
+                  <div style="text-align: center; margin: 32px 0;">
                     <a href="https://thisisus.space/memory/${memory_id}" 
-                       style="background: linear-gradient(135deg, #FFA5BA, #9b87f5); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                       style="display: inline-block; background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3); transition: all 0.2s ease;">
                       View Memory
                     </a>
                   </div>
                   
-                  <p style="color: #888; font-size: 14px; text-align: center; margin-top: 30px;">
-                    Keep building your shared story together! ❤️
-                  </p>
+                  <div style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #9ca3af; font-size: 14px; margin: 0; line-height: 1.5;">
+                      Keep building your shared story together! ❤️
+                    </p>
+                  </div>
                 </div>
                 
-                <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
-                  <p>This Is Us - Shared Memories</p>
-                  <p>You received this email because you're a member of the "${board_name}" board.</p>
+                <!-- Footer -->
+                <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; line-height: 1.5;">
+                  <p style="margin: 0 0 8px 0; font-weight: 500;">This Is Us - Shared Memories</p>
+                  <p style="margin: 0;">You received this email because you're a member of the "${board_name}" board.</p>
+                  <p style="margin: 8px 0 0 0;">
+                    <a href="https://thisisus.space" style="color: #9b87f5; text-decoration: none;">Visit This Is Us</a>
+                  </p>
                 </div>
               </div>
             `,
