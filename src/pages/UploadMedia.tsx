@@ -4,6 +4,7 @@ import { Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 import { extractPhotoMetadata, PhotoMetadata } from '@/lib/extractMetadata';
+import { validateFileUpload } from '@/lib/validation';
 
 interface UploadMediaProps {
   userId: string;
@@ -20,10 +21,35 @@ const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSu
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
+    // Validate file before upload
+    const validation = validateFileUpload(file);
+    if (!validation.isValid) {
       toast({
-        title: "File too large",
-        description: "Please select a file smaller than 10MB",
+        title: "Invalid file",
+        description: validation.error,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Additional check for media type matching
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/') || 
+                   ['mp4', 'mov', 'avi', 'wmv'].includes(file.name.split('.').pop()?.toLowerCase() || '');
+
+    if (mediaType === 'image' && !isImage) {
+      toast({
+        title: "Wrong file type",
+        description: "Please select an image file for photo upload",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (mediaType === 'video' && !isVideo) {
+      toast({
+        title: "Wrong file type",
+        description: "Please select a video file for video upload",
         variant: "destructive"
       });
       return;
@@ -98,7 +124,7 @@ const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSu
       <Input
         ref={fileInputRef}
         type="file"
-        accept={mediaType === 'video' ? 'video/*' : 'image/*'}
+        accept={mediaType === 'video' ? 'video/*,.mp4,.mov,.avi,.wmv' : 'image/*'}
         className="absolute inset-0 opacity-0 pointer-events-none"
         onChange={handleFileChange}
         disabled={isUploading}
