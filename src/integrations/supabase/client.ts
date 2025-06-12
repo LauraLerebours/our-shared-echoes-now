@@ -5,22 +5,33 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+console.log('=== SUPABASE CLIENT DEBUG ===');
 console.log('Environment check:', {
   hasUrl: !!SUPABASE_URL,
   hasKey: !!SUPABASE_ANON_KEY,
-  url: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 20)}...` : 'undefined',
-  key: SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 20)}...` : 'undefined'
+  url: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'undefined',
+  key: SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 30)}...` : 'undefined',
+  nodeEnv: import.meta.env.MODE,
+  allEnvVars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
 });
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing Supabase environment variables:', {
-    VITE_SUPABASE_URL: SUPABASE_URL,
-    VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? '[REDACTED]' : undefined
+  console.error('❌ Missing Supabase environment variables:', {
+    VITE_SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
+    VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? 'SET' : 'MISSING'
   });
+  
+  // In production, show user-friendly error
+  if (import.meta.env.PROD) {
+    console.error('🚨 PRODUCTION ERROR: Supabase configuration missing. Please check deployment settings.');
+  }
+  
   throw new Error(
-    'Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.'
+    'Missing Supabase environment variables. Please check your deployment configuration.'
   );
 }
+
+console.log('✅ Supabase environment variables loaded successfully');
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +51,19 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     },
   },
 });
+
+// Test connection on initialization
+supabase.from('user_profiles').select('count', { count: 'exact', head: true })
+  .then(({ error, count }) => {
+    if (error) {
+      console.error('❌ Supabase connection test failed:', error);
+    } else {
+      console.log('✅ Supabase connection test successful. User profiles count:', count);
+    }
+  })
+  .catch(err => {
+    console.error('❌ Supabase connection test error:', err);
+  });
 
 // Note: Service role client is not needed for this implementation
 export const supabaseServiceRole = null;

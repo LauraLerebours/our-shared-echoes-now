@@ -28,8 +28,17 @@ const Index = () => {
   // Load boards and all memories
   useEffect(() => {
     const loadData = async () => {
-      if (authLoading || !user?.id) {
-        if (!authLoading) setLoading(false);
+      console.log('🔄 Index: Starting data load process');
+      console.log('Auth state:', { user: !!user, userId: user?.id, authLoading });
+      
+      if (authLoading) {
+        console.log('⏳ Auth still loading, waiting...');
+        return;
+      }
+      
+      if (!user?.id) {
+        console.log('❌ No user found, stopping data load');
+        setLoading(false);
         return;
       }
       
@@ -37,42 +46,67 @@ const Index = () => {
         setLoading(true);
         setError(null);
         
-        // Load boards with timeout
+        console.log('🔄 Loading boards for user:', user.id);
+        
+        // Load boards with timeout and enhanced error handling
         const boardsPromise = fetchBoards(user.id);
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 30000)
+          setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
         );
         
-        const boardsData = await Promise.race([boardsPromise, timeoutPromise]) as Board[];
+        let boardsData: Board[];
+        try {
+          boardsData = await Promise.race([boardsPromise, timeoutPromise]) as Board[];
+          console.log('✅ Boards loaded successfully:', boardsData.length);
+        } catch (timeoutError) {
+          console.error('❌ Boards loading timed out:', timeoutError);
+          throw new Error('Loading boards timed out. Please check your internet connection.');
+        }
+        
         setBoards(boardsData);
         
         // If no boards, create a default one
         if (boardsData.length === 0) {
-          const defaultBoard = await createBoard('My Memories', user.id);
-          if (defaultBoard) {
-            setBoards([defaultBoard]);
-            const memoriesData = await fetchMemories(defaultBoard.access_code);
-            setMemories(memoriesData);
-          } else {
-            throw new Error('Failed to create default board');
+          console.log('📝 No boards found, creating default board');
+          try {
+            const defaultBoard = await createBoard('My Memories', user.id);
+            if (defaultBoard) {
+              console.log('✅ Default board created:', defaultBoard.name);
+              setBoards([defaultBoard]);
+              
+              // Load memories from the new board
+              const memoriesData = await fetchMemories(defaultBoard.access_code);
+              console.log('✅ Memories loaded from new board:', memoriesData.length);
+              setMemories(memoriesData);
+            } else {
+              throw new Error('Failed to create default board');
+            }
+          } catch (boardCreationError) {
+            console.error('❌ Failed to create default board:', boardCreationError);
+            throw new Error('Failed to create your first board. Please try refreshing the page.');
           }
         } else {
           // Load memories from all boards
+          console.log('🔄 Loading memories from', boardsData.length, 'boards');
           const allMemories: Memory[] = [];
           
           for (const board of boardsData) {
             try {
+              console.log('🔄 Loading memories for board:', board.name, 'with access code:', board.access_code);
               const boardMemories = await fetchMemories(board.access_code);
+              console.log('✅ Loaded', boardMemories.length, 'memories from board:', board.name);
               allMemories.push(...boardMemories);
             } catch (error) {
-              console.error(`Error loading memories for board ${board.name}:`, error);
+              console.error(`❌ Error loading memories for board ${board.name}:`, error);
+              // Continue with other boards instead of failing completely
             }
           }
           
+          console.log('✅ Total memories loaded:', allMemories.length);
           setMemories(allMemories);
         }
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to load your memories';
         setError(errorMessage);
         toast({
@@ -107,7 +141,7 @@ const Index = () => {
         throw new Error('Failed to delete memory');
       }
     } catch (error) {
-      console.error('Error deleting memory:', error);
+      console.error('❌ Error deleting memory:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete memory',
@@ -137,14 +171,28 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-memory-purple text-white rounded hover:bg-memory-purple/90"
-          >
-            Retry
-          </button>
+        <div className="text-center max-w-md mx-auto p-6">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Data</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full px-4 py-2 bg-memory-purple text-white rounded hover:bg-memory-purple/90"
+            >
+              Retry
+            </button>
+            <details className="text-left">
+              <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                Troubleshooting Tips
+              </summary>
+              <div className="mt-2 text-xs text-gray-500 space-y-1">
+                <p>• Check your internet connection</p>
+                <p>• Try refreshing the page</p>
+                <p>• Clear your browser cache</p>
+                <p>• Check browser console for errors (F12)</p>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
     );
