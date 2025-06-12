@@ -340,6 +340,7 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .select('likes, is_liked')
       .eq('id', memoryId)
       .eq('access_code', accessCode)
+      .order('id')
       .limit(1);
 
     if (fetchError) throw fetchError;
@@ -368,6 +369,7 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .eq('id', memoryId)
       .eq('access_code', accessCode)
       .select('likes, is_liked')
+      .order('id')
       .limit(1);
 
     if (error) throw error;
