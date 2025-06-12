@@ -3,11 +3,12 @@ import { Input } from '@/components/ui/input';
 import { Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
+import { extractPhotoMetadata, PhotoMetadata } from '@/lib/extractMetadata';
 
 interface UploadMediaProps {
   userId: string;
   mediaType: 'image' | 'video';
-  onUploadSuccess: (publicUrl: string) => void;
+  onUploadSuccess: (publicUrl: string, metadata?: PhotoMetadata) => void;
   disabled?: boolean;
 }
 
@@ -31,11 +32,22 @@ const UploadMedia: React.FC<UploadMediaProps> = ({ userId, mediaType, onUploadSu
     setIsUploading(true);
     
     try {
+      // Extract metadata from image files
+      let metadata: PhotoMetadata | undefined;
+      if (mediaType === 'image' && file.type.startsWith('image/')) {
+        try {
+          metadata = await extractPhotoMetadata(file);
+        } catch (error) {
+          console.warn('Failed to extract metadata:', error);
+          // Continue with upload even if metadata extraction fails
+        }
+      }
+
       // Upload directly to the storage bucket
       const publicUrl = await uploadMediaToStorage(file, userId);
 
       if (publicUrl) {
-        onUploadSuccess(publicUrl);
+        onUploadSuccess(publicUrl, metadata);
         toast({
           title: "Upload successful",
           description: `Your ${mediaType} has been uploaded successfully.`,

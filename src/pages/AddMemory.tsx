@@ -75,13 +75,33 @@ const AddMemory = () => {
     initializeBoard();
   }, [user, location.state]);
 
-  const handleUploadSuccess = (publicUrl: string) => {
+  const handleUploadSuccess = (publicUrl: string, metadata?: { date?: Date; location?: string }) => {
     setPreviewMedia(publicUrl);
+    
     // Determine media type based on URL
     if (publicUrl.match(/\.(mp4|mov|avi|wmv)$/i)) {
       setMediaType('video');
     } else {
       setMediaType('image');
+    }
+
+    // Auto-fill metadata if available
+    if (metadata) {
+      if (metadata.date) {
+        setDate(metadata.date);
+        toast({
+          title: "Date auto-filled",
+          description: `Set date to ${format(metadata.date, 'MMMM d, yyyy')} from photo metadata`,
+        });
+      }
+      
+      if (metadata.location) {
+        setLocation(metadata.location);
+        toast({
+          title: "Location auto-filled",
+          description: `Set location to "${metadata.location}" from photo metadata`,
+        });
+      }
     }
   };
 
