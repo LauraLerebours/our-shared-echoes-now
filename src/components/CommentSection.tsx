@@ -27,7 +27,7 @@ interface Comment {
   parent_id: string | null;
   created_at: string;
   updated_at: string;
-  user_profile?: {
+  user_profiles?: {
     name: string;
   };
   replies?: Comment[];
@@ -62,7 +62,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
         .from('comments')
         .select(`
           *,
-          user_profile:user_profiles(name)
+          user_profiles!fk_comments_user_profile_id(name)
         `)
         .eq('memory_id', memoryId)
         .order('created_at', { ascending: true });
@@ -254,13 +254,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
         <div className="flex gap-3">
           <Avatar className="h-8 w-8 flex-shrink-0">
             <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
-              {getInitials(comment.user_profile?.name || 'User')}
+              {getInitials(comment.user_profiles?.name || 'User')}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium text-sm">{comment.user_profile?.name || 'User'}</span>
+              <span className="font-medium text-sm">{comment.user_profiles?.name || 'User'}</span>
               <span className="text-xs text-muted-foreground">
                 {format(new Date(comment.created_at), 'MMM d, yyyy • h:mm a')}
               </span>
