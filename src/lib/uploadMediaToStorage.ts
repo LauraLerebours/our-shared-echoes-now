@@ -1,116 +1,97 @@
 import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
-import { requireAuth, sanitizeInput, rateLimiter } from './supabase-security';
 
-export async function uploadMediaToStorage(file: File, userId: string): Promise<string | null> {
+export async function uploadMediaToStorage(file: File, userId: string): Promise<string> {
   try {
-    // Validate user authentication
-    await requireAuth();
-
-    // Rate limiting
-    if (!rateLimiter.isAllowed(`uploadMedia:${userId}`)) {
-      throw new Error('Too many upload requests. Please try again later.');
-    }
-
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      throw new Error('File size exceeds 10MB limit');
-    }
-
-    // Validate file type - Updated to remove unsupported video/quicktime
-    const allowedImageTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'
+    // Check if the file type is supported by the current bucket configuration
+    const supportedTypes = [
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/gif',
+      'image/webp',
+      // Note: video/mp4 may not be supported by the current bucket configuration
+      // 'video/mp4',
+      // 'video/quicktime',
+      // 'video/x-msvideo'
     ];
-    
-    const allowedVideoTypes = [
-      'video/mp4', 'video/x-msvideo', 'video/x-ms-wmv',
-      'video/avi', 'video/wmv'
-    ];
-    
-    const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes];
-    
-    console.log('File type:', file.type, 'File name:', file.name);
-    
-    // Check MIME type first
-    if (!allowedTypes.includes(file.type)) {
-      // If MIME type check fails, check file extension as fallback
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'avi', 'wmv'];
-      
-      if (!fileExt || !allowedExtensions.includes(fileExt)) {
-        throw new Error(`File type not supported. Supported formats: Images (JPG, PNG, GIF, WebP) and Videos (MP4, AVI, WMV). Detected type: ${file.type}`);
+
+    if (!supportedTypes.includes(file.type)) {
+      // Provide specific guidance for video files
+      if (file.type.startsWith('video/')) {
+        throw new Error(`Video uploads are currently not supported. The storage bucket needs to be configured to allow ${file.type}. Please contact the administrator to enable video uploads.`);
+      } else {
+        throw new Error(`File type ${file.type} is not supported. Supported types: ${supportedTypes.join(', ')}`);
       }
     }
 
-    // Sanitize file name and get extension
-    const fileExt = file.name.split('.').pop()?.toLowerCase();
-    if (!fileExt) {
-      throw new Error('Invalid file extension');
-    }
-
-    // Generate secure file path
-    const fileName = `${uuidv4()}.${fileExt}`;
+    // Generate a unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `${userId}/${fileName}`;
 
-    console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
+    console.log('Uploading file:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      path: filePath
+    });
 
-    // Upload the file to the storage bucket
-    const { error: uploadError } = await supabase
-      .storage
+    // Upload the file to Supabase Storage
+    const { data, error } = await supabase.storage
       .from('memories')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
       });
 
-    if (uploadError) {
-      console.error('Upload error details:', uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-
-    // Get the public URL of the uploaded file
-    const { data: publicUrlData } = supabase
-      .storage
-      .from('memories')
-      .getPublicUrl(filePath);
-
-    if (!publicUrlData?.publicUrl) {
-      throw new Error('Failed to get public URL for uploaded file');
-    }
-
-    console.log('Upload successful:', publicUrlData.publicUrl);
-    return publicUrlData.publicUrl;
-  } catch (error) {
-    console.error('Upload error:', error);
-    return null;
-  }
-}
-
-// Function to delete media from storage (for cleanup)
-export async function deleteMediaFromStorage(filePath: string, userId: string): Promise<boolean> {
-  try {
-    // Validate user authentication
-    await requireAuth();
-
-    // Ensure the file path belongs to the user
-    if (!filePath.startsWith(`${userId}/`)) {
-      throw new Error('Access denied: Cannot delete files that do not belong to you');
-    }
-
-    const { error } = await supabase
-      .storage
-      .from('memories')
-      .remove([filePath]);
-
     if (error) {
-      console.error('Delete error:', error);
-      return false;
+      console.error('Supabase storage error:', error);
+      
+      // Handle specific error cases
+      if (error.message?.includes('mime type') && error.message?.includes('not supported')) {
+        throw new Error(`File type ${file.type} is not allowed by the storage configuration. Please contact the administrator to enable this file type.`);
+      }
+      
+      if (error.message?.includes('Duplicate')) {
+        throw new Error('A file with this name already exists. Please try again.');
+      }
+      
+      if (error.message?.includes('File size')) {
+        throw new Error('File is too large. Please choose a smaller file.');
+      }
+      
+      throw new Error(`Upload failed: ${error.message}`);
     }
 
-    return true;
+    if (!data?.path) {
+      throw new Error('Upload completed but no file path was returned');
+    }
+
+    // Get the public URL for the uploaded file
+    const { data: urlData } = supabase.storage
+      .from('memories')
+      .getPublicUrl(data.path);
+
+    if (!urlData?.publicUrl) {
+      throw new Error('Upload completed but could not generate public URL');
+    }
+
+    console.log('Upload successful:', {
+      path: data.path,
+      url: urlData.publicUrl
+    });
+
+    return urlData.publicUrl;
+
   } catch (error) {
-    console.error('Delete media error:', error);
-    return false;
+    console.error('Upload error details:', error);
+    
+    // Re-throw with more context if it's already our custom error
+    if (error instanceof Error) {
+      throw error;
+    }
+    
+    // Handle unexpected errors
+    throw new Error(`Upload failed: ${String(error)}`);
   }
 }
