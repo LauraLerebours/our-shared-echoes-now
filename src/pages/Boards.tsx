@@ -32,11 +32,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { fetchMemories } from '@/lib/db';
+import { Memory } from '@/components/MemoryList';
+
+interface BoardWithPreviews {
+  id: string;
+  name: string;
+  created_at: string;
+  access_code: string;
+  owner_id?: string;
+  share_code: string;
+  member_ids?: string[];
+  recentPhotos: string[];
+}
 
 const Boards = () => {
   const [newBoardName, setNewBoardName] = useState('');
   const [selectedBoards, setSelectedBoards] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [boardsWithPreviews, setBoardsWithPreviews] = useState<BoardWithPreviews[]>([]);
+  const [loadingPreviews, setLoadingPreviews] = useState(false);
   const navigate = useNavigate();
   const mainRef = useRef<HTMLElement>(null);
 
@@ -50,6 +65,52 @@ const Boards = () => {
     removeFromBoard,
     renameBoard
   } = useBoards();
+
+  // Load photo previews for boards
+  React.useEffect(() => {
+    const loadBoardPreviews = async () => {
+      if (boards.length === 0) {
+        setBoardsWithPreviews([]);
+        return;
+      }
+
+      setLoadingPreviews(true);
+      try {
+        const boardsWithPhotos = await Promise.all(
+          boards.map(async (board) => {
+            try {
+              const memories = await fetchMemories(board.access_code);
+              
+              // Filter to only photo memories (not notes or videos) and get the 4 most recent
+              const photoMemories = memories
+                .filter(memory => memory.type === 'memory' && !memory.isVideo && memory.image)
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 4);
+
+              return {
+                ...board,
+                recentPhotos: photoMemories.map(memory => memory.image)
+              };
+            } catch (error) {
+              console.error(`Error loading previews for board ${board.name}:`, error);
+              return {
+                ...board,
+                recentPhotos: []
+              };
+            }
+          })
+        );
+
+        setBoardsWithPreviews(boardsWithPhotos);
+      } catch (error) {
+        console.error('Error loading board previews:', error);
+      } finally {
+        setLoadingPreviews(false);
+      }
+    };
+
+    loadBoardPreviews();
+  }, [boards]);
 
   const handleCreateBoard = async () => {
     if (!newBoardName.trim()) return;
@@ -94,6 +155,81 @@ const Boards = () => {
   };
 
   const getMemberCount = (board: any) => board.member_ids?.length || 0;
+
+  const PhotoPreview = ({ photos }: { photos: string[] }) => {
+    if (photos.length === 0) {
+      return (
+        <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
+          <Image className="h-8 w-8 text-gray-400" />
+        </div>
+      );
+    }
+
+    if (photos.length === 1) {
+      return (
+        <div className="w-full h-32 rounded-lg overflow-hidden">
+          <img 
+            src={photos[0]} 
+            alt="Board preview" 
+            className="w-full h-full object-cover"
+          />
+        </div>
+      );
+    }
+
+    if (photos.length === 2) {
+      return (
+        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-1">
+          {photos.map((photo, index) => (
+            <img 
+              key={index}
+              src={photo} 
+              alt={`Board preview ${index + 1}`} 
+              className="flex-1 h-full object-cover"
+            />
+          ))}
+        </div>
+      );
+    }
+
+    if (photos.length === 3) {
+      return (
+        <div className="w-full h-32 rounded-lg overflow-hidden flex gap-1">
+          <img 
+            src={photos[0]} 
+            alt="Board preview 1" 
+            className="flex-1 h-full object-cover"
+          />
+          <div className="flex-1 flex flex-col gap-1">
+            <img 
+              src={photos[1]} 
+              alt="Board preview 2" 
+              className="w-full flex-1 object-cover"
+            />
+            <img 
+              src={photos[2]} 
+              alt="Board preview 3" 
+              className="w-full flex-1 object-cover"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 4 photos
+    return (
+      <div className="w-full h-32 rounded-lg overflow-hidden grid grid-cols-2 gap-1">
+        {photos.map((photo, index) => (
+          <img 
+            key={index}
+            src={photo} 
+            alt={`Board preview ${index + 1}`} 
+            className="w-full h-full object-cover"
+          />
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -268,96 +404,111 @@ const Boards = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20">
-                {boards.map((board) => (
+                {boardsWithPreviews.map((board) => (
                   <div
                     key={board.id}
-                    className={`bg-white rounded-lg border p-4 hover:shadow-md transition-shadow ${
+                    className={`bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow ${
                       isSelectionMode && selectedBoards.has(board.id) ? 'ring-2 ring-blue-500 bg-blue-50' : ''
                     }`}
                   >
-                    {isSelectionMode && (
-                      <div className="flex justify-end mb-2">
-                        <Checkbox
-                          checked={selectedBoards.has(board.id)}
-                          onCheckedChange={(checked) => handleBoardSelection(board.id, checked as boolean)}
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h2 className="text-xl font-semibold">{board.name}</h2>
-                          {!isSelectionMode && (
-                            <BoardRenameDialog
-                              boardId={board.id}
-                              currentName={board.name}
-                              onRename={(newName) => renameBoard(board.id, newName)}
-                            >
-                              <Button variant="ghost" size="sm" className="p-1 h-auto text-muted-foreground hover:text-memory-purple">
-                                <Edit2 className="h-3 w-3" />
+                    {/* Photo Preview Section */}
+                    <div className="relative">
+                      {loadingPreviews ? (
+                        <div className="w-full h-32 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-memory-purple"></div>
+                        </div>
+                      ) : (
+                        <PhotoPreview photos={board.recentPhotos} />
+                      )}
+                      
+                      {isSelectionMode && (
+                        <div className="absolute top-2 right-2">
+                          <Checkbox
+                            checked={selectedBoards.has(board.id)}
+                            onCheckedChange={(checked) => handleBoardSelection(board.id, checked as boolean)}
+                            className="bg-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Board Info Section */}
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h2 className="text-xl font-semibold">{board.name}</h2>
+                            {!isSelectionMode && (
+                              <BoardRenameDialog
+                                boardId={board.id}
+                                currentName={board.name}
+                                onRename={(newName) => renameBoard(board.id, newName)}
+                              >
+                                <Button variant="ghost" size="sm" className="p-1 h-auto text-muted-foreground hover:text-memory-purple">
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                              </BoardRenameDialog>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Created {new Date(board.created_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Share code: <span className="font-mono">{board.share_code}</span>
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <BoardMembersDialog boardId={board.id} boardName={board.name}>
+                              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-memory-purple p-1 h-auto">
+                                <Users className="h-3 w-3 mr-1" />
+                                {getMemberCount(board)} member{getMemberCount(board) !== 1 ? 's' : ''}
                               </Button>
-                            </BoardRenameDialog>
-                          )}
+                            </BoardMembersDialog>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Created {new Date(board.created_at).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Share code: <span className="font-mono">{board.share_code}</span>
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <BoardMembersDialog boardId={board.id} boardName={board.name}>
-                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-memory-purple p-1 h-auto">
-                              <Users className="h-3 w-3 mr-1" />
-                              {getMemberCount(board)} member{getMemberCount(board) !== 1 ? 's' : ''}
-                            </Button>
-                          </BoardMembersDialog>
-                        </div>
+                        
+                        {!isSelectionMode && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-orange-600 hover:bg-orange-50"
+                                disabled={removing}
+                              >
+                                <UserMinus className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove from Board</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to remove yourself from this board? If you are the last member, the board and all its memories will be deleted permanently.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => removeFromBoard(board.id)}
+                                  className="bg-orange-600 hover:bg-orange-700"
+                                  disabled={removing}
+                                >
+                                  {removing ? 'Removing...' : 'Remove from Board'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                       
                       {!isSelectionMode && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-orange-600 hover:bg-orange-50"
-                              disabled={removing}
-                            >
-                              <UserMinus className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Remove from Board</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to remove yourself from this board? If you are the last member, the board and all its memories will be deleted permanently.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => removeFromBoard(board.id)}
-                                className="bg-orange-600 hover:bg-orange-700"
-                                disabled={removing}
-                              >
-                                {removing ? 'Removing...' : 'Remove from Board'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button 
+                          className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                          onClick={() => navigate(`/board/${board.id}`)}
+                        >
+                          View Board
+                        </Button>
                       )}
                     </div>
-                    
-                    {!isSelectionMode && (
-                      <Button 
-                        className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                        onClick={() => navigate(`/board/${board.id}`)}
-                      >
-                        View Board
-                      </Button>
-                    )}
                   </div>
                 ))}
               </div>
