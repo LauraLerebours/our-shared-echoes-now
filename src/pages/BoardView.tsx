@@ -80,6 +80,12 @@ const BoardView = () => {
     }
   };
 
+  const handleUpdateMemory = (id: string, updates: Partial<Memory>) => {
+    setMemories(prev => prev.map(memory => 
+      memory.id === id ? { ...memory, ...updates } : memory
+    ));
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
@@ -118,6 +124,7 @@ const BoardView = () => {
             <MemoryList 
               memories={memories} 
               onDeleteMemory={handleDeleteMemory}
+              onUpdateMemory={handleUpdateMemory}
             />
             <ScrollToBottom containerRef={mainRef} />
           </>

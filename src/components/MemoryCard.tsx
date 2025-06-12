@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { toggleMemoryLike } from '@/lib/db';
+import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,10 +30,11 @@ export interface MemoryCardProps {
   isLiked: boolean;
   isVideo?: boolean;
   type?: 'memory' | 'note';
-  onLike: (id: string) => void;
+  onLike: (id: string, newLikes: number, newIsLiked: boolean) => void;
   onViewDetail: (id: string) => void;
   onDelete?: (id: string) => void;
   createdBy?: string; // User ID who created this memory
+  accessCode: string; // Add access code for like functionality
 }
 
 interface UserProfile {
@@ -53,8 +56,12 @@ const MemoryCard = ({
   onViewDetail,
   onDelete,
   createdBy,
+  accessCode,
 }: MemoryCardProps) => {
   const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
+  const [isLiking, setIsLiking] = useState(false);
+  const [currentLikes, setCurrentLikes] = useState(likes);
+  const [currentIsLiked, setCurrentIsLiked] = useState(isLiked);
   const isNote = type === 'note';
 
   useEffect(() => {
@@ -82,6 +89,48 @@ const MemoryCard = ({
     fetchCreatorProfile();
   }, [createdBy]);
 
+  // Update local state when props change
+  useEffect(() => {
+    setCurrentLikes(likes);
+    setCurrentIsLiked(isLiked);
+  }, [likes, isLiked]);
+
+  const handleLike = async () => {
+    if (isLiking) return; // Prevent double-clicking
+
+    setIsLiking(true);
+    
+    try {
+      const result = await toggleMemoryLike(id, accessCode);
+      
+      if (result && result.success) {
+        setCurrentLikes(result.likes);
+        setCurrentIsLiked(result.isLiked);
+        onLike(id, result.likes, result.isLiked);
+        
+        toast({
+          title: result.isLiked ? "Liked!" : "Unliked",
+          description: result.isLiked ? "You liked this memory" : "You removed your like",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update like. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update like. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
   const getCreatorInitials = () => {
     if (!creatorProfile?.name) return 'U';
     return creatorProfile.name
@@ -100,7 +149,7 @@ const MemoryCard = ({
     // Special formatting for notes
     return (
       <Card className="overflow-hidden mb-6 animate-fade-in border-l-4 border-l-memory-purple shadow-md bg-gradient-to-r from-memory-lightpurple/10 to-white">
-        <CardContent className="p-4\" onClick={() => onViewDetail(id)}>
+        <CardContent className="p-4" onClick={() => onViewDetail(id)}>
           <div className="flex items-start gap-3 mb-3">
             <div className="flex-shrink-0 w-10 h-10 bg-memory-purple/10 rounded-full flex items-center justify-center">
               <FileText className="h-5 w-5 text-memory-purple" />
@@ -136,17 +185,18 @@ const MemoryCard = ({
               className="p-0 h-auto" 
               onClick={(e) => {
                 e.stopPropagation();
-                onLike(id);
+                handleLike();
               }}
+              disabled={isLiking}
             >
               <Heart className={cn(
                 "h-5 w-5 mr-1", 
-                isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+                currentIsLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
               )} />
               <span className={cn(
                 "text-sm", 
-                isLiked ? "text-memory-pink" : "text-muted-foreground"
-              )}>{likes}</span>
+                currentIsLiked ? "text-memory-pink" : "text-muted-foreground"
+              )}>{currentLikes}</span>
             </Button>
           </div>
           
@@ -237,17 +287,18 @@ const MemoryCard = ({
             className="p-0 h-auto" 
             onClick={(e) => {
               e.stopPropagation();
-              onLike(id);
+              handleLike();
             }}
+            disabled={isLiking}
           >
             <Heart className={cn(
               "h-5 w-5 mr-1", 
-              isLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+              currentIsLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
             )} />
             <span className={cn(
               "text-sm", 
-              isLiked ? "text-memory-pink" : "text-muted-foreground"
-            )}>{likes}</span>
+              currentIsLiked ? "text-memory-pink" : "text-muted-foreground"
+            )}>{currentLikes}</span>
           </Button>
         </div>
         

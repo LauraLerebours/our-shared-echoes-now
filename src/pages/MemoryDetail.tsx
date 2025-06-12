@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Memory } from '@/components/MemoryList';
-import { getMemory, deleteMemory } from '@/lib/db';
+import { getMemory, deleteMemory, toggleMemoryLike } from '@/lib/db';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +29,7 @@ const MemoryDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likes, setLikes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isLiking, setIsLiking] = useState(false);
   
   const accessCode = location.state?.accessCode;
   
@@ -74,6 +75,41 @@ const MemoryDetail = () => {
     
     loadMemory();
   }, [id, accessCode, navigate]);
+
+  const handleLike = async () => {
+    if (!memory || !accessCode || isLiking) return;
+
+    setIsLiking(true);
+    
+    try {
+      const result = await toggleMemoryLike(memory.id, accessCode);
+      
+      if (result && result.success) {
+        setLikes(result.likes);
+        setIsLiked(result.isLiked);
+        
+        toast({
+          title: result.isLiked ? "Liked!" : "Unliked",
+          description: result.isLiked ? "You liked this memory" : "You removed your like",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update like. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update like. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLiking(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!memory || !accessCode) return;
@@ -188,7 +224,8 @@ const MemoryDetail = () => {
               <Button 
                 variant="ghost" 
                 className="p-2 h-auto"
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={handleLike}
+                disabled={isLiking}
               >
                 <Heart className={cn(
                   "h-6 w-6 mr-1.5", 
@@ -236,7 +273,8 @@ const MemoryDetail = () => {
                 <Button 
                   variant="ghost" 
                   className="p-2 h-auto"
-                  onClick={() => setIsLiked(!isLiked)}
+                  onClick={handleLike}
+                  disabled={isLiking}
                 >
                   <Heart className={cn(
                     "h-6 w-6 mr-1.5", 

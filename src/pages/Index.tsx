@@ -110,6 +110,12 @@ const Index = () => {
     }
   };
 
+  const handleUpdateMemory = (id: string, updates: Partial<Memory>) => {
+    setMemories(prev => prev.map(memory => 
+      memory.id === id ? { ...memory, ...updates } : memory
+    ));
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -148,7 +154,11 @@ const Index = () => {
             <EmptyState />
           ) : (
             <>
-              <MemoryList memories={memories} onDeleteMemory={handleDeleteMemory} />
+              <MemoryList 
+                memories={memories} 
+                onDeleteMemory={handleDeleteMemory}
+                onUpdateMemory={handleUpdateMemory}
+              />
               <ScrollToBottom containerRef={mainRef} />
             </>
           )}

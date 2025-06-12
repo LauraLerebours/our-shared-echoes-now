@@ -326,5 +326,52 @@ export const deleteMemory = async (memoryId: string, accessCode: string): Promis
   }, 'Error deleting memory') || false;
 };
 
+// Like functionality
+export const toggleMemoryLike = async (memoryId: string, accessCode: string): Promise<{ success: boolean; likes: number; isLiked: boolean } | null> => {
+  const userId = await requireAuth();
+  if (!rateLimiter.isAllowed(`toggleLike:${userId}`) || !validateAccessCodeFormat(accessCode)) {
+    return null;
+  }
+
+  return withErrorHandling(async () => {
+    // First, get the current memory data
+    const { data: currentMemory, error: fetchError } = await supabase
+      .from('memories')
+      .select('likes, is_liked')
+      .eq('id', memoryId)
+      .eq('access_code', accessCode)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const currentLikes = currentMemory.likes || 0;
+    const currentIsLiked = currentMemory.is_liked || false;
+    
+    // Toggle the like state
+    const newIsLiked = !currentIsLiked;
+    const newLikes = newIsLiked ? currentLikes + 1 : Math.max(0, currentLikes - 1);
+
+    // Update the memory with new like data
+    const { data, error } = await supabase
+      .from('memories')
+      .update({ 
+        likes: newLikes,
+        is_liked: newIsLiked
+      })
+      .eq('id', memoryId)
+      .eq('access_code', accessCode)
+      .select('likes, is_liked')
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      likes: data.likes || 0,
+      isLiked: data.is_liked || false
+    };
+  }, 'Error toggling memory like');
+};
+
 // Keep backward compatibility
 export const deleteBoard = removeUserFromBoard;

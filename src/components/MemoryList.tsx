@@ -20,13 +20,17 @@ export interface Memory {
 interface MemoryListProps {
   memories: Memory[];
   onDeleteMemory?: (id: string) => void;
+  onUpdateMemory?: (id: string, updates: Partial<Memory>) => void;
 }
 
-const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => {
+const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory, onUpdateMemory }) => {
   const navigate = useNavigate();
   
-  const handleLike = (id: string) => {
-    console.log(`Liked memory ${id}`);
+  const handleLike = (id: string, newLikes: number, newIsLiked: boolean) => {
+    // Update the memory in the parent component
+    if (onUpdateMemory) {
+      onUpdateMemory(id, { likes: newLikes, isLiked: newIsLiked });
+    }
   };
 
   const handleViewDetail = (id: string, accessCode: string) => {
@@ -57,6 +61,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory }) => 
           onViewDetail={() => handleViewDetail(memory.id, memory.accessCode)}
           onDelete={handleDelete}
           createdBy={memory.createdBy}
+          accessCode={memory.accessCode}
         />
       ))}
     </div>
