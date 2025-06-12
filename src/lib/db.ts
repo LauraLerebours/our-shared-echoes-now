@@ -340,18 +340,19 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .select('likes, is_liked')
       .eq('id', memoryId)
       .eq('access_code', accessCode)
-      .maybeSingle();
+      .limit(1);
 
     if (fetchError) throw fetchError;
 
     // Check if memory was found
-    if (!currentMemory) {
+    if (!currentMemory || currentMemory.length === 0) {
       console.warn('Memory not found or not accessible:', memoryId);
       return null;
     }
 
-    const currentLikes = currentMemory.likes || 0;
-    const currentIsLiked = currentMemory.is_liked || false;
+    const memoryData = currentMemory[0];
+    const currentLikes = memoryData.likes || 0;
+    const currentIsLiked = memoryData.is_liked || false;
     
     // Toggle the like state
     const newIsLiked = !currentIsLiked;
@@ -367,20 +368,21 @@ export const toggleMemoryLike = async (memoryId: string, accessCode: string): Pr
       .eq('id', memoryId)
       .eq('access_code', accessCode)
       .select('likes, is_liked')
-      .maybeSingle();
+      .limit(1);
 
     if (error) throw error;
 
     // Check if update was successful
-    if (!data) {
+    if (!data || data.length === 0) {
       console.warn('Memory update failed or not accessible:', memoryId);
       return null;
     }
 
+    const updatedData = data[0];
     return {
       success: true,
-      likes: data.likes || 0,
-      isLiked: data.is_liked || false
+      likes: updatedData.likes || 0,
+      isLiked: updatedData.is_liked || false
     };
   }, 'Error toggling memory like');
 };
