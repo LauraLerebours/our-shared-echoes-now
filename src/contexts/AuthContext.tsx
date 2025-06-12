@@ -130,6 +130,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
+        
+        // Handle email confirmation - sign out user and redirect to sign-in
+        if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+          // Check if this is a new user who just confirmed their email
+          const isNewUser = session.user.created_at === session.user.email_confirmed_at ||
+                           Math.abs(new Date(session.user.created_at).getTime() - new Date(session.user.email_confirmed_at).getTime()) < 60000; // Within 1 minute
+          
+          if (isNewUser) {
+            console.log('New user email confirmed, creating profile and signing out...');
+            
+            // Create user profile for the new user
+            try {
+              const { error: insertError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  name: session.user.user_metadata?.name || 'User',
+                });
+
+              if (insertError) {
+                console.error('Error creating user profile:', insertError);
+              }
+            } catch (error) {
+              console.error('Error handling user profile:', error);
+            }
+            
+            // Sign out the user so they need to sign in manually
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            return;
+          }
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -139,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = await fetchUserProfile(session.user.id);
           setUserProfile(profile);
 
-          // Create user profile if user just signed up and confirmed email
+          // Create user profile if it doesn't exist (for existing users)
           if (event === 'SIGNED_IN' && !profile) {
             try {
               const { error: insertError } = await supabase

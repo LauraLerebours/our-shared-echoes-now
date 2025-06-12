@@ -40,8 +40,10 @@ const Auth = () => {
     if (type === 'signup') {
       toast({
         title: 'Email confirmed!',
-        description: 'Your email has been verified. You can now sign in to your account.',
+        description: 'Your email has been verified. Please sign in to your account.',
       });
+      // Clear the URL parameters
+      navigate('/auth', { replace: true });
     }
     
     if (error) {
@@ -51,8 +53,10 @@ const Auth = () => {
         title: 'Authentication Error',
         description: errorDescription || 'An authentication error occurred.',
       });
+      // Clear the URL parameters
+      navigate('/auth', { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   const handleResendConfirmation = async () => {
     if (!unconfirmedEmail) return;
@@ -208,8 +212,12 @@ const Auth = () => {
         setEmailSent(true);
         toast({
           title: 'Account created',
-          description: 'Please check your email to verify your account. Check your spam folder if you don\'t see it.',
+          description: 'Please check your email to verify your account. After verification, return here to sign in.',
         });
+        // Clear the form
+        setSignUpEmail('');
+        setSignUpPassword('');
+        setSignUpName('');
       }
     } catch (error) {
       console.error('Sign up error:', error);
@@ -260,6 +268,7 @@ const Auth = () => {
           <Alert>
             <AlertDescription>
               Please check your email and click the verification link to complete your registration.
+              After verification, return here to sign in with your credentials.
               You may need to check your spam folder.
             </AlertDescription>
           </Alert>
