@@ -1,4 +1,3 @@
-
 // Security utilities for Supabase operations
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,17 +7,26 @@ import { supabase } from '@/integrations/supabase/client';
  * @throws Error if user is not authenticated
  */
 export const requireAuth = async (): Promise<string> => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error) {
-    throw new Error(`Authentication error: ${error.message}`);
+  try {
+    console.log('🔄 Checking authentication...');
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('❌ Authentication error:', error);
+      throw new Error(`Authentication error: ${error.message}`);
+    }
+    
+    if (!user) {
+      console.error('❌ No authenticated user found');
+      throw new Error('User not authenticated');
+    }
+    
+    console.log('✅ User authenticated:', user.id);
+    return user.id;
+  } catch (error) {
+    console.error('❌ requireAuth failed:', error);
+    throw error;
   }
-  
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-  
-  return user.id;
 };
 
 /**
@@ -29,6 +37,8 @@ export const requireAuth = async (): Promise<string> => {
  */
 export const validateBoardAccess = async (boardId: string, userId: string): Promise<boolean> => {
   try {
+    console.log('🔄 Validating board access:', { boardId, userId });
+    
     const { data, error } = await supabase
       .from('boards')
       .select('owner_id, member_ids')
@@ -36,23 +46,27 @@ export const validateBoardAccess = async (boardId: string, userId: string): Prom
       .single();
     
     if (error) {
-      console.error('Board access validation error:', error);
+      console.error('❌ Board access validation error:', error);
       return false;
     }
     
     // Check if user is owner
     if (data.owner_id === userId) {
+      console.log('✅ User is board owner');
       return true;
     }
     
     // Check if user is in member_ids array
     if (data.member_ids && Array.isArray(data.member_ids)) {
-      return data.member_ids.includes(userId);
+      const isMember = data.member_ids.includes(userId);
+      console.log('✅ User membership check:', isMember);
+      return isMember;
     }
     
+    console.log('❌ User has no access to board');
     return false;
   } catch (error) {
-    console.error('Board access validation error:', error);
+    console.error('❌ Board access validation error:', error);
     return false;
   }
 };
@@ -65,6 +79,8 @@ export const validateBoardAccess = async (boardId: string, userId: string): Prom
  */
 export const validateBoardOwnership = async (boardId: string, userId: string): Promise<boolean> => {
   try {
+    console.log('🔄 Validating board ownership:', { boardId, userId });
+    
     const { data, error } = await supabase
       .from('boards')
       .select('owner_id')
@@ -73,13 +89,15 @@ export const validateBoardOwnership = async (boardId: string, userId: string): P
       .single();
     
     if (error) {
-      console.error('Board ownership validation error:', error);
+      console.error('❌ Board ownership validation error:', error);
       return false;
     }
     
-    return !!data;
+    const isOwner = !!data;
+    console.log('✅ Board ownership check:', isOwner);
+    return isOwner;
   } catch (error) {
-    console.error('Board ownership validation error:', error);
+    console.error('❌ Board ownership validation error:', error);
     return false;
   }
 };
@@ -90,10 +108,13 @@ export const validateBoardOwnership = async (boardId: string, userId: string): P
  * @returns string - The sanitized input
  */
 export const sanitizeInput = (input: string): string => {
-  return input
+  const sanitized = input
     .trim()
     .replace(/[<>]/g, '') // Remove potential HTML tags
     .substring(0, 1000); // Limit length
+  
+  console.log('🧹 Input sanitized:', { original: input.length, sanitized: sanitized.length });
+  return sanitized;
 };
 
 /**
@@ -104,7 +125,13 @@ export const sanitizeInput = (input: string): string => {
 export const validateAccessCodeFormat = (code: string): boolean => {
   // Access codes should be 6 characters, alphanumeric, uppercase
   const accessCodeRegex = /^[A-Z0-9]{6}$/;
-  return accessCodeRegex.test(code);
+  const isValid = accessCodeRegex.test(code);
+  
+  if (!isValid) {
+    console.warn('⚠️ Invalid access code format:', code);
+  }
+  
+  return isValid;
 };
 
 /**
@@ -128,6 +155,7 @@ class RateLimiter {
     const validRequests = requests.filter(time => now - time < this.windowMs);
     
     if (validRequests.length >= this.maxRequests) {
+      console.warn('⚠️ Rate limit exceeded for:', identifier);
       return false;
     }
     

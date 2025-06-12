@@ -14,7 +14,9 @@ const Auth = () => {
   const { signIn, signUp, user, loading } = useAuth();
 
   useEffect(() => {
+    console.log('🔄 Auth page: checking user state', { user: !!user, loading });
     if (user && !loading) {
+      console.log('✅ User already authenticated, redirecting to home');
       navigate('/');
     }
   }, [user, loading, navigate]);
@@ -36,8 +38,11 @@ const Auth = () => {
     const errorDescription = searchParams.get('error_description');
     const type = searchParams.get('type');
     
+    console.log('🔄 Auth URL params:', { error, errorDescription, type });
+    
     // Handle email confirmation success
     if (type === 'signup') {
+      console.log('✅ Email confirmation successful');
       toast({
         title: 'Email confirmed!',
         description: 'Your email has been verified. Please sign in to your account.',
@@ -47,7 +52,7 @@ const Auth = () => {
     }
     
     if (error) {
-      console.error('Auth error from URL:', error, errorDescription);
+      console.error('❌ Auth error from URL:', error, errorDescription);
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
@@ -61,6 +66,7 @@ const Auth = () => {
   const handleResendConfirmation = async () => {
     if (!unconfirmedEmail) return;
 
+    console.log('🔄 Resending confirmation email to:', unconfirmedEmail);
     setIsResendingEmail(true);
     try {
       const { error } = await supabase.auth.resend({
@@ -72,19 +78,21 @@ const Auth = () => {
       });
 
       if (error) {
+        console.error('❌ Failed to resend confirmation email:', error);
         toast({
           variant: 'destructive',
           title: 'Failed to resend email',
           description: error.message,
         });
       } else {
+        console.log('✅ Confirmation email resent successfully');
         toast({
           title: 'Confirmation email sent',
           description: 'Please check your email (including spam folder) for the verification link.',
         });
       }
     } catch (error) {
-      console.error('Resend confirmation error:', error);
+      console.error('❌ Resend confirmation error:', error);
       toast({
         variant: 'destructive',
         title: 'Failed to resend email',
@@ -107,6 +115,7 @@ const Auth = () => {
       return;
     }
 
+    console.log('🔄 Attempting sign in for:', signInEmail);
     setIsSigningIn(true);
     setShowEmailNotConfirmed(false);
 
@@ -114,6 +123,7 @@ const Auth = () => {
       const { error } = await signIn(signInEmail, signInPassword);
 
       if (error) {
+        console.error('❌ Sign in failed:', error);
         let errorMessage = 'Something went wrong.';
         
         if (error.message?.includes('Email not confirmed')) {
@@ -138,10 +148,11 @@ const Auth = () => {
         return;
       }
 
+      console.log('✅ Sign in successful');
       toast({ title: 'Welcome back!' });
       // Navigation will be handled by the useEffect when user state changes
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('❌ Sign in error:', error);
       toast({
         variant: 'destructive',
         title: 'Sign in failed',
@@ -182,12 +193,14 @@ const Auth = () => {
       return;
     }
 
+    console.log('🔄 Attempting sign up for:', signUpEmail);
     setIsSigningUp(true);
 
     try {
       const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
 
       if (error) {
+        console.error('❌ Sign up failed:', error);
         let errorMessage = 'Something went wrong.';
         
         if (error.message?.includes('User already registered')) {
@@ -209,6 +222,7 @@ const Auth = () => {
       }
 
       if (user) {
+        console.log('✅ Sign up successful');
         setEmailSent(true);
         toast({
           title: 'Account created',
@@ -220,7 +234,7 @@ const Auth = () => {
         setSignUpName('');
       }
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('❌ Sign up error:', error);
       toast({
         variant: 'destructive',
         title: 'Sign up failed',
