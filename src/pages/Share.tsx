@@ -64,12 +64,12 @@ const Share = () => {
   };
 
   const copyToClipboard = () => {
-    const shareUrl = `${window.location.origin}/shared/${shareCode}`;
-    navigator.clipboard.writeText(shareUrl);
+    // Copy only the share code, not the full URL
+    navigator.clipboard.writeText(shareCode);
     setCopied(true);
     toast({
       title: 'Copied!',
-      description: 'Share link copied to clipboard',
+      description: 'Share code copied to clipboard',
     });
     setTimeout(() => setCopied(false), 2000);
   };
@@ -186,6 +186,11 @@ const Share = () => {
                   >
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
+                </div>
+                <div className="px-3 py-2 bg-blue-50 border-t">
+                  <p className="text-xs text-blue-600">
+                    Share this code with others so they can join your board
+                  </p>
                 </div>
               </div>
             )}
