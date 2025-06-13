@@ -6,12 +6,14 @@ import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 export const boardsApi = {
   async fetchBoards(userId: string) {
     return withErrorHandling(async () => {
-      console.log('🔄 Fetching boards using optimized function for user:', userId);
+      console.log('🔄 Fetching boards for user:', userId);
       
-      // Use the optimized database function for better performance
-      const { data, error } = await supabase.rpc('get_user_boards_fast', {
-        user_id: userId
-      });
+      // Use direct query instead of non-existent function
+      const { data, error } = await supabase
+        .from('boards')
+        .select('*')
+        .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Database error fetching boards:', error);

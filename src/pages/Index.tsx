@@ -79,7 +79,7 @@ const Index = () => {
         const boardsResult = await Promise.race([
           boardsApi.fetchBoards(user.id),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Boards request timeout after 60 seconds')), 60000)
+            setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
           )
         ]);
 
@@ -107,18 +107,23 @@ const Index = () => {
           }
         }
 
-        // Extract access codes from boards - fix the property name
+        // Extract access codes from boards - use correct property name
         const accessCodes = loadedBoards
-          .map(board => board.access_code) // Changed from board.accessCode to board.access_code
+          .map(board => board.access_code) // Use access_code from database schema
           .filter((code): code is string => code !== null && code !== undefined);
         
         console.log('🔄 Loading memories for access codes:', accessCodes.length);
         
-        // Load memories using access codes with limit
+        // Load memories using access codes with limit and timeout
         if (accessCodes.length > 0) {
-          const memoriesData = await fetchMemoriesByAccessCodes(accessCodes, 100);
-          console.log('✅ Memories loaded successfully:', memoriesData.length);
-          setMemories(memoriesData);
+          const memoriesData = await Promise.race([
+            fetchMemoriesByAccessCodes(accessCodes, 100),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Memories request timeout after 30 seconds')), 30000)
+            )
+          ]);
+          console.log('✅ Memories loaded successfully:', (memoriesData as Memory[]).length);
+          setMemories(memoriesData as Memory[]);
         } else {
           console.log('✅ No access codes available, setting empty memories');
           setMemories([]);
