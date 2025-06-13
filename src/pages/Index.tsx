@@ -9,7 +9,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Memory } from '@/components/MemoryList';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteMemory, createBoard, Board, fetchMemoriesByAccessCodes } from '@/lib/db';
+import { deleteMemory, createBoard } from '@/lib/db';
+import { memoriesApi } from '@/lib/api/memories';
 import { useBoards } from '@/hooks/useBoards';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ const Index = () => {
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
   
-  // Use the boards hook
+  // Use the optimized boards hook
   const { 
     boards, 
     loading: boardsLoading, 
@@ -34,7 +35,7 @@ const Index = () => {
     retryLoad: retryBoardsLoad 
   } = useBoards();
   
-  // Load memories when boards change
+  // Optimized memories loading with parallel processing
   useEffect(() => {
     const loadMemories = async () => {
       if (!user?.id || boards.length === 0) {
@@ -58,12 +59,22 @@ const Index = () => {
         console.log('🔄 [Index] Access codes:', accessCodes.length);
         
         if (accessCodes.length > 0) {
-          const memoriesData = await fetchMemoriesByAccessCodes(accessCodes, 100);
-          console.log('✅ [Index] Memories loaded:', memoriesData.length);
-          setMemories(memoriesData);
+          // Use the optimized parallel loading
+          const result = await memoriesApi.fetchMemoriesByAccessCodes(accessCodes, 100);
+          
+          if (result.success && result.data) {
+            console.log('✅ [Index] Memories loaded:', result.data.length);
+            setMemories(result.data);
+            setMemoriesError(null);
+          } else {
+            console.error('❌ [Index] Failed to load memories:', result.error);
+            setMemoriesError(result.error || 'Failed to load memories');
+            setMemories([]);
+          }
         } else {
           console.log('✅ [Index] No access codes, empty memories');
           setMemories([]);
+          setMemoriesError(null);
         }
       } catch (error) {
         console.error('❌ [Index] Error loading memories:', error);
@@ -120,6 +131,12 @@ const Index = () => {
     console.log('🔄 [Index] Retry triggered');
     retryBoardsLoad();
     setMemoriesError(null);
+  };
+
+  const handleRetryMemories = () => {
+    console.log('🔄 [Index] Retry memories triggered');
+    setMemoriesError(null);
+    // This will trigger the useEffect to reload memories
   };
 
   const handleCreateDefaultBoard = async () => {
@@ -187,7 +204,7 @@ const Index = () => {
   }
 
   // Show memories error if boards loaded but memories failed
-  if (memoriesError) {
+  if (memoriesError && !boardsLoading && boards.length > 0) {
     return (
       <ErrorBoundary>
         <div className="min-h-screen bg-background flex flex-col">
@@ -197,7 +214,7 @@ const Index = () => {
               <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Memories</h2>
               <p className="text-gray-600 mb-6">{memoriesError}</p>
               <Button 
-                onClick={() => setMemoriesError(null)}
+                onClick={handleRetryMemories}
                 className="bg-memory-purple text-white hover:bg-memory-purple/90"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -217,7 +234,7 @@ const Index = () => {
         <Header />
         
         {/* View Mode Toggle */}
-        {memories.length > 0 && (
+        {memories.length > 0 && !boardsLoading && !memoriesLoading && (
           <div className="flex justify-center py-3 border-b bg-white sticky top-16 z-10">
             <div className="flex bg-muted rounded-lg p-1">
               <Button
