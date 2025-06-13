@@ -22,9 +22,11 @@ const Index = () => {
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [memoriesError, setMemoriesError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use the optimized boards hook
   const { 
@@ -35,14 +37,41 @@ const Index = () => {
     retryLoad: retryBoardsLoad 
   } = useBoards();
   
-  // Optimized memories loading with parallel processing
+  // Optimized memories loading with race condition prevention
   useEffect(() => {
     const loadMemories = async () => {
-      if (!user?.id || boards.length === 0) {
-        console.log('🔄 [Index] No user or no boards, clearing memories');
+      // Clear any existing timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+
+      if (!user?.id) {
+        console.log('🔄 [Index] No user, clearing memories');
         setMemories([]);
         setMemoriesLoading(false);
         setMemoriesError(null);
+        setHasInitiallyLoaded(false);
+        return;
+      }
+
+      // Don't clear memories if we're still loading boards and we already have memories
+      if (boardsLoading && memories.length > 0 && hasInitiallyLoaded) {
+        console.log('🔄 [Index] Boards still loading but we have memories, keeping them');
+        return;
+      }
+
+      if (boards.length === 0 && !boardsLoading) {
+        console.log('🔄 [Index] No boards available, clearing memories');
+        setMemories([]);
+        setMemoriesLoading(false);
+        setMemoriesError(null);
+        return;
+      }
+
+      // Don't start loading if boards are still loading
+      if (boardsLoading) {
+        console.log('🔄 [Index] Boards still loading, waiting...');
         return;
       }
 
@@ -50,44 +79,61 @@ const Index = () => {
       setMemoriesLoading(true);
       setMemoriesError(null);
 
-      try {
-        // Extract access codes from boards
-        const accessCodes = boards
-          .map(board => board.access_code)
-          .filter((code): code is string => code !== null && code !== undefined);
-        
-        console.log('🔄 [Index] Access codes:', accessCodes.length);
-        
-        if (accessCodes.length > 0) {
-          // Use the optimized parallel loading
-          const result = await memoriesApi.fetchMemoriesByAccessCodes(accessCodes, 100);
+      // Add a small delay to prevent rapid state changes
+      loadingTimeoutRef.current = setTimeout(async () => {
+        try {
+          // Extract access codes from boards
+          const accessCodes = boards
+            .map(board => board.access_code)
+            .filter((code): code is string => code !== null && code !== undefined);
           
-          if (result.success && result.data) {
-            console.log('✅ [Index] Memories loaded:', result.data.length);
-            setMemories(result.data);
-            setMemoriesError(null);
+          console.log('🔄 [Index] Access codes:', accessCodes.length);
+          
+          if (accessCodes.length > 0) {
+            // Use the optimized parallel loading
+            const result = await memoriesApi.fetchMemoriesByAccessCodes(accessCodes, 100);
+            
+            if (result.success && result.data) {
+              console.log('✅ [Index] Memories loaded:', result.data.length);
+              setMemories(result.data);
+              setMemoriesError(null);
+              setHasInitiallyLoaded(true);
+            } else {
+              console.error('❌ [Index] Failed to load memories:', result.error);
+              setMemoriesError(result.error || 'Failed to load memories');
+              if (!hasInitiallyLoaded) {
+                setMemories([]);
+              }
+            }
           } else {
-            console.error('❌ [Index] Failed to load memories:', result.error);
-            setMemoriesError(result.error || 'Failed to load memories');
+            console.log('✅ [Index] No access codes, empty memories');
+            setMemories([]);
+            setMemoriesError(null);
+            setHasInitiallyLoaded(true);
+          }
+        } catch (error) {
+          console.error('❌ [Index] Error loading memories:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
+          setMemoriesError(errorMessage);
+          if (!hasInitiallyLoaded) {
             setMemories([]);
           }
-        } else {
-          console.log('✅ [Index] No access codes, empty memories');
-          setMemories([]);
-          setMemoriesError(null);
+        } finally {
+          setMemoriesLoading(false);
         }
-      } catch (error) {
-        console.error('❌ [Index] Error loading memories:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
-        setMemoriesError(errorMessage);
-        setMemories([]);
-      } finally {
-        setMemoriesLoading(false);
-      }
+      }, 100); // Small delay to prevent race conditions
     };
 
     loadMemories();
-  }, [user?.id, boards]);
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
@@ -129,6 +175,7 @@ const Index = () => {
 
   const handleRetry = async () => {
     console.log('🔄 [Index] Retry triggered');
+    setHasInitiallyLoaded(false);
     retryBoardsLoad();
     setMemoriesError(null);
   };
@@ -136,6 +183,7 @@ const Index = () => {
   const handleRetryMemories = () => {
     console.log('🔄 [Index] Retry memories triggered');
     setMemoriesError(null);
+    setHasInitiallyLoaded(false);
     // This will trigger the useEffect to reload memories
   };
 
@@ -154,6 +202,7 @@ const Index = () => {
     }
   };
 
+  // Show loading only if we're still in the initial auth loading phase
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -184,19 +233,6 @@ const Index = () => {
             >
               Refresh Page
             </Button>
-            <details className="text-left">
-              <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                Troubleshooting Tips
-              </summary>
-              <div className="mt-2 text-xs text-gray-500 space-y-1">
-                <p>• Check your internet connection</p>
-                <p>• Try refreshing the page</p>
-                <p>• Clear your browser cache</p>
-                <p>• Check browser console for errors (F12)</p>
-                <p>• Database may be experiencing high load</p>
-                <p>• Try again in a few minutes</p>
-              </div>
-            </details>
           </div>
         </div>
       </div>
@@ -204,7 +240,7 @@ const Index = () => {
   }
 
   // Show memories error if boards loaded but memories failed
-  if (memoriesError && !boardsLoading && boards.length > 0) {
+  if (memoriesError && !boardsLoading && boards.length > 0 && !hasInitiallyLoaded) {
     return (
       <ErrorBoundary>
         <div className="min-h-screen bg-background flex flex-col">
@@ -233,8 +269,8 @@ const Index = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         
-        {/* View Mode Toggle */}
-        {memories.length > 0 && !boardsLoading && !memoriesLoading && (
+        {/* View Mode Toggle - only show if we have memories or are not loading */}
+        {memories.length > 0 && !memoriesLoading && (
           <div className="flex justify-center py-3 border-b bg-white sticky top-16 z-10">
             <div className="flex bg-muted rounded-lg p-1">
               <Button
@@ -260,7 +296,8 @@ const Index = () => {
         )}
         
         <main ref={mainRef} className="flex-1 relative">
-          {boardsLoading || memoriesLoading ? (
+          {/* Show loading only if we're in the initial loading phase or explicitly loading memories */}
+          {(boardsLoading && !hasInitiallyLoaded) || (memoriesLoading && !hasInitiallyLoaded) ? (
             <div className="flex justify-center items-center h-64">
               <LoadingSpinner size="lg" text={
                 boardsLoading ? "Loading your boards..." : "Loading your memories..."
@@ -276,9 +313,9 @@ const Index = () => {
                 Create Your First Board
               </Button>
             </div>
-          ) : memories.length === 0 ? (
+          ) : memories.length === 0 && hasInitiallyLoaded ? (
             <EmptyState />
-          ) : (
+          ) : memories.length > 0 ? (
             <>
               {viewMode === 'timeline' ? (
                 <MemoryList 
@@ -295,6 +332,11 @@ const Index = () => {
               )}
               <ScrollToBottom containerRef={mainRef} />
             </>
+          ) : (
+            // Show a minimal loading state if we're waiting for data
+            <div className="flex justify-center items-center h-64">
+              <LoadingSpinner size="md" text="Loading..." />
+            </div>
           )}
         </main>
         

@@ -15,13 +15,16 @@ export function useBoards() {
   const currentUserRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+  const mountedRef = useRef(true);
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.createBoard(name, user.id);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
-      setBoards(prev => [...prev, result.data!]);
+      if (mountedRef.current) {
+        setBoards(prev => [...prev, result.data!]);
+      }
       return result.data;
     },
     { successMessage: 'Board created successfully' }
@@ -32,7 +35,9 @@ export function useBoards() {
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.removeUserFromBoard(boardId, user.id);
       if (!result.success) throw new Error(result.message);
-      setBoards(prev => prev.filter(board => board.id !== boardId));
+      if (mountedRef.current) {
+        setBoards(prev => prev.filter(board => board.id !== boardId));
+      }
       return result;
     },
     { successMessage: 'Successfully removed from board' }
@@ -43,25 +48,29 @@ export function useBoards() {
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.renameBoard(boardId, newName, user.id);
       if (!result.success) throw new Error(result.message);
-      setBoards(prev => prev.map(board => 
-        board.id === boardId ? { ...board, name: result.newName || newName } : board
-      ));
+      if (mountedRef.current) {
+        setBoards(prev => prev.map(board => 
+          board.id === boardId ? { ...board, name: result.newName || newName } : board
+        ));
+      }
       return result;
     },
     { successMessage: 'Board renamed successfully' }
   );
 
-  // Optimized load function with resilience
+  // Optimized load function with better race condition handling
   const loadBoards = async (isRetry = false) => {
     if (!user?.id) {
       console.log('❌ [useBoards] No user ID, resetting state');
-      setLoading(false);
-      setError(null);
-      setBoards([]);
-      hasLoadedRef.current = false;
-      currentUserRef.current = null;
-      loadingRef.current = false;
-      retryCountRef.current = 0;
+      if (mountedRef.current) {
+        setLoading(false);
+        setError(null);
+        setBoards([]);
+        hasLoadedRef.current = false;
+        currentUserRef.current = null;
+        loadingRef.current = false;
+        retryCountRef.current = 0;
+      }
       return;
     }
 
@@ -82,11 +91,19 @@ export function useBoards() {
     currentUserRef.current = user.id;
     
     console.log(`🔄 [useBoards] Starting board load for user: ${user.id} (attempt ${retryCountRef.current + 1})`);
-    setLoading(true);
-    setError(null);
+    
+    if (mountedRef.current) {
+      setLoading(true);
+      setError(null);
+    }
     
     try {
       const result = await boardsApi.fetchBoards(user.id);
+      
+      if (!mountedRef.current) {
+        console.log('⚠️ [useBoards] Component unmounted, skipping state update');
+        return;
+      }
       
       if (result.success && result.data) {
         console.log('✅ [useBoards] Boards loaded successfully:', result.data.length);
@@ -107,8 +124,10 @@ export function useBoards() {
           console.log(`⏳ [useBoards] Retrying in 2 seconds (attempt ${retryCountRef.current}/${maxRetries})`);
           
           setTimeout(() => {
-            loadingRef.current = false;
-            loadBoards(true);
+            if (mountedRef.current) {
+              loadingRef.current = false;
+              loadBoards(true);
+            }
           }, 2000);
           return;
         }
@@ -118,6 +137,11 @@ export function useBoards() {
         hasLoadedRef.current = false;
       }
     } catch (error) {
+      if (!mountedRef.current) {
+        console.log('⚠️ [useBoards] Component unmounted during error handling');
+        return;
+      }
+      
       console.error('❌ [useBoards] Error loading boards:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
@@ -127,8 +151,10 @@ export function useBoards() {
         console.log(`⏳ [useBoards] Retrying in 2 seconds (attempt ${retryCountRef.current}/${maxRetries})`);
         
         setTimeout(() => {
-          loadingRef.current = false;
-          loadBoards(true);
+          if (mountedRef.current) {
+            loadingRef.current = false;
+            loadBoards(true);
+          }
         }, 2000);
         return;
       }
@@ -137,13 +163,20 @@ export function useBoards() {
       setBoards([]);
       hasLoadedRef.current = false;
     } finally {
-      setLoading(false);
-      loadingRef.current = false;
+      if (mountedRef.current) {
+        setLoading(false);
+        loadingRef.current = false;
+      }
     }
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     loadBoards();
+    
+    return () => {
+      mountedRef.current = false;
+    };
   }, [user?.id]); // Only depend on user ID
 
   return {
@@ -157,7 +190,7 @@ export function useBoards() {
     removeFromBoard: executeRemoveFromBoard,
     renameBoard: executeRenameBoard,
     refreshBoards: () => {
-      if (user?.id) {
+      if (user?.id && mountedRef.current) {
         console.log('🔄 [useBoards] Manual refresh triggered');
         // Reset state to force reload
         hasLoadedRef.current = false;
@@ -169,13 +202,15 @@ export function useBoards() {
     },
     // Add retry function
     retryLoad: () => {
-      console.log('🔄 [useBoards] Retry load triggered');
-      hasLoadedRef.current = false;
-      currentUserRef.current = null;
-      loadingRef.current = false;
-      retryCountRef.current = 0;
-      setError(null);
-      loadBoards(true);
+      if (mountedRef.current) {
+        console.log('🔄 [useBoards] Retry load triggered');
+        hasLoadedRef.current = false;
+        currentUserRef.current = null;
+        loadingRef.current = false;
+        retryCountRef.current = 0;
+        setError(null);
+        loadBoards(true);
+      }
     }
   };
 }
