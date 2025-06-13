@@ -6,11 +6,10 @@ import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 export const boardsApi = {
   async fetchBoards(userId: string) {
     return withErrorHandling(async () => {
-      const { data, error } = await supabase
-        .from('boards')
-        .select('*')
-        .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
-        .order('created_at', { ascending: false });
+      // Use the optimized function instead of direct query
+      const { data, error } = await supabase.rpc('get_user_boards', {
+        user_id: userId
+      });
 
       if (error) throw error;
       return data as Board[];

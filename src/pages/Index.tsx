@@ -9,7 +9,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Memory } from '@/components/MemoryList';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchMemories, deleteMemory, fetchBoards, createBoard, Board } from '@/lib/db';
+import { fetchMemories, deleteMemory, createBoard, Board } from '@/lib/db';
+import { boardsApi } from '@/lib/api/boards';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Grid3X3, List } from 'lucide-react';
@@ -48,21 +49,20 @@ const Index = () => {
         
         console.log('🔄 Loading boards for user:', user.id);
         
-        // Load boards with timeout and enhanced error handling
-        const boardsPromise = fetchBoards(user.id);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
-        );
+        // Use the optimized boards API with shorter timeout
+        const boardsResult = await Promise.race([
+          boardsApi.fetchBoards(user.id),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
+          )
+        ]);
         
-        let boardsData: Board[];
-        try {
-          boardsData = await Promise.race([boardsPromise, timeoutPromise]) as Board[];
-          console.log('✅ Boards loaded successfully:', boardsData.length);
-        } catch (timeoutError) {
-          console.error('❌ Boards loading timed out:', timeoutError);
-          throw new Error('Loading boards timed out. Please check your internet connection.');
+        if (!boardsResult.success) {
+          throw new Error(boardsResult.error || 'Failed to load boards');
         }
         
+        const boardsData = boardsResult.data || [];
+        console.log('✅ Boards loaded successfully:', boardsData.length);
         setBoards(boardsData);
         
         // If no boards, create a default one
@@ -86,24 +86,37 @@ const Index = () => {
             throw new Error('Failed to create your first board. Please try refreshing the page.');
           }
         } else {
-          // Load memories from all boards
+          // Load memories from all boards with better error handling
           console.log('🔄 Loading memories from', boardsData.length, 'boards');
           const allMemories: Memory[] = [];
+          const failedBoards: string[] = [];
           
-          for (const board of boardsData) {
-            try {
-              console.log('🔄 Loading memories for board:', board.name, 'with access code:', board.access_code);
-              const boardMemories = await fetchMemories(board.access_code);
-              console.log('✅ Loaded', boardMemories.length, 'memories from board:', board.name);
-              allMemories.push(...boardMemories);
-            } catch (error) {
-              console.error(`❌ Error loading memories for board ${board.name}:`, error);
-              // Continue with other boards instead of failing completely
-            }
-          }
+          // Load memories from each board with individual error handling
+          await Promise.allSettled(
+            boardsData.map(async (board) => {
+              try {
+                console.log('🔄 Loading memories for board:', board.name, 'with access code:', board.access_code);
+                const boardMemories = await fetchMemories(board.access_code);
+                console.log('✅ Loaded', boardMemories.length, 'memories from board:', board.name);
+                allMemories.push(...boardMemories);
+              } catch (error) {
+                console.error(`❌ Error loading memories for board ${board.name}:`, error);
+                failedBoards.push(board.name);
+              }
+            })
+          );
           
           console.log('✅ Total memories loaded:', allMemories.length);
           setMemories(allMemories);
+          
+          // Show warning if some boards failed to load
+          if (failedBoards.length > 0) {
+            toast({
+              title: 'Partial Load Warning',
+              description: `Could not load memories from ${failedBoards.length} board(s): ${failedBoards.join(', ')}`,
+              variant: 'destructive',
+            });
+          }
         }
       } catch (error) {
         console.error('❌ Error loading data:', error);
@@ -190,6 +203,7 @@ const Index = () => {
                 <p>• Try refreshing the page</p>
                 <p>• Clear your browser cache</p>
                 <p>• Check browser console for errors (F12)</p>
+                <p>• Database may be experiencing high load</p>
               </div>
             </details>
           </div>
