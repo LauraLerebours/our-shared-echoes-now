@@ -208,7 +208,7 @@ export const memoriesApi = {
       // Combine all successful results
       const allData = results
         .filter(result => result.status === 'fulfilled')
-        .flatMap(result => result.value);
+        .flatMap(result => (result as PromiseFulfilledResult<any[]>).value);
       
       // Transform database records to Memory type
       const memories: Memory[] = allData.map(record => ({
@@ -457,7 +457,7 @@ export const memoriesApi = {
     }
   },
 
-  async toggleMemoryLike(id: string): Promise<ApiResponse<Memory>> {
+  async toggleMemoryLike(id: string, accessCode: string): Promise<ApiResponse<{ likes: number, isLiked: boolean }>> {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
@@ -467,6 +467,7 @@ export const memoriesApi = {
           .from('memories')
           .select('*')
           .eq('id', id)
+          .eq('access_code', accessCode)
           .single();
         
         if (fetchError) {
@@ -490,6 +491,7 @@ export const memoriesApi = {
             is_liked: newIsLiked
           })
           .eq('id', id)
+          .eq('access_code', accessCode)
           .select()
           .single();
         
@@ -498,25 +500,11 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
-        return data;
+        return { likes: data.likes, isLiked: data.is_liked };
       }, 3, 1000);
       
-      const updatedMemory: Memory = {
-        id: result.id,
-        image: result.media_url,
-        caption: result.caption || undefined,
-        date: new Date(result.event_date),
-        location: result.location || undefined,
-        likes: result.likes,
-        isLiked: result.is_liked || false,
-        isVideo: result.is_video,
-        type: 'memory' as const,
-        accessCode: result.access_code || '',
-        createdBy: result.created_by || undefined
-      };
-      
       console.log('✅ [memoriesApi.toggleMemoryLike] Success');
-      return { success: true, data: updatedMemory };
+      return { success: true, data: result };
     } catch (error) {
       console.error('❌ [memoriesApi.toggleMemoryLike] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle memory like' };

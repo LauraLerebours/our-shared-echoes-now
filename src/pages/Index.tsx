@@ -178,7 +178,7 @@ const Index = () => {
         abortControllerRef.current = null;
       }
     };
-  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]);
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]); // Add isSigningOut to dependencies
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
