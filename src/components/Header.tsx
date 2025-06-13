@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -57,8 +57,6 @@ const Header = () => {
               <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                 {getInitials()}
               </AvatarFallback>
-              {/* You can add a custom profile image here */}
-              <AvatarImage src="/your-logo.png" alt="Profile" />
             </Avatar>
           </Button>
         </UserProfileDialog>
@@ -82,10 +80,8 @@ const Header = () => {
         </Button>
       </div>
       
-      {/* You can replace this with your own logo/branding */}
+      {/* App Title - No logo reference */}
       <div className="flex items-center gap-2">
-        {/* Optional: Add your logo image here */}
-        {/* <img src="/your-logo.png" alt="Logo" className="h-8 w-8" /> */}
         <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
           This Is Us
         </h1>
