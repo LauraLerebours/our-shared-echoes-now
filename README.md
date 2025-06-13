@@ -41,12 +41,23 @@ A beautiful application for couples to capture and share their memories together
 1. Install dependencies:
    ```bash
    npm install
+   # Or with bun
+   # bun install
    ```
 
 2. Start the development server:
    ```bash
    npm run dev
    ```
+
+After installing dependencies, you can build the project with:
+
+```bash
+npm run build
+```
+
+This uses Vite under the hood. If `vite` is not found, ensure you have run the
+installation step above so the `node_modules` directory is created.
 
 3. Open your browser and navigate to `http://localhost:8080`
 
@@ -83,6 +94,17 @@ The built files will be in the `dist` folder, ready for deployment to any static
 - **UI Components**: Radix UI + Tailwind CSS
 - **Backend**: Supabase (PostgreSQL + Auth + Storage)
 - **Deployment**: Netlify
+
+## Troubleshooting
+
+If `npm run dev`, `npm run build`, or `npm run lint` fail with messages about
+missing packages like `vite` or `@eslint/js`, it usually means dependencies
+haven't been installed yet.
+
+1. Ensure you have run `npm install` (or `bun install`) at least once so the
+   `node_modules` directory is created.
+2. Double check that your `.env` file exists and contains your Supabase
+   credentials. An example is provided in `.env.example`.
 
 ## Contributing
 

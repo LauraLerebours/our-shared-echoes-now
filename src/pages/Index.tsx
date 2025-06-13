@@ -109,7 +109,7 @@ const Index = () => {
 
         // Extract access codes from boards
         const accessCodes = loadedBoards
-          .map(board => board.accessCode)
+          .map(board => board.access_code)
           .filter((code): code is string => code !== null && code !== undefined);
         
         console.log('🔄 Loading memories for access codes:', accessCodes.length);

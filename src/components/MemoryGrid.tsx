@@ -133,9 +133,9 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
     setLikingMemories(prev => new Set(prev).add(memory.id));
     
     try {
-      const result = await toggleMemoryLike(memory.id, memory.accessCode);
-      
-      if (result && result.success && onUpdateMemory) {
+      const result = await toggleMemoryLike(memory.id);
+
+      if (result && onUpdateMemory) {
         onUpdateMemory(memory.id, {
           likes: result.likes,
           isLiked: result.isLiked

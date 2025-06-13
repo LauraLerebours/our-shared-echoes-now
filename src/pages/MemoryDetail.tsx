@@ -47,7 +47,8 @@ const MemoryDetail = () => {
       }
       
       try {
-        const memoryData = await getMemory(id, accessCode);
+        // getMemory only requires the memory ID; the access code isn't needed
+        const memoryData = await getMemory(id);
         
         if (!memoryData) {
           toast({
@@ -83,9 +84,9 @@ const MemoryDetail = () => {
     setIsLiking(true);
     
     try {
-      const result = await toggleMemoryLike(memory.id, accessCode);
-      
-      if (result && result.success) {
+      const result = await toggleMemoryLike(memory.id);
+
+      if (result) {
         setLikes(result.likes);
         setIsLiked(result.isLiked);
         

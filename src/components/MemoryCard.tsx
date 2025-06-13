@@ -136,9 +136,9 @@ const MemoryCard = ({
     setIsLiking(true);
     
     try {
-      const result = await toggleMemoryLike(id, accessCode);
-      
-      if (result && result.success) {
+      const result = await toggleMemoryLike(id);
+
+      if (result) {
         setCurrentLikes(result.likes);
         setCurrentIsLiked(result.isLiked);
         onLike(id, result.likes, result.isLiked);
