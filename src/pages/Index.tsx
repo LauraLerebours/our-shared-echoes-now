@@ -79,7 +79,7 @@ const Index = () => {
         const boardsResult = await Promise.race([
           boardsApi.fetchBoards(user.id),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
+            setTimeout(() => reject(new Error('Boards request timeout after 60 seconds')), 60000)
           )
         ]);
 
