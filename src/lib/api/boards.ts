@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Board, BoardOperationResponse } from '@/lib/types';
-import { withErrorHandling, requireAuth } from './base';
+import { withErrorHandling, requireAuth, withRetry } from './base';
 import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 
 export const boardsApi = {
@@ -12,30 +12,40 @@ export const boardsApi = {
         throw new Error('User ID is required');
       }
 
-      // Simplified, optimized query - remove all the validation steps
-      const { data, error } = await supabase
-        .from('boards')
-        .select(`
-          id,
-          name,
-          owner_id,
-          member_ids,
-          access_code,
-          share_code,
-          created_at,
-          updated_at
-        `)
-        .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
-        .order('created_at', { ascending: false })
-        .limit(50); // Reasonable limit for performance
+      // Use retry wrapper for network resilience
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('boards')
+          .select(`
+            id,
+            name,
+            owner_id,
+            member_ids,
+            access_code,
+            share_code,
+            created_at,
+            updated_at
+          `)
+          .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
+          .order('created_at', { ascending: false })
+          .limit(50);
 
-      if (error) {
-        console.error('❌ [boardsApi.fetchBoards] Database error:', error);
-        throw new Error(`Failed to fetch boards: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.fetchBoards] Database error:', error);
+          
+          // Handle specific error types
+          if (error.message?.includes('404') || error.code === 'PGRST116') {
+            throw new Error('Database table not found. Please check your database setup.');
+          }
+          
+          throw new Error(`Failed to fetch boards: ${error.message}`);
+        }
+
+        return data || [];
+      }, 3, 1000);
       
-      console.log('✅ [boardsApi.fetchBoards] Success:', data?.length || 0, 'boards');
-      return (data || []) as Board[];
+      console.log('✅ [boardsApi.fetchBoards] Success:', result.length, 'boards');
+      return result as Board[];
     }, 'fetchBoards');
   },
 
@@ -47,24 +57,33 @@ export const boardsApi = {
         throw new Error('Board ID and User ID are required');
       }
 
-      const { data, error } = await supabase
-        .from('boards')
-        .select('*')
-        .eq('id', boardId)
-        .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
-        .single();
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('boards')
+          .select('*')
+          .eq('id', boardId)
+          .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
+          .single();
 
-      if (error) {
-        console.error('❌ [boardsApi.getBoardById] Error:', error);
-        throw new Error(`Failed to fetch board: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.getBoardById] Error:', error);
+          
+          if (error.code === 'PGRST116') {
+            throw new Error('Board not found');
+          }
+          
+          throw new Error(`Failed to fetch board: ${error.message}`);
+        }
 
-      if (!data) {
+        return data;
+      }, 3, 1000);
+
+      if (!result) {
         throw new Error('Board not found or access denied');
       }
 
-      console.log('✅ [boardsApi.getBoardById] Success:', data.name);
-      return data as Board;
+      console.log('✅ [boardsApi.getBoardById] Success:', result.name);
+      return result as Board;
     }, 'getBoardById');
   },
 
@@ -76,24 +95,28 @@ export const boardsApi = {
     return withErrorHandling(async () => {
       console.log('🔄 [boardsApi.getBoardByShareCode] Starting:', shareCode);
       
-      const { data, error } = await supabase
-        .from('boards')
-        .select('*')
-        .eq('share_code', shareCode.toUpperCase())
-        .maybeSingle();
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('boards')
+          .select('*')
+          .eq('share_code', shareCode.toUpperCase())
+          .maybeSingle();
 
-      if (error) {
-        console.error('❌ [boardsApi.getBoardByShareCode] Error:', error);
-        throw new Error(`Failed to fetch board: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.getBoardByShareCode] Error:', error);
+          throw new Error(`Failed to fetch board: ${error.message}`);
+        }
 
-      if (!data) {
+        return data;
+      }, 3, 1000);
+
+      if (!result) {
         console.log('❌ [boardsApi.getBoardByShareCode] No board found');
         return null;
       }
 
-      console.log('✅ [boardsApi.getBoardByShareCode] Success:', data.name);
-      return data as Board;
+      console.log('✅ [boardsApi.getBoardByShareCode] Success:', result.name);
+      return result as Board;
     }, 'getBoardByShareCode');
   },
 
@@ -115,55 +138,65 @@ export const boardsApi = {
       
       console.log('🔄 [boardsApi.createBoard] Generated codes:', { accessCode, shareCode });
 
-      // Create access code first
-      const { error: accessCodeError } = await supabase
-        .from('access_codes')
-        .insert([{ code: accessCode, name: sanitizedName }]);
+      const result = await withRetry(async () => {
+        // Create access code first
+        const { error: accessCodeError } = await supabase
+          .from('access_codes')
+          .insert([{ code: accessCode, name: sanitizedName }]);
 
-      if (accessCodeError) {
-        console.error('❌ [boardsApi.createBoard] Access code error:', accessCodeError);
-        throw new Error(`Failed to create access code: ${accessCodeError.message}`);
-      }
+        if (accessCodeError) {
+          console.error('❌ [boardsApi.createBoard] Access code error:', accessCodeError);
+          throw new Error(`Failed to create access code: ${accessCodeError.message}`);
+        }
 
-      console.log('✅ [boardsApi.createBoard] Access code created');
+        console.log('✅ [boardsApi.createBoard] Access code created');
 
-      // Use the safe function to create board
-      const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
-        board_name: sanitizedName,
-        owner_user_id: userId,
-        access_code_param: accessCode,
-        share_code_param: shareCode
-      });
+        // Use the safe function to create board
+        const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
+          board_name: sanitizedName,
+          owner_user_id: userId,
+          access_code_param: accessCode,
+          share_code_param: shareCode
+        });
 
-      if (error) {
-        console.error('❌ [boardsApi.createBoard] Board creation error:', error);
-        throw new Error(`Failed to create board: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.createBoard] Board creation error:', error);
+          
+          // Handle function not found error
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          throw new Error(`Failed to create board: ${error.message}`);
+        }
 
-      if (!boardId) {
-        throw new Error('Board creation function returned no ID');
-      }
+        if (!boardId) {
+          throw new Error('Board creation function returned no ID');
+        }
 
-      console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
+        console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
 
-      // Fetch the created board
-      const { data: boardData, error: fetchError } = await supabase
-        .from('boards')
-        .select('*')
-        .eq('id', boardId)
-        .single();
+        // Fetch the created board
+        const { data: boardData, error: fetchError } = await supabase
+          .from('boards')
+          .select('*')
+          .eq('id', boardId)
+          .single();
 
-      if (fetchError) {
-        console.error('❌ [boardsApi.createBoard] Fetch error:', fetchError);
-        throw new Error(`Failed to fetch created board: ${fetchError.message}`);
-      }
+        if (fetchError) {
+          console.error('❌ [boardsApi.createBoard] Fetch error:', fetchError);
+          throw new Error(`Failed to fetch created board: ${fetchError.message}`);
+        }
 
-      if (!boardData) {
-        throw new Error('Created board not found');
-      }
+        if (!boardData) {
+          throw new Error('Created board not found');
+        }
 
-      console.log('✅ [boardsApi.createBoard] Success:', boardData.name);
-      return boardData as Board;
+        return boardData;
+      }, 3, 1000);
+
+      console.log('✅ [boardsApi.createBoard] Success:', result.name);
+      return result as Board;
     }, 'createBoard');
   },
 
@@ -176,19 +209,26 @@ export const boardsApi = {
     console.log('🔄 [boardsApi.renameBoard] Starting:', { boardId, newName: sanitizedName });
 
     const result = await withErrorHandling(async () => {
-      const { data, error } = await supabase.rpc('rename_board', {
-        board_id: boardId,
-        new_name: sanitizedName,
-        user_id: userId
-      });
+      return await withRetry(async () => {
+        const { data, error } = await supabase.rpc('rename_board', {
+          board_id: boardId,
+          new_name: sanitizedName,
+          user_id: userId
+        });
 
-      if (error) {
-        console.error('❌ [boardsApi.renameBoard] Error:', error);
-        throw new Error(`Failed to rename board: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.renameBoard] Error:', error);
+          
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          throw new Error(`Failed to rename board: ${error.message}`);
+        }
 
-      console.log('✅ [boardsApi.renameBoard] Success');
-      return data as { success: boolean; message: string; new_name?: string };
+        console.log('✅ [boardsApi.renameBoard] Success');
+        return data as { success: boolean; message: string; new_name?: string };
+      }, 3, 1000);
     }, 'renameBoard');
 
     if (!result.success) {
@@ -210,18 +250,25 @@ export const boardsApi = {
     console.log('🔄 [boardsApi.addUserToBoard] Starting:', { shareCode, userId });
 
     const result = await withErrorHandling(async () => {
-      const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
-        share_code_param: shareCode.toUpperCase(),
-        user_id_param: userId
-      });
+      return await withRetry(async () => {
+        const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
+          share_code_param: shareCode.toUpperCase(),
+          user_id_param: userId
+        });
 
-      if (error) {
-        console.error('❌ [boardsApi.addUserToBoard] Error:', error);
-        throw new Error(`Failed to join board: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.addUserToBoard] Error:', error);
+          
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          throw new Error(`Failed to join board: ${error.message}`);
+        }
 
-      console.log('✅ [boardsApi.addUserToBoard] Success');
-      return data as { success: boolean; message: string; board_id?: string };
+        console.log('✅ [boardsApi.addUserToBoard] Success');
+        return data as { success: boolean; message: string; board_id?: string };
+      }, 3, 1000);
     }, 'addUserToBoard');
 
     if (!result.success) {
@@ -247,18 +294,25 @@ export const boardsApi = {
     console.log('🔄 [boardsApi.removeUserFromBoard] Starting:', { boardId, userId });
 
     const result = await withErrorHandling(async () => {
-      const { data: success, error } = await supabase.rpc('remove_board_member', {
-        board_id: boardId,
-        user_id: userId
-      });
+      return await withRetry(async () => {
+        const { data: success, error } = await supabase.rpc('remove_board_member', {
+          board_id: boardId,
+          user_id: userId
+        });
 
-      if (error) {
-        console.error('❌ [boardsApi.removeUserFromBoard] Error:', error);
-        throw new Error(`Failed to remove user: ${error.message}`);
-      }
+        if (error) {
+          console.error('❌ [boardsApi.removeUserFromBoard] Error:', error);
+          
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          throw new Error(`Failed to remove user: ${error.message}`);
+        }
 
-      console.log('✅ [boardsApi.removeUserFromBoard] Success');
-      return success;
+        console.log('✅ [boardsApi.removeUserFromBoard] Success');
+        return success;
+      }, 3, 1000);
     }, 'removeUserFromBoard');
 
     if (!result.success) {

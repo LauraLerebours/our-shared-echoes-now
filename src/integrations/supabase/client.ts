@@ -39,6 +39,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   global: {
     headers: {
       'X-Client-Info': 'supabase-js-web',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     },
   },
   realtime: {
@@ -48,7 +50,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   }
 });
 
-// Enhanced connection test with retry logic
+// Enhanced connection test with better error handling
 let connectionTestAttempts = 0;
 const maxConnectionAttempts = 3;
 
@@ -57,14 +59,20 @@ const testConnection = async () => {
   console.log(`🔄 Testing Supabase connection (attempt ${connectionTestAttempts}/${maxConnectionAttempts})`);
   
   try {
-    // Test with a simple, fast query
-    const { data, error, count } = await supabase
+    // Test with a simple, fast query that should always work
+    const { error } = await supabase
       .from('user_profiles')
-      .select('id', { count: 'exact', head: true })
-      .limit(1);
+      .select('id')
+      .limit(1)
+      .maybeSingle();
     
     if (error) {
       console.error(`❌ Connection test failed (attempt ${connectionTestAttempts}):`, error);
+      
+      // Check for specific error types
+      if (error.message?.includes('404') || error.message?.includes('Not Found')) {
+        console.error('❌ 404 Error detected - this suggests the Supabase URL or table structure is incorrect');
+      }
       
       if (connectionTestAttempts < maxConnectionAttempts) {
         console.log(`⏳ Retrying connection test in 2 seconds...`);
@@ -77,14 +85,18 @@ const testConnection = async () => {
     }
     
     console.log('✅ Supabase connection test successful');
-    console.log(`📊 Database accessible, user_profiles table exists (count: ${count})`);
+    console.log('📊 Database accessible, user_profiles table exists');
     
     // Test auth state
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    if (authError) {
-      console.warn('⚠️ Auth session check failed:', authError.message);
-    } else {
-      console.log('✅ Auth system accessible, session:', session ? 'active' : 'none');
+    try {
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      if (authError) {
+        console.warn('⚠️ Auth session check failed:', authError.message);
+      } else {
+        console.log('✅ Auth system accessible, session:', session ? 'active' : 'none');
+      }
+    } catch (authErr) {
+      console.warn('⚠️ Auth test failed:', authErr);
     }
     
   } catch (error) {

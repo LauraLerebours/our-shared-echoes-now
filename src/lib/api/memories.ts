@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { ApiResponse } from './base';
+import { ApiResponse, withRetry } from './base';
 import { Memory } from '../types';
 
 export const memoriesApi = {
@@ -7,21 +7,29 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.fetchMemories] Starting for access code:', accessCode);
       
-      // Use a more efficient query with proper indexing
-      const { data, error } = await supabase
-        .from('memories')
-        .select('*')
-        .eq('access_code', accessCode)
-        .order('event_date', { ascending: false })
-        .limit(100); // Add reasonable limit to prevent huge queries
-      
-      if (error) {
-        console.error('❌ [memoriesApi.fetchMemories] Error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('memories')
+          .select('*')
+          .eq('access_code', accessCode)
+          .order('event_date', { ascending: false })
+          .limit(100);
+        
+        if (error) {
+          console.error('❌ [memoriesApi.fetchMemories] Error:', error);
+          
+          if (error.message?.includes('404') || error.code === 'PGRST116') {
+            throw new Error('Memories table not found. Please check your database setup.');
+          }
+          
+          throw new Error(error.message);
+        }
+        
+        return data || [];
+      }, 3, 1000);
       
       // Transform database records to Memory type
-      const memories: Memory[] = (data || []).map(record => ({
+      const memories: Memory[] = result.map(record => ({
         id: record.id,
         image: record.media_url,
         caption: record.caption || undefined,
@@ -39,7 +47,7 @@ export const memoriesApi = {
       return { success: true, data: memories };
     } catch (error) {
       console.error('❌ [memoriesApi.fetchMemories] Error:', error);
-      return { success: false, error: 'Failed to fetch memories' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memories' };
     }
   },
 
@@ -53,7 +61,7 @@ export const memoriesApi = {
       }
       
       // Split into chunks to avoid query size limits and enable parallel processing
-      const chunkSize = 5; // Process 5 access codes at a time
+      const chunkSize = 5;
       const chunks = [];
       for (let i = 0; i < accessCodes.length; i += chunkSize) {
         chunks.push(accessCodes.slice(i, i + chunkSize));
@@ -61,25 +69,34 @@ export const memoriesApi = {
       
       console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Processing', chunks.length, 'chunks');
       
-      // Process chunks in parallel
+      // Process chunks in parallel with retry logic
       const chunkPromises = chunks.map(async (chunk, index) => {
         try {
           console.log(`🔄 [Chunk ${index + 1}] Processing codes:`, chunk);
           
-          const { data, error } = await supabase
-            .from('memories')
-            .select('*')
-            .in('access_code', chunk)
-            .order('event_date', { ascending: false })
-            .limit(Math.ceil(limit / chunks.length)); // Distribute limit across chunks
+          const result = await withRetry(async () => {
+            const { data, error } = await supabase
+              .from('memories')
+              .select('*')
+              .in('access_code', chunk)
+              .order('event_date', { ascending: false })
+              .limit(Math.ceil(limit / chunks.length));
+            
+            if (error) {
+              console.error(`❌ [Chunk ${index + 1}] Error:`, error);
+              
+              if (error.message?.includes('404') || error.code === 'PGRST116') {
+                throw new Error('Memories table not found');
+              }
+              
+              throw new Error(error.message);
+            }
+            
+            return data || [];
+          }, 2, 1000); // Fewer retries for chunks
           
-          if (error) {
-            console.error(`❌ [Chunk ${index + 1}] Error:`, error);
-            return []; // Return empty array instead of failing
-          }
-          
-          console.log(`✅ [Chunk ${index + 1}] Success:`, data?.length || 0, 'memories');
-          return data || [];
+          console.log(`✅ [Chunk ${index + 1}] Success:`, result.length, 'memories');
+          return result;
         } catch (error) {
           console.error(`❌ [Chunk ${index + 1}] Exception:`, error);
           return []; // Return empty array instead of failing
@@ -118,7 +135,7 @@ export const memoriesApi = {
       return { success: true, data: sortedMemories };
     } catch (error) {
       console.error('❌ [memoriesApi.fetchMemoriesByAccessCodes] Error:', error);
-      return { success: false, error: 'Failed to fetch memories by access codes' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memories by access codes' };
     }
   },
 
@@ -126,36 +143,45 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.getMemory] Starting for ID:', id);
       
-      const { data, error } = await supabase
-        .from('memories')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) {
-        console.error('❌ [memoriesApi.getMemory] Error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('memories')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.getMemory] Error:', error);
+          
+          if (error.code === 'PGRST116') {
+            throw new Error('Memory not found');
+          }
+          
+          throw new Error(error.message);
+        }
+        
+        return data;
+      }, 3, 1000);
       
       const memory: Memory = {
-        id: data.id,
-        image: data.media_url,
-        caption: data.caption || undefined,
-        date: new Date(data.event_date),
-        location: data.location || undefined,
-        likes: data.likes,
-        isLiked: data.is_liked || false,
-        isVideo: data.is_video,
+        id: result.id,
+        image: result.media_url,
+        caption: result.caption || undefined,
+        date: new Date(result.event_date),
+        location: result.location || undefined,
+        likes: result.likes,
+        isLiked: result.is_liked || false,
+        isVideo: result.is_video,
         type: 'memory' as const,
-        accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        accessCode: result.access_code || '',
+        createdBy: result.created_by || undefined
       };
       
       console.log('✅ [memoriesApi.getMemory] Success');
       return { success: true, data: memory };
     } catch (error) {
       console.error('❌ [memoriesApi.getMemory] Error:', error);
-      return { success: false, error: 'Failed to fetch memory' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memory' };
     }
   },
 
@@ -176,36 +202,40 @@ export const memoriesApi = {
         created_by: memory.createdBy
       };
       
-      const { data, error } = await supabase
-        .from('memories')
-        .insert(dbRecord)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ [memoriesApi.createMemory] Error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('memories')
+          .insert(dbRecord)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.createMemory] Error:', error);
+          throw new Error(error.message);
+        }
+        
+        return data;
+      }, 3, 1000);
       
       const createdMemory: Memory = {
-        id: data.id,
-        image: data.media_url,
-        caption: data.caption || undefined,
-        date: new Date(data.event_date),
-        location: data.location || undefined,
-        likes: data.likes,
-        isLiked: data.is_liked || false,
-        isVideo: data.is_video,
+        id: result.id,
+        image: result.media_url,
+        caption: result.caption || undefined,
+        date: new Date(result.event_date),
+        location: result.location || undefined,
+        likes: result.likes,
+        isLiked: result.is_liked || false,
+        isVideo: result.is_video,
         type: 'memory' as const,
-        accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        accessCode: result.access_code || '',
+        createdBy: result.created_by || undefined
       };
       
       console.log('✅ [memoriesApi.createMemory] Success');
       return { success: true, data: createdMemory };
     } catch (error) {
       console.error('❌ [memoriesApi.createMemory] Error:', error);
-      return { success: false, error: 'Failed to create memory' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to create memory' };
     }
   },
 
@@ -222,37 +252,41 @@ export const memoriesApi = {
       if (updates.isLiked !== undefined) dbUpdates.is_liked = updates.isLiked;
       if (updates.isVideo !== undefined) dbUpdates.is_video = updates.isVideo;
       
-      const { data, error } = await supabase
-        .from('memories')
-        .update(dbUpdates)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ [memoriesApi.updateMemory] Error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('memories')
+          .update(dbUpdates)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.updateMemory] Error:', error);
+          throw new Error(error.message);
+        }
+        
+        return data;
+      }, 3, 1000);
       
       const updatedMemory: Memory = {
-        id: data.id,
-        image: data.media_url,
-        caption: data.caption || undefined,
-        date: new Date(data.event_date),
-        location: data.location || undefined,
-        likes: data.likes,
-        isLiked: data.is_liked || false,
-        isVideo: data.is_video,
+        id: result.id,
+        image: result.media_url,
+        caption: result.caption || undefined,
+        date: new Date(result.event_date),
+        location: result.location || undefined,
+        likes: result.likes,
+        isLiked: result.is_liked || false,
+        isVideo: result.is_video,
         type: 'memory' as const,
-        accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        accessCode: result.access_code || '',
+        createdBy: result.created_by || undefined
       };
       
       console.log('✅ [memoriesApi.updateMemory] Success');
       return { success: true, data: updatedMemory };
     } catch (error) {
       console.error('❌ [memoriesApi.updateMemory] Error:', error);
-      return { success: false, error: 'Failed to update memory' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to update memory' };
     }
   },
 
@@ -260,38 +294,42 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.deleteMemory] Starting for ID:', id);
       
-      const { data, error } = await supabase
-        .from('memories')
-        .delete()
-        .eq('id', id)
-        .eq('access_code', accessCode)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ [memoriesApi.deleteMemory] Error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('memories')
+          .delete()
+          .eq('id', id)
+          .eq('access_code', accessCode)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.deleteMemory] Error:', error);
+          throw new Error(error.message);
+        }
+        
+        return data;
+      }, 3, 1000);
       
       const deletedMemory: Memory = {
-        id: data.id,
-        image: data.media_url,
-        caption: data.caption || undefined,
-        date: new Date(data.event_date),
-        location: data.location || undefined,
-        likes: data.likes,
-        isLiked: data.is_liked || false,
-        isVideo: data.is_video,
+        id: result.id,
+        image: result.media_url,
+        caption: result.caption || undefined,
+        date: new Date(result.event_date),
+        location: result.location || undefined,
+        likes: result.likes,
+        isLiked: result.is_liked || false,
+        isVideo: result.is_video,
         type: 'memory' as const,
-        accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        accessCode: result.access_code || '',
+        createdBy: result.created_by || undefined
       };
       
       console.log('✅ [memoriesApi.deleteMemory] Success');
       return { success: true, data: deletedMemory };
     } catch (error) {
       console.error('❌ [memoriesApi.deleteMemory] Error:', error);
-      return { success: false, error: 'Failed to delete memory' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to delete memory' };
     }
   },
 
@@ -299,56 +337,60 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
-      // First get the current memory
-      const { data: currentMemory, error: fetchError } = await supabase
-        .from('memories')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (fetchError) {
-        console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
-        return { success: false, error: fetchError.message };
-      }
-      
-      // Toggle the like
-      const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
-      const newIsLiked = !currentMemory.is_liked;
-      
-      const { data, error } = await supabase
-        .from('memories')
-        .update({ 
-          likes: newLikes,
-          is_liked: newIsLiked
-        })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
-        return { success: false, error: error.message };
-      }
+      const result = await withRetry(async () => {
+        // First get the current memory
+        const { data: currentMemory, error: fetchError } = await supabase
+          .from('memories')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) {
+          console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
+          throw new Error(fetchError.message);
+        }
+        
+        // Toggle the like
+        const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
+        const newIsLiked = !currentMemory.is_liked;
+        
+        const { data, error } = await supabase
+          .from('memories')
+          .update({ 
+            likes: newLikes,
+            is_liked: newIsLiked
+          })
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
+          throw new Error(error.message);
+        }
+        
+        return data;
+      }, 3, 1000);
       
       const updatedMemory: Memory = {
-        id: data.id,
-        image: data.media_url,
-        caption: data.caption || undefined,
-        date: new Date(data.event_date),
-        location: data.location || undefined,
-        likes: data.likes,
-        isLiked: data.is_liked || false,
-        isVideo: data.is_video,
+        id: result.id,
+        image: result.media_url,
+        caption: result.caption || undefined,
+        date: new Date(result.event_date),
+        location: result.location || undefined,
+        likes: result.likes,
+        isLiked: result.is_liked || false,
+        isVideo: result.is_video,
         type: 'memory' as const,
-        accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        accessCode: result.access_code || '',
+        createdBy: result.created_by || undefined
       };
       
       console.log('✅ [memoriesApi.toggleMemoryLike] Success');
       return { success: true, data: updatedMemory };
     } catch (error) {
       console.error('❌ [memoriesApi.toggleMemoryLike] Error:', error);
-      return { success: false, error: 'Failed to toggle memory like' };
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle memory like' };
     }
   }
 };
