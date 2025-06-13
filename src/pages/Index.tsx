@@ -9,9 +9,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Memory } from '@/components/MemoryList';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteMemory, createBoard, Board } from '@/lib/db';
+import { deleteMemory, createBoard, Board, fetchMemoriesByAccessCodes } from '@/lib/db';
 import { boardsApi } from '@/lib/api/boards';
-import { memoriesApi } from '@/lib/api/memories';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Grid3X3, List } from 'lucide-react';
@@ -75,64 +74,54 @@ const Index = () => {
         setLoading(true);
         setError(null);
         
-        // Load boards and memories in parallel with individual timeouts
-        const [boardsResult, memoriesResult] = await Promise.allSettled([
-          // Load boards with 30 second timeout
-          Promise.race([
-            boardsApi.fetchBoards(user.id),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
-            )
-          ]),
-          // Load memories with 60 second timeout
-          Promise.race([
-            memoriesApi.fetchUserMemories(user.id),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Memories request timeout after 60 seconds')), 60000)
-            )
-          ])
+        // First load boards with timeout
+        console.log('🔄 Loading boards...');
+        const boardsResult = await Promise.race([
+          boardsApi.fetchBoards(user.id),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
+          )
         ]);
 
+        let loadedBoards: Board[] = [];
+        
         // Handle boards result
-        if (boardsResult.status === 'fulfilled') {
-          const boardsResponse = boardsResult.value as any;
-          if (boardsResponse.success && boardsResponse.data) {
-            console.log('✅ Boards loaded successfully:', boardsResponse.data.length);
-            setBoards(boardsResponse.data);
-          } else {
-            console.warn('⚠️ Boards loading failed, creating default board');
-            try {
-              const defaultBoard = await createBoard('My Memories', user.id);
-              if (defaultBoard) {
-                console.log('✅ Default board created:', defaultBoard.name);
-                setBoards([defaultBoard]);
-              } else {
-                setBoards([]);
-              }
-            } catch (boardCreationError) {
-              console.error('❌ Failed to create default board:', boardCreationError);
+        if ((boardsResult as any).success && (boardsResult as any).data) {
+          console.log('✅ Boards loaded successfully:', (boardsResult as any).data.length);
+          loadedBoards = (boardsResult as any).data;
+          setBoards(loadedBoards);
+        } else {
+          console.warn('⚠️ Boards loading failed, creating default board');
+          try {
+            const defaultBoard = await createBoard('My Memories', user.id);
+            if (defaultBoard) {
+              console.log('✅ Default board created:', defaultBoard.name);
+              loadedBoards = [defaultBoard];
+              setBoards(loadedBoards);
+            } else {
               setBoards([]);
             }
+          } catch (boardCreationError) {
+            console.error('❌ Failed to create default board:', boardCreationError);
+            setBoards([]);
           }
-        } else {
-          console.error('❌ Boards loading failed:', boardsResult.reason);
-          setBoards([]);
         }
 
-        // Handle memories result
-        if (memoriesResult.status === 'fulfilled') {
-          const memoriesResponse = memoriesResult.value as any;
-          if (memoriesResponse.success && memoriesResponse.data) {
-            console.log('✅ Memories loaded successfully:', memoriesResponse.data.length);
-            setMemories(memoriesResponse.data);
-          } else {
-            console.warn('⚠️ Memories loading failed:', memoriesResponse.error);
-            setMemories([]);
-          }
+        // Extract access codes from boards
+        const accessCodes = loadedBoards
+          .map(board => board.accessCode)
+          .filter((code): code is string => code !== null && code !== undefined);
+        
+        console.log('🔄 Loading memories for access codes:', accessCodes.length);
+        
+        // Load memories using access codes with limit
+        if (accessCodes.length > 0) {
+          const memoriesData = await fetchMemoriesByAccessCodes(accessCodes, 100);
+          console.log('✅ Memories loaded successfully:', memoriesData.length);
+          setMemories(memoriesData);
         } else {
-          console.error('❌ Memories loading failed:', memoriesResult.reason);
+          console.log('✅ No access codes available, setting empty memories');
           setMemories([]);
-          throw memoriesResult.reason; // Throw to trigger error state
         }
 
         console.log('✅ Data loading completed successfully');

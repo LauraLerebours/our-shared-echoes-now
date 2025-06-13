@@ -35,6 +35,11 @@ export const fetchMemories = async (accessCode: string) => {
   return result.success ? result.data || [] : [];
 };
 
+export const fetchMemoriesByAccessCodes = async (accessCodes: string[], limit?: number) => {
+  const result = await memoriesApi.fetchMemoriesByAccessCodes(accessCodes, limit);
+  return result.success ? result.data || [] : [];
+};
+
 export const getMemory = async (id: string) => {
   const result = await memoriesApi.getMemory(id);
   return result.success ? result.data : null;

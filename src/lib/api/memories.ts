@@ -43,17 +43,25 @@ export const memoriesApi = {
     }
   },
 
-  async fetchUserMemories(userId: string): Promise<ApiResponse<Memory[]>> {
+  async fetchMemoriesByAccessCodes(accessCodes: string[], limit: number = 100): Promise<ApiResponse<Memory[]>> {
     try {
-      console.log('🔄 Fetching all memories for user:', userId);
+      console.log('🔄 Fetching memories for access codes:', accessCodes.length, 'with limit:', limit);
       
-      // Use the optimized database function
-      const { data, error } = await supabase.rpc('get_user_memories_fast', {
-        user_id: userId
-      });
+      if (accessCodes.length === 0) {
+        console.log('✅ No access codes provided, returning empty array');
+        return { success: true, data: [] };
+      }
+      
+      // Use efficient query with access codes filter and limit
+      const { data, error } = await supabase
+        .from('memories')
+        .select('*')
+        .in('access_code', accessCodes)
+        .order('event_date', { ascending: false })
+        .limit(limit);
       
       if (error) {
-        console.error('❌ Error fetching user memories:', error);
+        console.error('❌ Error fetching memories by access codes:', error);
         return { success: false, error: error.message };
       }
       
@@ -72,11 +80,11 @@ export const memoriesApi = {
         createdBy: record.created_by || undefined
       }));
       
-      console.log('✅ User memories fetched successfully:', memories.length);
+      console.log('✅ Memories fetched by access codes successfully:', memories.length);
       return { success: true, data: memories };
     } catch (error) {
-      console.error('❌ Error fetching user memories:', error);
-      return { success: false, error: 'Failed to fetch user memories' };
+      console.error('❌ Error fetching memories by access codes:', error);
+      return { success: false, error: 'Failed to fetch memories by access codes' };
     }
   },
 
