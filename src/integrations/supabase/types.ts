@@ -63,29 +63,29 @@ export type Database = {
       comments: {
         Row: {
           content: string
-          created_at: string
+          created_at: string | null
           id: string
           memory_id: string
           parent_id: string | null
-          updated_at: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
           content: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           memory_id: string
           parent_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
           content?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           memory_id?: string
           parent_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
