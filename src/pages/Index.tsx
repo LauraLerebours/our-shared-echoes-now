@@ -10,141 +10,73 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Memory } from '@/components/MemoryList';
 import { useAuth } from '@/contexts/AuthContext';
 import { deleteMemory, createBoard, Board, fetchMemoriesByAccessCodes } from '@/lib/db';
-import { boardsApi } from '@/lib/api/boards';
+import { useBoards } from '@/hooks/useBoards';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Grid3X3, List } from 'lucide-react';
+import { Grid3X3, List, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [memoriesLoading, setMemoriesLoading] = useState(false);
+  const [memoriesError, setMemoriesError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const { user, loading: authLoading } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
   
-  // Prevent multiple simultaneous loads and track loading state
-  const loadingRef = useRef(false);
-  const hasLoadedRef = useRef(false);
-  const currentUserRef = useRef<string | null>(null);
+  // Use the boards hook
+  const { 
+    boards, 
+    loading: boardsLoading, 
+    error: boardsError, 
+    createBoard: createNewBoard,
+    retryLoad: retryBoardsLoad 
+  } = useBoards();
   
-  // Load data effect - only runs when user changes or on mount
+  // Load memories when boards change
   useEffect(() => {
-    // Skip if auth is still loading
-    if (authLoading) {
-      console.log('⏳ Auth still loading, waiting...');
-      return;
-    }
-    
-    // Skip if no user
-    if (!user?.id) {
-      console.log('❌ No user found, stopping data load');
-      setLoading(false);
-      setError(null);
-      setMemories([]);
-      setBoards([]);
-      hasLoadedRef.current = false;
-      currentUserRef.current = null;
-      return;
-    }
+    const loadMemories = async () => {
+      if (!user?.id || boards.length === 0) {
+        console.log('🔄 [Index] No user or no boards, clearing memories');
+        setMemories([]);
+        setMemoriesLoading(false);
+        setMemoriesError(null);
+        return;
+      }
 
-    // Skip if already loading for the same user
-    if (loadingRef.current && currentUserRef.current === user.id) {
-      console.log('⏳ Load already in progress for current user, skipping...');
-      return;
-    }
+      console.log('🔄 [Index] Loading memories for', boards.length, 'boards');
+      setMemoriesLoading(true);
+      setMemoriesError(null);
 
-    // Skip if we've already loaded successfully for this user
-    if (hasLoadedRef.current && currentUserRef.current === user.id && !error) {
-      console.log('✅ Data already loaded successfully for current user, skipping reload');
-      return;
-    }
-
-    // Start loading
-    const loadData = async () => {
-      loadingRef.current = true;
-      currentUserRef.current = user.id;
-      
-      console.log('🔄 Index: Starting data load for user:', user.id);
-      
       try {
-        setLoading(true);
-        setError(null);
-        
-        // First load boards with timeout
-        console.log('🔄 Loading boards...');
-        const boardsResult = await Promise.race([
-          boardsApi.fetchBoards(user.id),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
-          )
-        ]);
-
-        let loadedBoards: Board[] = [];
-        
-        // Handle boards result
-        if ((boardsResult as any).success && (boardsResult as any).data) {
-          console.log('✅ Boards loaded successfully:', (boardsResult as any).data.length);
-          loadedBoards = (boardsResult as any).data;
-          setBoards(loadedBoards);
-        } else {
-          console.warn('⚠️ Boards loading failed, creating default board');
-          try {
-            const defaultBoard = await createBoard('My Memories', user.id);
-            if (defaultBoard) {
-              console.log('✅ Default board created:', defaultBoard.name);
-              loadedBoards = [defaultBoard];
-              setBoards(loadedBoards);
-            } else {
-              setBoards([]);
-            }
-          } catch (boardCreationError) {
-            console.error('❌ Failed to create default board:', boardCreationError);
-            setBoards([]);
-          }
-        }
-
-        // Extract access codes from boards - use correct property name
-        const accessCodes = loadedBoards
-          .map(board => board.access_code) // Use access_code from database schema
+        // Extract access codes from boards
+        const accessCodes = boards
+          .map(board => board.access_code)
           .filter((code): code is string => code !== null && code !== undefined);
         
-        console.log('🔄 Loading memories for access codes:', accessCodes.length);
+        console.log('🔄 [Index] Access codes:', accessCodes.length);
         
-        // Load memories using access codes with limit and timeout
         if (accessCodes.length > 0) {
-          const memoriesData = await Promise.race([
-            fetchMemoriesByAccessCodes(accessCodes, 100),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Memories request timeout after 30 seconds')), 30000)
-            )
-          ]);
-          console.log('✅ Memories loaded successfully:', (memoriesData as Memory[]).length);
-          setMemories(memoriesData as Memory[]);
+          const memoriesData = await fetchMemoriesByAccessCodes(accessCodes, 100);
+          console.log('✅ [Index] Memories loaded:', memoriesData.length);
+          setMemories(memoriesData);
         } else {
-          console.log('✅ No access codes available, setting empty memories');
+          console.log('✅ [Index] No access codes, empty memories');
           setMemories([]);
         }
-
-        console.log('✅ Data loading completed successfully');
-        hasLoadedRef.current = true;
-        
       } catch (error) {
-        console.error('❌ Error in data loading process:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load your data';
-        setError(errorMessage);
-        hasLoadedRef.current = false;
+        console.error('❌ [Index] Error loading memories:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
+        setMemoriesError(errorMessage);
+        setMemories([]);
       } finally {
-        setLoading(false);
-        loadingRef.current = false;
+        setMemoriesLoading(false);
       }
     };
 
-    loadData();
-  }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
+    loadMemories();
+  }, [user?.id, boards]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
@@ -184,21 +116,24 @@ const Index = () => {
     navigate(`/memory/${id}`, { state: { accessCode } });
   };
 
-  const handleRetry = () => {
-    // Reset state to force reload
-    hasLoadedRef.current = false;
-    currentUserRef.current = null;
-    setError(null);
+  const handleRetry = async () => {
+    console.log('🔄 [Index] Retry triggered');
+    retryBoardsLoad();
+    setMemoriesError(null);
+  };
+
+  const handleCreateDefaultBoard = async () => {
+    if (!user?.id) return;
     
-    // Trigger reload by updating a dependency
-    if (user?.id) {
-      // Force re-run of the effect by clearing the loaded state
-      const userId = user.id;
-      setTimeout(() => {
-        if (currentUserRef.current !== userId) {
-          currentUserRef.current = userId;
-        }
-      }, 0);
+    try {
+      await createNewBoard('My Memories');
+    } catch (error) {
+      console.error('❌ Error creating default board:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create default board',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -210,25 +145,28 @@ const Index = () => {
     );
   }
 
-  if (error) {
+  // Show error state if boards failed to load
+  if (boardsError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Data</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Boards</h2>
+          <p className="text-gray-600 mb-6">{boardsError}</p>
           <div className="space-y-3">
-            <button 
+            <Button 
               onClick={handleRetry}
-              className="w-full px-4 py-2 bg-memory-purple text-white rounded hover:bg-memory-purple/90"
+              className="w-full bg-memory-purple text-white hover:bg-memory-purple/90"
             >
+              <RefreshCw className="h-4 w-4 mr-2" />
               Retry
-            </button>
-            <button 
+            </Button>
+            <Button 
               onClick={() => window.location.reload()}
-              className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+              variant="outline"
+              className="w-full"
             >
               Refresh Page
-            </button>
+            </Button>
             <details className="text-left">
               <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
                 Troubleshooting Tips
@@ -245,6 +183,31 @@ const Index = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Show memories error if boards loaded but memories failed
+  if (memoriesError) {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-background flex flex-col">
+          <Header />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center max-w-md mx-auto p-6">
+              <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Memories</h2>
+              <p className="text-gray-600 mb-6">{memoriesError}</p>
+              <Button 
+                onClick={() => setMemoriesError(null)}
+                className="bg-memory-purple text-white hover:bg-memory-purple/90"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          </main>
+          <Footer activeTab="timeline" />
+        </div>
+      </ErrorBoundary>
     );
   }
 
@@ -280,9 +243,21 @@ const Index = () => {
         )}
         
         <main ref={mainRef} className="flex-1 relative">
-          {loading ? (
+          {boardsLoading || memoriesLoading ? (
             <div className="flex justify-center items-center h-64">
-              <LoadingSpinner size="lg" text="Loading your memories..." />
+              <LoadingSpinner size="lg" text={
+                boardsLoading ? "Loading your boards..." : "Loading your memories..."
+              } />
+            </div>
+          ) : boards.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64">
+              <p className="text-muted-foreground mb-4">No boards found</p>
+              <Button 
+                onClick={handleCreateDefaultBoard}
+                className="bg-memory-purple hover:bg-memory-purple/90"
+              >
+                Create Your First Board
+              </Button>
             </div>
           ) : memories.length === 0 ? (
             <EmptyState />
