@@ -8,6 +8,18 @@ export const memoriesApi = {
       console.log('🔄 [memoriesApi.fetchMemories] Starting for access code:', accessCode);
       
       const result = await withRetry(async () => {
+        // Test database connection first
+        const { error: connectionError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+
+        if (connectionError) {
+          console.error('❌ [memoriesApi.fetchMemories] Connection test failed:', connectionError);
+          throw new Error(`Database connection failed: ${connectionError.message}`);
+        }
+
         const { data, error } = await supabase
           .from('memories')
           .select('*')
@@ -20,6 +32,14 @@ export const memoriesApi = {
           
           if (error.message?.includes('404') || error.code === 'PGRST116') {
             throw new Error('Memories table not found. Please check your database setup.');
+          }
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
+          if (error.message?.includes('permission denied')) {
+            throw new Error('Database permission denied. Please check your authentication.');
           }
           
           throw new Error(error.message);
@@ -60,6 +80,18 @@ export const memoriesApi = {
         return { success: true, data: [] };
       }
       
+      // Test database connection first
+      const { error: connectionError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (connectionError) {
+        console.error('❌ [memoriesApi.fetchMemoriesByAccessCodes] Connection test failed:', connectionError);
+        return { success: false, error: `Database connection failed: ${connectionError.message}` };
+      }
+      
       // Split into chunks to avoid query size limits and enable parallel processing
       const chunkSize = 5;
       const chunks = [];
@@ -87,6 +119,10 @@ export const memoriesApi = {
               
               if (error.message?.includes('404') || error.code === 'PGRST116') {
                 throw new Error('Memories table not found');
+              }
+              
+              if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+                throw new Error('Database tables are missing');
               }
               
               throw new Error(error.message);
@@ -157,6 +193,10 @@ export const memoriesApi = {
             throw new Error('Memory not found');
           }
           
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(error.message);
         }
         
@@ -211,6 +251,11 @@ export const memoriesApi = {
         
         if (error) {
           console.error('❌ [memoriesApi.createMemory] Error:', error);
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(error.message);
         }
         
@@ -262,6 +307,11 @@ export const memoriesApi = {
         
         if (error) {
           console.error('❌ [memoriesApi.updateMemory] Error:', error);
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(error.message);
         }
         
@@ -305,6 +355,11 @@ export const memoriesApi = {
         
         if (error) {
           console.error('❌ [memoriesApi.deleteMemory] Error:', error);
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(error.message);
         }
         
@@ -347,6 +402,11 @@ export const memoriesApi = {
         
         if (fetchError) {
           console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
+          
+          if (fetchError.message?.includes('relation') && fetchError.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(fetchError.message);
         }
         

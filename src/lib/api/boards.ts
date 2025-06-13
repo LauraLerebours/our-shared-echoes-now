@@ -6,7 +6,7 @@ import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 export const boardsApi = {
   async fetchBoards(userId: string) {
     return withErrorHandling(async () => {
-      console.log('🔄 [boardsApi.fetchBoards] Starting optimized fetch for user:', userId);
+      console.log('🔄 [boardsApi.fetchBoards] Starting for user:', userId);
       
       if (!userId) {
         throw new Error('User ID is required');
@@ -14,6 +14,19 @@ export const boardsApi = {
 
       // Use retry wrapper for network resilience
       const result = await withRetry(async () => {
+        // Test database connection first
+        const { error: connectionError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+
+        if (connectionError) {
+          console.error('❌ [boardsApi.fetchBoards] Connection test failed:', connectionError);
+          throw new Error(`Database connection failed: ${connectionError.message}`);
+        }
+
+        // Now fetch boards with comprehensive error handling
         const { data, error } = await supabase
           .from('boards')
           .select(`
@@ -35,7 +48,15 @@ export const boardsApi = {
           
           // Handle specific error types
           if (error.message?.includes('404') || error.code === 'PGRST116') {
-            throw new Error('Database table not found. Please check your database setup.');
+            throw new Error('Boards table not found. Please check your database setup.');
+          }
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
+          if (error.message?.includes('permission denied')) {
+            throw new Error('Database permission denied. Please check your authentication.');
           }
           
           throw new Error(`Failed to fetch boards: ${error.message}`);
@@ -72,6 +93,10 @@ export const boardsApi = {
             throw new Error('Board not found');
           }
           
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
@@ -104,6 +129,11 @@ export const boardsApi = {
 
         if (error) {
           console.error('❌ [boardsApi.getBoardByShareCode] Error:', error);
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
@@ -146,6 +176,11 @@ export const boardsApi = {
 
         if (accessCodeError) {
           console.error('❌ [boardsApi.createBoard] Access code error:', accessCodeError);
+          
+          if (accessCodeError.message?.includes('relation') && accessCodeError.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(`Failed to create access code: ${accessCodeError.message}`);
         }
 
@@ -165,6 +200,10 @@ export const boardsApi = {
           // Handle function not found error
           if (error.message?.includes('function') && error.message?.includes('does not exist')) {
             throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
           }
           
           throw new Error(`Failed to create board: ${error.message}`);
@@ -223,6 +262,10 @@ export const boardsApi = {
             throw new Error('Database function not available. Please check your database setup.');
           }
           
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
+          }
+          
           throw new Error(`Failed to rename board: ${error.message}`);
         }
 
@@ -261,6 +304,10 @@ export const boardsApi = {
           
           if (error.message?.includes('function') && error.message?.includes('does not exist')) {
             throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
           }
           
           throw new Error(`Failed to join board: ${error.message}`);
@@ -305,6 +352,10 @@ export const boardsApi = {
           
           if (error.message?.includes('function') && error.message?.includes('does not exist')) {
             throw new Error('Database function not available. Please check your database setup.');
+          }
+          
+          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+            throw new Error('Database tables are missing. Please run database migrations.');
           }
           
           throw new Error(`Failed to remove user: ${error.message}`);
