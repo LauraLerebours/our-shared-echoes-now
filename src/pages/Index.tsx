@@ -49,11 +49,11 @@ const Index = () => {
         
         console.log('🔄 Loading boards for user:', user.id);
         
-        // Use the optimized boards API with shorter timeout
+        // Use the optimized boards API with longer timeout (30 seconds)
         const boardsResult = await Promise.race([
           boardsApi.fetchBoards(user.id),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
+            setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000)
           )
         ]);
         
