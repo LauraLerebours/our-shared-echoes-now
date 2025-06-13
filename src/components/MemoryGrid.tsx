@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Memory } from './MemoryList';
 import { Heart, Video, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { toggleMemoryLike } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Memory } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,

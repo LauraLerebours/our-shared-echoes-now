@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Board, fetchBoards, createBoard, removeUserFromBoard, renameBoard } from '@/lib/db';
+import { Board, boardsApi } from '@/lib/db';
 import { useAsyncOperation } from './useAsyncOperation';
 
 export function useBoards() {
@@ -11,10 +11,10 @@ export function useBoards() {
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      const newBoard = await createBoard(name, user.id);
-      if (!newBoard) throw new Error('Failed to create board');
-      setBoards(prev => [...prev, newBoard]);
-      return newBoard;
+      const result = await boardsApi.createBoard(name, user.id);
+      if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
+      setBoards(prev => [...prev, result.data!]);
+      return result.data;
     },
     { successMessage: 'Board created successfully' }
   );
@@ -22,7 +22,7 @@ export function useBoards() {
   const { execute: executeRemoveFromBoard, loading: removing } = useAsyncOperation(
     async (boardId: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      const result = await removeUserFromBoard(boardId, user.id);
+      const result = await boardsApi.removeUserFromBoard(boardId, user.id);
       if (!result.success) throw new Error(result.message);
       setBoards(prev => prev.filter(board => board.id !== boardId));
       return result;
@@ -33,7 +33,7 @@ export function useBoards() {
   const { execute: executeRenameBoard, loading: renaming } = useAsyncOperation(
     async (boardId: string, newName: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      const result = await renameBoard(boardId, newName, user.id);
+      const result = await boardsApi.renameBoard(boardId, newName, user.id);
       if (!result.success) throw new Error(result.message);
       setBoards(prev => prev.map(board => 
         board.id === boardId ? { ...board, name: result.newName || newName } : board
@@ -51,8 +51,12 @@ export function useBoards() {
       }
       
       try {
-        const boardsData = await fetchBoards(user.id);
-        setBoards(boardsData);
+        const result = await boardsApi.fetchBoards(user.id);
+        if (result.success && result.data) {
+          setBoards(result.data);
+        } else {
+          console.error('Error loading boards:', result.error);
+        }
       } catch (error) {
         console.error('Error loading boards:', error);
       } finally {
@@ -74,7 +78,11 @@ export function useBoards() {
     renameBoard: executeRenameBoard,
     refreshBoards: () => {
       if (user?.id) {
-        fetchBoards(user.id).then(setBoards);
+        boardsApi.fetchBoards(user.id).then(result => {
+          if (result.success && result.data) {
+            setBoards(result.data);
+          }
+        });
       }
     }
   };

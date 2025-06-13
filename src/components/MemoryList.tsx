@@ -2,20 +2,7 @@ import React from 'react';
 import MemoryCard, { MemoryCardProps } from './MemoryCard';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
-
-export interface Memory {
-  id: string;
-  image: string;
-  caption?: string;
-  date: Date;
-  location?: string;
-  likes: number;
-  isLiked: boolean;
-  isVideo?: boolean;
-  type: 'memory';
-  accessCode: string;
-  createdBy?: string; // Add createdBy field
-}
+import { Memory } from '@/lib/types';
 
 interface MemoryListProps {
   memories: Memory[];

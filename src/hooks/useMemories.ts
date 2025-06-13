@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Memory } from '@/components/MemoryList';
-import { fetchMemories, deleteMemory, createMemory } from '@/lib/db';
+import { Memory, memoriesApi } from '@/lib/db';
 import { useAsyncOperation } from './useAsyncOperation';
 
 export function useMemories(accessCode?: string) {
@@ -9,20 +8,20 @@ export function useMemories(accessCode?: string) {
 
   const { execute: executeDeleteMemory, loading: deleting } = useAsyncOperation(
     async (memoryId: string, memoryAccessCode: string) => {
-      const success = await deleteMemory(memoryId, memoryAccessCode);
-      if (!success) throw new Error('Failed to delete memory');
+      const result = await memoriesApi.deleteMemory(memoryId, memoryAccessCode);
+      if (!result.success || !result.data) throw new Error(result.error || 'Failed to delete memory');
       setMemories(prev => prev.filter(memory => memory.id !== memoryId));
-      return success;
+      return result.data;
     },
     { successMessage: 'Memory deleted successfully' }
   );
 
   const { execute: executeCreateMemory, loading: creating } = useAsyncOperation(
     async (memory: Memory) => {
-      const newMemory = await createMemory(memory);
-      if (!newMemory) throw new Error('Failed to create memory');
-      setMemories(prev => [newMemory, ...prev]);
-      return newMemory;
+      const result = await memoriesApi.createMemory(memory);
+      if (!result.success || !result.data) throw new Error(result.error || 'Failed to create memory');
+      setMemories(prev => [result.data!, ...prev]);
+      return result.data;
     },
     { successMessage: 'Memory created successfully' }
   );
@@ -35,8 +34,12 @@ export function useMemories(accessCode?: string) {
       }
       
       try {
-        const memoriesData = await fetchMemories(accessCode);
-        setMemories(memoriesData);
+        const result = await memoriesApi.fetchMemories(accessCode);
+        if (result.success && result.data) {
+          setMemories(result.data);
+        } else {
+          console.error('Error loading memories:', result.error);
+        }
       } catch (error) {
         console.error('Error loading memories:', error);
       } finally {
@@ -56,7 +59,11 @@ export function useMemories(accessCode?: string) {
     createMemory: executeCreateMemory,
     refreshMemories: () => {
       if (accessCode) {
-        fetchMemories(accessCode).then(setMemories);
+        memoriesApi.fetchMemories(accessCode).then(result => {
+          if (result.success && result.data) {
+            setMemories(result.data);
+          }
+        });
       }
     }
   };
