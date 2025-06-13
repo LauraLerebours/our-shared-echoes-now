@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from '@/components/Header';
 import MemoryList from '@/components/MemoryList';
 import MemoryGrid from '@/components/MemoryGrid';
@@ -26,114 +26,131 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
+  const loadingRef = useRef(false); // Prevent multiple simultaneous loads
+  const hasLoadedRef = useRef(false); // Track if we've successfully loaded once
   
-  // Load boards and all memories with optimized approach
-  useEffect(() => {
-    const loadData = async () => {
-      console.log('🔄 Index: Starting optimized data load process');
-      console.log('Auth state:', { user: !!user, userId: user?.id, authLoading });
-      
-      if (authLoading) {
-        console.log('⏳ Auth still loading, waiting...');
-        return;
-      }
-      
-      if (!user?.id) {
-        console.log('❌ No user found, stopping data load');
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        setLoading(true);
-        setError(null);
-        
-        console.log('🔄 Loading data with optimized approach for user:', user.id);
-        
-        // Use Promise.allSettled to load boards and memories in parallel with individual timeouts
-        const [boardsResult, memoriesResult] = await Promise.allSettled([
-          // Load boards with timeout
-          Promise.race([
-            boardsApi.fetchBoards(user.id),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
-            )
-          ]),
-          // Load all user memories directly with timeout - increased to 60 seconds
-          Promise.race([
-            memoriesApi.fetchUserMemories(user.id),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Memories request timeout after 60 seconds')), 60000)
-            )
-          ])
-        ]);
+  // Memoized load function to prevent infinite recursion
+  const loadData = useCallback(async () => {
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current) {
+      console.log('⏳ Load already in progress, skipping...');
+      return;
+    }
 
-        // Handle boards result
-        if (boardsResult.status === 'fulfilled') {
-          const boardsResponse = boardsResult.value as any;
-          if (boardsResponse.success && boardsResponse.data) {
-            console.log('✅ Boards loaded successfully:', boardsResponse.data.length);
-            setBoards(boardsResponse.data);
-          } else {
-            console.warn('⚠️ Boards loading failed:', boardsResponse.error);
-            // Try to create a default board if no boards exist
-            try {
-              const defaultBoard = await createBoard('My Memories', user.id);
-              if (defaultBoard) {
-                console.log('✅ Default board created:', defaultBoard.name);
-                setBoards([defaultBoard]);
-              }
-            } catch (boardCreationError) {
-              console.error('❌ Failed to create default board:', boardCreationError);
-            }
-          }
-        } else {
-          console.error('❌ Boards loading failed:', boardsResult.reason);
-          toast({
-            title: 'Warning',
-            description: 'Could not load boards. Some features may be limited.',
-            variant: 'destructive',
-          });
-        }
-
-        // Handle memories result
-        if (memoriesResult.status === 'fulfilled') {
-          const memoriesResponse = memoriesResult.value as any;
-          if (memoriesResponse.success && memoriesResponse.data) {
-            console.log('✅ Memories loaded successfully:', memoriesResponse.data.length);
-            setMemories(memoriesResponse.data);
-          } else {
-            console.warn('⚠️ Memories loading failed:', memoriesResponse.error);
-            setMemories([]);
-          }
-        } else {
-          console.error('❌ Memories loading failed:', memoriesResult.reason);
-          setMemories([]);
-          toast({
-            title: 'Warning',
-            description: 'Could not load memories. Please try refreshing.',
-            variant: 'destructive',
-          });
-        }
-
-        console.log('✅ Data loading completed');
-        
-      } catch (error) {
-        console.error('❌ Error in data loading process:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load your data';
-        setError(errorMessage);
-        toast({
-          title: 'Error',
-          description: errorMessage,
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Skip if auth is still loading
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      return;
+    }
     
+    // Skip if no user
+    if (!user?.id) {
+      console.log('❌ No user found, stopping data load');
+      setLoading(false);
+      return;
+    }
+
+    // If we've already loaded successfully and user hasn't changed, skip
+    if (hasLoadedRef.current && !error) {
+      console.log('✅ Data already loaded successfully, skipping reload');
+      return;
+    }
+    
+    loadingRef.current = true;
+    console.log('🔄 Index: Starting optimized data load process');
+    console.log('Auth state:', { user: !!user, userId: user?.id, authLoading });
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔄 Loading data with optimized approach for user:', user.id);
+      
+      // Use Promise.allSettled to load boards and memories in parallel with individual timeouts
+      const [boardsResult, memoriesResult] = await Promise.allSettled([
+        // Load boards with timeout
+        Promise.race([
+          boardsApi.fetchBoards(user.id),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
+          )
+        ]),
+        // Load all user memories directly with timeout - increased to 60 seconds
+        Promise.race([
+          memoriesApi.fetchUserMemories(user.id),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Memories request timeout after 60 seconds')), 60000)
+          )
+        ])
+      ]);
+
+      // Handle boards result
+      if (boardsResult.status === 'fulfilled') {
+        const boardsResponse = boardsResult.value as any;
+        if (boardsResponse.success && boardsResponse.data) {
+          console.log('✅ Boards loaded successfully:', boardsResponse.data.length);
+          setBoards(boardsResponse.data);
+        } else {
+          console.warn('⚠️ Boards loading failed:', boardsResponse.error);
+          // Try to create a default board if no boards exist
+          try {
+            const defaultBoard = await createBoard('My Memories', user.id);
+            if (defaultBoard) {
+              console.log('✅ Default board created:', defaultBoard.name);
+              setBoards([defaultBoard]);
+            }
+          } catch (boardCreationError) {
+            console.error('❌ Failed to create default board:', boardCreationError);
+          }
+        }
+      } else {
+        console.error('❌ Boards loading failed:', boardsResult.reason);
+        // Don't show toast here to prevent potential re-renders
+        console.warn('Could not load boards. Some features may be limited.');
+      }
+
+      // Handle memories result
+      if (memoriesResult.status === 'fulfilled') {
+        const memoriesResponse = memoriesResult.value as any;
+        if (memoriesResponse.success && memoriesResponse.data) {
+          console.log('✅ Memories loaded successfully:', memoriesResponse.data.length);
+          setMemories(memoriesResponse.data);
+        } else {
+          console.warn('⚠️ Memories loading failed:', memoriesResponse.error);
+          setMemories([]);
+        }
+      } else {
+        console.error('❌ Memories loading failed:', memoriesResult.reason);
+        setMemories([]);
+        // Don't show toast here to prevent potential re-renders
+        console.warn('Could not load memories. Please try refreshing.');
+      }
+
+      console.log('✅ Data loading completed');
+      hasLoadedRef.current = true; // Mark as successfully loaded
+      
+    } catch (error) {
+      console.error('❌ Error in data loading process:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load your data';
+      setError(errorMessage);
+      // Don't show toast here to prevent potential re-renders during error state
+    } finally {
+      setLoading(false);
+      loadingRef.current = false;
+    }
+  }, [user?.id, authLoading, error]); // Only depend on essential values
+
+  // Load data with proper dependency management
+  useEffect(() => {
     loadData();
-  }, [user?.id, authLoading]);
+  }, [loadData]);
+
+  // Reset loading state when user changes
+  useEffect(() => {
+    if (user?.id) {
+      hasLoadedRef.current = false; // Reset loaded flag when user changes
+    }
+  }, [user?.id]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
@@ -173,6 +190,12 @@ const Index = () => {
     navigate(`/memory/${id}`, { state: { accessCode } });
   };
 
+  const handleRetry = useCallback(() => {
+    hasLoadedRef.current = false; // Reset loaded flag to force reload
+    setError(null);
+    loadData();
+  }, [loadData]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -189,7 +212,7 @@ const Index = () => {
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="space-y-3">
             <button 
-              onClick={() => window.location.reload()}
+              onClick={handleRetry}
               className="w-full px-4 py-2 bg-memory-purple text-white rounded hover:bg-memory-purple/90"
             >
               Retry
