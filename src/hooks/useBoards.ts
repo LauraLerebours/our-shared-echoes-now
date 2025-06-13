@@ -7,7 +7,7 @@ export function useBoards() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, isSigningOut } = useAuth();
   
   // Prevent multiple simultaneous loads and race conditions
   const loadingRef = useRef(false);
@@ -16,6 +16,7 @@ export function useBoards() {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
   const mountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
@@ -58,8 +59,17 @@ export function useBoards() {
     { successMessage: 'Board renamed successfully' }
   );
 
-  // Optimized load function with better race condition handling
+  // Optimized load function with better race condition handling and abort support
   const loadBoards = async (isRetry = false) => {
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      console.log('🛑 [useBoards] Cancelling previous request');
+      abortControllerRef.current.abort();
+    }
+    
+    // Create a new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    
     if (!user?.id) {
       console.log('❌ [useBoards] No user ID, resetting state');
       if (mountedRef.current) {
@@ -71,6 +81,12 @@ export function useBoards() {
         loadingRef.current = false;
         retryCountRef.current = 0;
       }
+      return;
+    }
+    
+    // If user is signing out, don't load boards
+    if (isSigningOut) {
+      console.log('🛑 [useBoards] User is signing out, aborting board load');
       return;
     }
 
@@ -98,10 +114,12 @@ export function useBoards() {
     }
     
     try {
-      const result = await boardsApi.fetchBoards(user.id);
+      const signal = abortControllerRef.current.signal;
+      const result = await boardsApi.fetchBoards(user.id, signal);
       
-      if (!mountedRef.current) {
-        console.log('⚠️ [useBoards] Component unmounted, skipping state update');
+      // Check if request was aborted or component unmounted
+      if (signal.aborted || !mountedRef.current || isSigningOut) {
+        console.log('🛑 [useBoards] Request aborted or component unmounted, skipping state update');
         return;
       }
       
@@ -124,7 +142,7 @@ export function useBoards() {
           console.log(`⏳ [useBoards] Retrying in 2 seconds (attempt ${retryCountRef.current}/${maxRetries})`);
           
           setTimeout(() => {
-            if (mountedRef.current) {
+            if (mountedRef.current && !isSigningOut) {
               loadingRef.current = false;
               loadBoards(true);
             }
@@ -137,8 +155,9 @@ export function useBoards() {
         hasLoadedRef.current = false;
       }
     } catch (error) {
-      if (!mountedRef.current) {
-        console.log('⚠️ [useBoards] Component unmounted during error handling');
+      // Check if request was aborted or component unmounted
+      if (abortControllerRef.current?.signal.aborted || !mountedRef.current || isSigningOut) {
+        console.log('🛑 [useBoards] Request aborted or component unmounted during error handling');
         return;
       }
       
@@ -151,7 +170,7 @@ export function useBoards() {
         console.log(`⏳ [useBoards] Retrying in 2 seconds (attempt ${retryCountRef.current}/${maxRetries})`);
         
         setTimeout(() => {
-          if (mountedRef.current) {
+          if (mountedRef.current && !isSigningOut) {
             loadingRef.current = false;
             loadBoards(true);
           }
@@ -163,7 +182,7 @@ export function useBoards() {
       setBoards([]);
       hasLoadedRef.current = false;
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && !isSigningOut) {
         setLoading(false);
         loadingRef.current = false;
       }
@@ -172,12 +191,22 @@ export function useBoards() {
 
   useEffect(() => {
     mountedRef.current = true;
-    loadBoards();
+    
+    // Don't load boards if user is signing out
+    if (!isSigningOut) {
+      loadBoards();
+    }
     
     return () => {
       mountedRef.current = false;
+      
+      // Cancel any in-flight requests when component unmounts
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
     };
-  }, [user?.id]); // Only depend on user ID
+  }, [user?.id, isSigningOut]); // Add isSigningOut to dependencies
 
   return {
     boards,
@@ -190,7 +219,7 @@ export function useBoards() {
     removeFromBoard: executeRemoveFromBoard,
     renameBoard: executeRenameBoard,
     refreshBoards: () => {
-      if (user?.id && mountedRef.current) {
+      if (user?.id && mountedRef.current && !isSigningOut) {
         console.log('🔄 [useBoards] Manual refresh triggered');
         // Reset state to force reload
         hasLoadedRef.current = false;
@@ -202,7 +231,7 @@ export function useBoards() {
     },
     // Add retry function
     retryLoad: () => {
-      if (mountedRef.current) {
+      if (mountedRef.current && !isSigningOut) {
         console.log('🔄 [useBoards] Retry load triggered');
         hasLoadedRef.current = false;
         currentUserRef.current = null;

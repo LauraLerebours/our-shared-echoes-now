@@ -6,9 +6,10 @@ import { Plus, LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import UserProfileDialog from './UserProfileDialog';
+import { LoadingSpinner } from './LoadingSpinner';
 
 const Header = () => {
-  const { signOut, user, userProfile } = useAuth();
+  const { signOut, user, userProfile, isSigningOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -75,8 +76,13 @@ const Header = () => {
           onClick={handleLogout}
           className="text-muted-foreground hover:text-destructive"
           title="Logout"
+          disabled={isSigningOut}
         >
-          <LogOut className="h-4 w-4" />
+          {isSigningOut ? (
+            <LoadingSpinner size="sm" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
         </Button>
       </div>
       

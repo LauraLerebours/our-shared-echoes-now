@@ -4,7 +4,7 @@ import { withErrorHandling, requireAuth, withRetry } from './base';
 import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 
 export const boardsApi = {
-  async fetchBoards(userId: string) {
+  async fetchBoards(userId: string, signal?: AbortSignal) {
     return withErrorHandling(async () => {
       console.log('🔄 [boardsApi.fetchBoards] Starting for user:', userId);
       
@@ -14,6 +14,11 @@ export const boardsApi = {
 
       // Use retry wrapper for network resilience
       const result = await withRetry(async () => {
+        // Check if the request has been aborted
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
+        }
+        
         // Test database connection first
         const { error: connectionError } = await supabase
           .from('user_profiles')
@@ -24,6 +29,11 @@ export const boardsApi = {
         if (connectionError) {
           console.error('❌ [boardsApi.fetchBoards] Connection test failed:', connectionError);
           throw new Error(`Database connection failed: ${connectionError.message}`);
+        }
+
+        // Check if the request has been aborted after connection test
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
         }
 
         // Now fetch boards with comprehensive error handling
@@ -63,7 +73,7 @@ export const boardsApi = {
         }
 
         return data || [];
-      }, 3, 1000);
+      }, 3, 1000, signal);
       
       console.log('✅ [boardsApi.fetchBoards] Success:', result.length, 'boards');
       return result as Board[];

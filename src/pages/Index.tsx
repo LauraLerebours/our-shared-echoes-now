@@ -23,10 +23,11 @@ const Index = () => {
   const [memoriesError, setMemoriesError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isSigningOut } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Use the optimized boards hook
   const { 
@@ -37,103 +38,147 @@ const Index = () => {
     retryLoad: retryBoardsLoad 
   } = useBoards();
   
-  // Optimized memories loading with race condition prevention
+  // Optimized memories loading with race condition prevention and abort support
   useEffect(() => {
-    const loadMemories = async () => {
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      console.log('🛑 [Index] Cancelling previous request');
+      abortControllerRef.current.abort();
+    }
+    
+    // Create a new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+
+    // If user is signing out, don't load memories
+    if (isSigningOut) {
+      console.log('🛑 [Index] User is signing out, aborting memory load');
+      setMemoriesLoading(false);
+      return;
+    }
+
+    if (!user?.id) {
+      console.log('🔄 [Index] No user, clearing memories');
+      setMemories([]);
+      setMemoriesLoading(false);
+      setMemoriesError(null);
+      setHasInitiallyLoaded(false);
+      return;
+    }
+
+    // Don't clear memories if we're still loading boards and we already have memories
+    if (boardsLoading && memories.length > 0 && hasInitiallyLoaded) {
+      console.log('🔄 [Index] Boards still loading but we have memories, keeping them');
+      return;
+    }
+
+    if (boards.length === 0 && !boardsLoading) {
+      console.log('🔄 [Index] No boards available, clearing memories');
+      setMemories([]);
+      setMemoriesLoading(false);
+      setMemoriesError(null);
+      return;
+    }
+
+    // Don't start loading if boards are still loading
+    if (boardsLoading) {
+      console.log('🔄 [Index] Boards still loading, waiting...');
+      return;
+    }
+
+    console.log('🔄 [Index] Loading memories for', boards.length, 'boards');
+    setMemoriesLoading(true);
+    setMemoriesError(null);
+
+    // Add a small delay to prevent rapid state changes
+    loadingTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Check if the request has been aborted or user is signing out
+        if (abortControllerRef.current?.signal.aborted || isSigningOut) {
+          console.log('🛑 [Index] Request aborted or user signing out, aborting memory load');
+          return;
+        }
+        
+        // Extract access codes from boards
+        const accessCodes = boards
+          .map(board => board.access_code)
+          .filter((code): code is string => code !== null && code !== undefined);
+        
+        console.log('🔄 [Index] Access codes:', accessCodes.length);
+        
+        if (accessCodes.length > 0) {
+          // Use the optimized parallel loading with abort signal
+          const result = await memoriesApi.fetchMemoriesByAccessCodes(
+            accessCodes, 
+            100, 
+            abortControllerRef.current?.signal
+          );
+          
+          // Check if the request has been aborted or user is signing out
+          if (abortControllerRef.current?.signal.aborted || isSigningOut) {
+            console.log('🛑 [Index] Request aborted or user signing out after fetch, aborting state update');
+            return;
+          }
+          
+          if (result.success && result.data) {
+            console.log('✅ [Index] Memories loaded:', result.data.length);
+            setMemories(result.data);
+            setMemoriesError(null);
+            setHasInitiallyLoaded(true);
+          } else {
+            console.error('❌ [Index] Failed to load memories:', result.error);
+            setMemoriesError(result.error || 'Failed to load memories');
+            if (!hasInitiallyLoaded) {
+              setMemories([]);
+            }
+          }
+        } else {
+          console.log('✅ [Index] No access codes, empty memories');
+          setMemories([]);
+          setMemoriesError(null);
+          setHasInitiallyLoaded(true);
+        }
+      } catch (error) {
+        // Check if the request has been aborted or user is signing out
+        if (abortControllerRef.current?.signal.aborted || isSigningOut) {
+          console.log('🛑 [Index] Request aborted or user signing out during error handling');
+          return;
+        }
+        
+        console.error('❌ [Index] Error loading memories:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
+        setMemoriesError(errorMessage);
+        if (!hasInitiallyLoaded) {
+          setMemories([]);
+        }
+      } finally {
+        // Only update loading state if not aborted and not signing out
+        if (!abortControllerRef.current?.signal.aborted && !isSigningOut) {
+          setMemoriesLoading(false);
+        }
+      }
+    }, 100); // Small delay to prevent race conditions
+
+    // Cleanup function
+    return () => {
       // Clear any existing timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
       }
-
-      if (!user?.id) {
-        console.log('🔄 [Index] No user, clearing memories');
-        setMemories([]);
-        setMemoriesLoading(false);
-        setMemoriesError(null);
-        setHasInitiallyLoaded(false);
-        return;
-      }
-
-      // Don't clear memories if we're still loading boards and we already have memories
-      if (boardsLoading && memories.length > 0 && hasInitiallyLoaded) {
-        console.log('🔄 [Index] Boards still loading but we have memories, keeping them');
-        return;
-      }
-
-      if (boards.length === 0 && !boardsLoading) {
-        console.log('🔄 [Index] No boards available, clearing memories');
-        setMemories([]);
-        setMemoriesLoading(false);
-        setMemoriesError(null);
-        return;
-      }
-
-      // Don't start loading if boards are still loading
-      if (boardsLoading) {
-        console.log('🔄 [Index] Boards still loading, waiting...');
-        return;
-      }
-
-      console.log('🔄 [Index] Loading memories for', boards.length, 'boards');
-      setMemoriesLoading(true);
-      setMemoriesError(null);
-
-      // Add a small delay to prevent rapid state changes
-      loadingTimeoutRef.current = setTimeout(async () => {
-        try {
-          // Extract access codes from boards
-          const accessCodes = boards
-            .map(board => board.access_code)
-            .filter((code): code is string => code !== null && code !== undefined);
-          
-          console.log('🔄 [Index] Access codes:', accessCodes.length);
-          
-          if (accessCodes.length > 0) {
-            // Use the optimized parallel loading
-            const result = await memoriesApi.fetchMemoriesByAccessCodes(accessCodes, 100);
-            
-            if (result.success && result.data) {
-              console.log('✅ [Index] Memories loaded:', result.data.length);
-              setMemories(result.data);
-              setMemoriesError(null);
-              setHasInitiallyLoaded(true);
-            } else {
-              console.error('❌ [Index] Failed to load memories:', result.error);
-              setMemoriesError(result.error || 'Failed to load memories');
-              if (!hasInitiallyLoaded) {
-                setMemories([]);
-              }
-            }
-          } else {
-            console.log('✅ [Index] No access codes, empty memories');
-            setMemories([]);
-            setMemoriesError(null);
-            setHasInitiallyLoaded(true);
-          }
-        } catch (error) {
-          console.error('❌ [Index] Error loading memories:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
-          setMemoriesError(errorMessage);
-          if (!hasInitiallyLoaded) {
-            setMemories([]);
-          }
-        } finally {
-          setMemoriesLoading(false);
-        }
-      }, 100); // Small delay to prevent race conditions
-    };
-
-    loadMemories();
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
+      
+      // Cancel any in-flight requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
     };
-  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded]);
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;

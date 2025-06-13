@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import ScrollToBottom from '@/components/ScrollToBottom';
 import { useBoards } from '@/hooks/useBoards';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Plus, UserMinus, Image, Trash2, CheckSquare, Square, Users, Edit2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,6 +55,7 @@ const Boards = () => {
   const [loadingPreviews, setLoadingPreviews] = useState(false);
   const navigate = useNavigate();
   const mainRef = useRef<HTMLElement>(null);
+  const { isSigningOut } = useAuth();
 
   const {
     boards,
@@ -69,7 +71,7 @@ const Boards = () => {
   // Load photo previews for boards
   React.useEffect(() => {
     const loadBoardPreviews = async () => {
-      if (boards.length === 0) {
+      if (boards.length === 0 || isSigningOut) {
         setBoardsWithPreviews([]);
         return;
       }
@@ -101,16 +103,20 @@ const Boards = () => {
           })
         );
 
-        setBoardsWithPreviews(boardsWithPhotos);
+        if (!isSigningOut) {
+          setBoardsWithPreviews(boardsWithPhotos);
+        }
       } catch (error) {
         console.error('Error loading board previews:', error);
       } finally {
-        setLoadingPreviews(false);
+        if (!isSigningOut) {
+          setLoadingPreviews(false);
+        }
       }
     };
 
     loadBoardPreviews();
-  }, [boards]);
+  }, [boards, isSigningOut]);
 
   const handleCreateBoard = async () => {
     if (!newBoardName.trim()) return;
@@ -239,7 +245,7 @@ const Boards = () => {
     );
   };
 
-  if (loading) {
+  if (loading && !isSigningOut) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />

@@ -3,11 +3,22 @@ import { ApiResponse, withRetry } from './base';
 import { Memory } from '../types';
 
 export const memoriesApi = {
-  async fetchMemories(accessCode: string): Promise<ApiResponse<Memory[]>> {
+  async fetchMemories(accessCode: string, signal?: AbortSignal): Promise<ApiResponse<Memory[]>> {
     try {
       console.log('🔄 [memoriesApi.fetchMemories] Starting for access code:', accessCode);
       
+      // Check if the request has been aborted
+      if (signal?.aborted) {
+        console.log('🛑 [memoriesApi.fetchMemories] Request aborted');
+        return { success: false, error: 'Request aborted by user' };
+      }
+      
       const result = await withRetry(async () => {
+        // Check if the request has been aborted
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
+        }
+        
         // Test database connection first
         const { error: connectionError } = await supabase
           .from('user_profiles')
@@ -18,6 +29,11 @@ export const memoriesApi = {
         if (connectionError) {
           console.error('❌ [memoriesApi.fetchMemories] Connection test failed:', connectionError);
           throw new Error(`Database connection failed: ${connectionError.message}`);
+        }
+
+        // Check if the request has been aborted after connection test
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
         }
 
         const { data, error } = await supabase
@@ -46,7 +62,13 @@ export const memoriesApi = {
         }
         
         return data || [];
-      }, 3, 1000);
+      }, 3, 1000, signal);
+      
+      // Check if the request has been aborted after fetching data
+      if (signal?.aborted) {
+        console.log('🛑 [memoriesApi.fetchMemories] Request aborted after data fetch');
+        return { success: false, error: 'Request aborted by user' };
+      }
       
       // Transform database records to Memory type
       const memories: Memory[] = result.map(record => ({
@@ -66,14 +88,26 @@ export const memoriesApi = {
       console.log('✅ [memoriesApi.fetchMemories] Success:', memories.length);
       return { success: true, data: memories };
     } catch (error) {
+      // Check if this is an abort error
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('🛑 [memoriesApi.fetchMemories] Request aborted');
+        return { success: false, error: 'Request aborted by user' };
+      }
+      
       console.error('❌ [memoriesApi.fetchMemories] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memories' };
     }
   },
 
-  async fetchMemoriesByAccessCodes(accessCodes: string[], limit: number = 100): Promise<ApiResponse<Memory[]>> {
+  async fetchMemoriesByAccessCodes(accessCodes: string[], limit: number = 100, signal?: AbortSignal): Promise<ApiResponse<Memory[]>> {
     try {
       console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Starting for', accessCodes.length, 'codes');
+      
+      // Check if the request has been aborted
+      if (signal?.aborted) {
+        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted');
+        return { success: false, error: 'Request aborted by user' };
+      }
       
       if (accessCodes.length === 0) {
         console.log('✅ [memoriesApi.fetchMemoriesByAccessCodes] No access codes, returning empty');
@@ -92,6 +126,12 @@ export const memoriesApi = {
         return { success: false, error: `Database connection failed: ${connectionError.message}` };
       }
       
+      // Check if the request has been aborted after connection test
+      if (signal?.aborted) {
+        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted after connection test');
+        return { success: false, error: 'Request aborted by user' };
+      }
+      
       // Split into chunks to avoid query size limits and enable parallel processing
       const chunkSize = 5;
       const chunks = [];
@@ -106,7 +146,18 @@ export const memoriesApi = {
         try {
           console.log(`🔄 [Chunk ${index + 1}] Processing codes:`, chunk);
           
+          // Check if the request has been aborted
+          if (signal?.aborted) {
+            console.log(`🛑 [Chunk ${index + 1}] Request aborted`);
+            return [];
+          }
+          
           const result = await withRetry(async () => {
+            // Check if the request has been aborted
+            if (signal?.aborted) {
+              throw new Error('Request aborted');
+            }
+            
             const { data, error } = await supabase
               .from('memories')
               .select('*')
@@ -129,11 +180,17 @@ export const memoriesApi = {
             }
             
             return data || [];
-          }, 2, 1000); // Fewer retries for chunks
+          }, 2, 1000, signal); // Fewer retries for chunks
           
           console.log(`✅ [Chunk ${index + 1}] Success:`, result.length, 'memories');
           return result;
         } catch (error) {
+          // Check if this is an abort error
+          if (error instanceof Error && error.name === 'AbortError') {
+            console.log(`🛑 [Chunk ${index + 1}] Request aborted`);
+            return [];
+          }
+          
           console.error(`❌ [Chunk ${index + 1}] Exception:`, error);
           return []; // Return empty array instead of failing
         }
@@ -141,6 +198,12 @@ export const memoriesApi = {
       
       // Wait for all chunks to complete
       const results = await Promise.allSettled(chunkPromises);
+      
+      // Check if the request has been aborted after all chunks complete
+      if (signal?.aborted) {
+        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted after chunks completed');
+        return { success: false, error: 'Request aborted by user' };
+      }
       
       // Combine all successful results
       const allData = results
@@ -170,6 +233,12 @@ export const memoriesApi = {
       console.log('✅ [memoriesApi.fetchMemoriesByAccessCodes] Final result:', sortedMemories.length, 'memories');
       return { success: true, data: sortedMemories };
     } catch (error) {
+      // Check if this is an abort error
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted');
+        return { success: false, error: 'Request aborted by user' };
+      }
+      
       console.error('❌ [memoriesApi.fetchMemoriesByAccessCodes] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memories by access codes' };
     }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,6 +18,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; user: User | null }>;
   signOut: () => Promise<void>;
   updateProfile: (name: string) => Promise<{ error: Error | null }>;
+  isSigningOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,10 +36,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const authStateRef = useRef<{ isActive: boolean }>({ isActive: true });
 
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('🔄 Fetching user profile for:', userId);
+      
+      // Check if component is still mounted and auth is active
+      if (!authStateRef.current.isActive) {
+        console.log('⚠️ Auth state no longer active, aborting profile fetch');
+        return null;
+      }
       
       const { data, error } = await supabase
         .from('user_profiles')
@@ -89,6 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Reset the auth state ref when component mounts
+    authStateRef.current.isActive = true;
+    
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -111,13 +123,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           console.log('✅ Initial session retrieved:', !!session);
+          
+          // Check if component is still mounted and auth is active
+          if (!authStateRef.current.isActive) {
+            console.log('⚠️ Auth state no longer active, aborting session setup');
+            return;
+          }
+          
           setSession(session);
           setUser(session?.user ?? null);
           
           // Fetch user profile if user exists
           if (session?.user) {
             const profile = await fetchUserProfile(session.user.id);
-            setUserProfile(profile);
+            
+            // Check again if component is still mounted and auth is active
+            if (authStateRef.current.isActive) {
+              setUserProfile(profile);
+            }
           }
         }
       } catch (error) {
@@ -129,7 +152,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setUserProfile(null);
       } finally {
-        setLoading(false);
+        // Only update loading state if component is still mounted and auth is active
+        if (authStateRef.current.isActive) {
+          setLoading(false);
+        }
       }
     };
 
@@ -140,6 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
         
+        // Check if component is still mounted and auth is active
+        if (!authStateRef.current.isActive) {
+          console.log('⚠️ Auth state no longer active, aborting auth state change handling');
+          return;
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -147,6 +179,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           // Fetch user profile
           const profile = await fetchUserProfile(session.user.id);
+          
+          // Check again if component is still mounted and auth is active
+          if (!authStateRef.current.isActive) {
+            console.log('⚠️ Auth state no longer active, aborting profile update');
+            return;
+          }
+          
           setUserProfile(profile);
 
           // Create user profile if it doesn't exist
@@ -166,8 +205,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } else {
                 // Fetch the newly created profile
                 const newProfile = await fetchUserProfile(session.user.id);
-                setUserProfile(newProfile);
-                console.log('✅ User profile created successfully');
+                
+                // Check again if component is still mounted and auth is active
+                if (authStateRef.current.isActive) {
+                  setUserProfile(newProfile);
+                  console.log('✅ User profile created successfully');
+                }
               }
             } catch (error) {
               console.error('❌ Error handling user profile:', error);
@@ -180,7 +223,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      // Mark auth state as inactive when component unmounts
+      authStateRef.current.isActive = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -236,16 +283,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       console.log('🔄 Signing out user');
+      setIsSigningOut(true);
+      
+      // Mark auth state as inactive to cancel any ongoing operations
+      authStateRef.current.isActive = false;
       
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Sign out error:', error);
       }
+      
       // Clear user profile state
       setUserProfile(null);
+      setUser(null);
+      setSession(null);
+      
       console.log('✅ Sign out successful');
     } catch (error) {
       console.error('❌ Sign out error:', error);
+    } finally {
+      setIsSigningOut(false);
+      
+      // Reset auth state to active after signout completes
+      // This is important for when the user signs in again
+      authStateRef.current.isActive = true;
     }
   };
 
@@ -258,6 +319,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     updateProfile,
+    isSigningOut,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
