@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
-import { Memory, memoriesApi } from '@/lib/db';
+import { Memory } from '@/lib/types';
+import { memoriesApi } from '@/lib/api/memories';
 import { useAsyncOperation } from './useAsyncOperation';
 
 export function useMemories(accessCode?: string) {

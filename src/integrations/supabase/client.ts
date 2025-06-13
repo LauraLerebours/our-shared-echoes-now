@@ -54,9 +54,6 @@ supabase.from('user_profiles').select('count', { count: 'exact', head: true })
     } else {
       console.log('✅ Supabase connection test successful. User profiles count:', count);
     }
-  })
-  .catch(err => {
-    console.error('❌ Supabase connection test error:', err);
   });
 
 // Note: Service role client is not needed for this implementation
