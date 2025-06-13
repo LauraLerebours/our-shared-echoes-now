@@ -59,11 +59,11 @@ const Index = () => {
               setTimeout(() => reject(new Error('Boards request timeout after 30 seconds')), 30000)
             )
           ]),
-          // Load all user memories directly with timeout
+          // Load all user memories directly with timeout - increased to 60 seconds
           Promise.race([
             memoriesApi.fetchUserMemories(user.id),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Memories request timeout after 30 seconds')), 30000)
+              setTimeout(() => reject(new Error('Memories request timeout after 60 seconds')), 60000)
             )
           ])
         ]);
