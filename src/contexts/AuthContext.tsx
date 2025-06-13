@@ -288,6 +288,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Mark auth state as inactive to cancel any ongoing operations
       authStateRef.current.isActive = false;
       
+      // Cancel any in-flight requests
+      // This is handled in the hooks by checking isSigningOut
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Sign out error:', error);
