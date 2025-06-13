@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     sourcemap: false,
     minify: 'terser',
+    target: 'esnext',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -35,5 +36,8 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(mode),
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@supabase/supabase-js'],
   },
 }));
