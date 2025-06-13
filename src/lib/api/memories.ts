@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { ApiResponse } from './base';
 import { Memory } from '../types';
@@ -8,11 +7,13 @@ export const memoriesApi = {
     try {
       console.log('🔄 Fetching memories for access code:', accessCode);
       
+      // Use a more efficient query with proper indexing
       const { data, error } = await supabase
         .from('memories')
         .select('*')
         .eq('access_code', accessCode)
-        .order('event_date', { ascending: false });
+        .order('event_date', { ascending: false })
+        .limit(1000); // Add reasonable limit to prevent huge queries
       
       if (error) {
         console.error('❌ Error fetching memories:', error);
@@ -39,6 +40,43 @@ export const memoriesApi = {
     } catch (error) {
       console.error('❌ Error fetching memories:', error);
       return { success: false, error: 'Failed to fetch memories' };
+    }
+  },
+
+  async fetchUserMemories(userId: string): Promise<ApiResponse<Memory[]>> {
+    try {
+      console.log('🔄 Fetching all memories for user:', userId);
+      
+      // Use the optimized database function
+      const { data, error } = await supabase.rpc('get_user_memories_fast', {
+        user_id: userId
+      });
+      
+      if (error) {
+        console.error('❌ Error fetching user memories:', error);
+        return { success: false, error: error.message };
+      }
+      
+      // Transform database records to Memory type
+      const memories: Memory[] = (data || []).map(record => ({
+        id: record.id,
+        image: record.media_url,
+        caption: record.caption || undefined,
+        date: new Date(record.event_date),
+        location: record.location || undefined,
+        likes: record.likes,
+        isLiked: record.is_liked || false,
+        isVideo: record.is_video,
+        type: 'memory' as const,
+        accessCode: record.access_code || '',
+        createdBy: record.created_by || undefined
+      }));
+      
+      console.log('✅ User memories fetched successfully:', memories.length);
+      return { success: true, data: memories };
+    } catch (error) {
+      console.error('❌ Error fetching user memories:', error);
+      return { success: false, error: 'Failed to fetch user memories' };
     }
   },
 
