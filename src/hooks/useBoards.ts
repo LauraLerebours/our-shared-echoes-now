@@ -17,6 +17,7 @@ export function useBoards() {
   const maxRetries = 3;
   const mountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadAttemptRef = useRef(0);
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
@@ -76,6 +77,10 @@ export function useBoards() {
     // Create a new abort controller for this request
     abortControllerRef.current = new AbortController();
     
+    // Increment load attempt counter
+    loadAttemptRef.current++;
+    const currentAttempt = loadAttemptRef.current;
+    
     if (!user?.id) {
       console.log('❌ [useBoards] No user ID, resetting state');
       if (mountedRef.current) {
@@ -127,6 +132,12 @@ export function useBoards() {
       // Check if request was aborted or component unmounted
       if (signal.aborted || !mountedRef.current || isSigningOut) {
         console.log('🛑 [useBoards] Request aborted or component unmounted, skipping state update');
+        return;
+      }
+      
+      // Check if this is still the most recent load attempt
+      if (currentAttempt !== loadAttemptRef.current) {
+        console.log('🛑 [useBoards] Newer load attempt in progress, skipping state update');
         return;
       }
       

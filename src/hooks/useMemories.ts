@@ -8,9 +8,10 @@ export function useMemories(accessCode?: string) {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isSigningOut } = useAuth();
+  const { isSigningOut, user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+  const loadAttemptRef = useRef(0);
 
   const { execute: executeDeleteMemory, loading: deleting } = useAsyncOperation(
     async (memoryId: string, memoryAccessCode: string) => {
@@ -51,8 +52,12 @@ export function useMemories(accessCode?: string) {
         return;
       }
       
+      // Increment load attempt counter
+      loadAttemptRef.current++;
+      const currentAttempt = loadAttemptRef.current;
+      
       try {
-        console.log('🔄 [useMemories] Starting memory load for access code:', accessCode);
+        console.log(`🔄 [useMemories] Starting memory load for access code: ${accessCode} (attempt ${currentAttempt})`);
         setLoading(true);
         setError(null);
         
@@ -62,6 +67,12 @@ export function useMemories(accessCode?: string) {
         // Check if request was aborted or component unmounted
         if (abortControllerRef.current.signal.aborted || !mountedRef.current || isSigningOut) {
           console.log('🛑 [useMemories] Request aborted or component unmounted, skipping state update');
+          return;
+        }
+        
+        // Check if this is still the most recent load attempt
+        if (currentAttempt !== loadAttemptRef.current) {
+          console.log('🛑 [useMemories] Newer load attempt in progress, skipping state update');
           return;
         }
         
@@ -106,7 +117,7 @@ export function useMemories(accessCode?: string) {
         abortControllerRef.current = null;
       }
     };
-  }, [accessCode, isSigningOut]);
+  }, [accessCode, isSigningOut, user?.id]);
 
   return {
     memories,
@@ -126,6 +137,9 @@ export function useMemories(accessCode?: string) {
         
         // Create a new abort controller for this request
         abortControllerRef.current = new AbortController();
+        
+        // Increment load attempt counter
+        loadAttemptRef.current++;
         
         memoriesApi.fetchMemories(accessCode, abortControllerRef.current.signal).then(result => {
           // Only update state if not aborted and still mounted

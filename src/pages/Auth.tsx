@@ -17,7 +17,7 @@ const Auth = () => {
     console.log('🔄 Auth page: checking user state', { user: !!user, loading });
     if (user && !loading) {
       console.log('✅ User already authenticated, redirecting to home');
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [user, loading, navigate]);
 

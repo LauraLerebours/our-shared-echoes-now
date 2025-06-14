@@ -28,6 +28,7 @@ const Index = () => {
   const navigate = useNavigate();
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadAttemptRef = useRef(0);
   
   // Use the optimized boards hook
   const { 
@@ -54,6 +55,10 @@ const Index = () => {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
     }
+    
+    // Increment load attempt counter
+    loadAttemptRef.current++;
+    const currentAttempt = loadAttemptRef.current;
 
     // If user is signing out, don't load memories
     if (isSigningOut) {
@@ -104,6 +109,12 @@ const Index = () => {
           return;
         }
         
+        // Check if this is still the most recent load attempt
+        if (currentAttempt !== loadAttemptRef.current) {
+          console.log('🛑 [Index] Newer load attempt in progress, skipping');
+          return;
+        }
+        
         // Extract access codes from boards
         const accessCodes = boards
           .map(board => board.access_code)
@@ -123,6 +134,12 @@ const Index = () => {
           // Check if the request has been aborted or user is signing out
           if (abortControllerRef.current?.signal.aborted || isSigningOut) {
             console.log('🛑 [Index] Request aborted or user signing out after fetch, aborting state update');
+            return;
+          }
+          
+          // Check if this is still the most recent load attempt
+          if (currentAttempt !== loadAttemptRef.current) {
+            console.log('🛑 [Index] Newer load attempt completed, skipping state update');
             return;
           }
           
@@ -155,6 +172,12 @@ const Index = () => {
         // Check if the request has been aborted or user is signing out
         if (abortControllerRef.current?.signal.aborted || isSigningOut) {
           console.log('🛑 [Index] Request aborted or user signing out during error handling');
+          return;
+        }
+        
+        // Check if this is still the most recent load attempt
+        if (currentAttempt !== loadAttemptRef.current) {
+          console.log('🛑 [Index] Newer load attempt in progress, skipping error handling');
           return;
         }
         
@@ -246,6 +269,8 @@ const Index = () => {
     console.log('🔄 [Index] Retry memories triggered');
     setMemoriesError(null);
     setHasInitiallyLoaded(false);
+    // Increment load attempt counter to force a new load
+    loadAttemptRef.current++;
     // This will trigger the useEffect to reload memories
   };
 

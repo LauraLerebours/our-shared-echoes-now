@@ -38,6 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const authStateRef = useRef<{ isActive: boolean }>({ isActive: true });
+  const initializationCompleteRef = useRef<boolean>(false);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -127,6 +128,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Function to handle session recovery with better error handling
+  const recoverSession = async () => {
+    try {
+      console.log('🔄 [AuthContext] Attempting to recover session...');
+      
+      // Try to get the current session
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('❌ [AuthContext] Error recovering session:', error);
+        
+        // Clear any stale session data
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
+        return false;
+      }
+      
+      if (!currentSession) {
+        console.log('⚠️ [AuthContext] No session found during recovery');
+        return false;
+      }
+      
+      console.log('✅ [AuthContext] Session recovered successfully');
+      setSession(currentSession);
+      setUser(currentSession.user);
+      
+      // Fetch user profile
+      if (currentSession.user) {
+        const profile = await fetchUserProfile(currentSession.user.id);
+        
+        // Create profile if it doesn't exist
+        if (!profile) {
+          console.log('🔄 [AuthContext] Creating missing user profile during recovery');
+          const name = currentSession.user.user_metadata?.name || 'User';
+          const newProfile = await createUserProfile(currentSession.user.id, name);
+          setUserProfile(newProfile);
+        } else {
+          setUserProfile(profile);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ [AuthContext] Session recovery failed:', error);
+      
+      // Clear any stale session data
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      setUserProfile(null);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Reset the auth state ref when component mounts
     authStateRef.current.isActive = true;
@@ -136,6 +193,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('🔄 [AuthContext] Getting initial session...');
         
+        // First try to recover the session
+        const recovered = await recoverSession();
+        
+        if (recovered) {
+          console.log('✅ [AuthContext] Session recovered, initialization complete');
+          initializationCompleteRef.current = true;
+          setLoading(false);
+          return;
+        }
+        
+        // If recovery failed, try to get a fresh session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -194,6 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Only update loading state if component is still mounted and auth is active
         if (authStateRef.current.isActive) {
           console.log('✅ [AuthContext] Initial auth check complete, setting loading=false');
+          initializationCompleteRef.current = true;
           setLoading(false);
         }
       }
@@ -268,7 +337,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(null);
         }
         
-        setLoading(false);
+        // Only update loading state if initialization hasn't completed yet
+        if (!initializationCompleteRef.current && authStateRef.current.isActive) {
+          setLoading(false);
+          initializationCompleteRef.current = true;
+        }
       }
     );
 
@@ -284,6 +357,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔄 [AuthContext] Signing in user:', email);
       
+      // First clear any existing session to prevent token conflicts
+      try {
+        console.log('🔄 [AuthContext] Clearing any existing session before sign in');
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.warn('⚠️ [AuthContext] Error during pre-signin cleanup:', signOutError);
+        // Continue with sign in attempt even if signOut fails
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -294,7 +376,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
-      console.log('✅ [AuthContext] Sign in successful');
+      console.log('✅ [AuthContext] Sign in successful, user:', data.user?.id);
+      
+      // Manually set the session and user to ensure immediate update
+      setSession(data.session);
+      setUser(data.user);
+      
+      // Fetch user profile
+      if (data.user) {
+        const profile = await fetchUserProfile(data.user.id);
+        
+        if (!profile) {
+          // Create profile if it doesn't exist
+          const name = data.user.user_metadata?.name || 'User';
+          const newProfile = await createUserProfile(data.user.id, name);
+          setUserProfile(newProfile);
+        } else {
+          setUserProfile(profile);
+        }
+      }
+      
       return { error: null };
     } catch (error) {
       console.error('❌ [AuthContext] Sign in error:', error);

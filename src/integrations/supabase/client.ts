@@ -32,7 +32,36 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    debug: true // Enable debug mode to see more auth-related logs
+    debug: true, // Enable debug mode to see more auth-related logs
+    storageKey: 'thisisus-auth-token', // Use a custom storage key to avoid conflicts
+    storage: {
+      getItem: (key) => {
+        try {
+          const value = localStorage.getItem(key);
+          console.log(`🔑 [Storage] Getting key: ${key.substring(0, 15)}...`, !!value);
+          return value;
+        } catch (error) {
+          console.error(`❌ [Storage] Error getting key ${key}:`, error);
+          return null;
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          console.log(`🔑 [Storage] Setting key: ${key.substring(0, 15)}...`);
+          localStorage.setItem(key, value);
+        } catch (error) {
+          console.error(`❌ [Storage] Error setting key ${key}:`, error);
+        }
+      },
+      removeItem: (key) => {
+        try {
+          console.log(`🔑 [Storage] Removing key: ${key.substring(0, 15)}...`);
+          localStorage.removeItem(key);
+        } catch (error) {
+          console.error(`❌ [Storage] Error removing key ${key}:`, error);
+        }
+      }
+    }
   },
   db: {
     schema: 'public',
