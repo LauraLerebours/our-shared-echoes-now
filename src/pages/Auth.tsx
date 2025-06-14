@@ -333,6 +333,7 @@ const Auth = () => {
                     onChange={(e) => setSignInEmail(e.target.value)}
                     required
                     disabled={isSigningIn}
+                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -341,6 +342,7 @@ const Auth = () => {
                     onChange={(e) => setSignInPassword(e.target.value)}
                     required
                     disabled={isSigningIn}
+                    autoComplete="current-password"
                   />
                 </div>
                 <Button
@@ -363,6 +365,7 @@ const Auth = () => {
                     onChange={(e) => setSignUpName(e.target.value)}
                     required
                     disabled={isSigningUp}
+                    autoComplete="name"
                   />
                   <Input
                     type="email"
@@ -371,6 +374,7 @@ const Auth = () => {
                     onChange={(e) => setSignUpEmail(e.target.value)}
                     required
                     disabled={isSigningUp}
+                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -380,6 +384,7 @@ const Auth = () => {
                     required
                     disabled={isSigningUp}
                     minLength={6}
+                    autoComplete="new-password"
                   />
                 </div>
                 <Button

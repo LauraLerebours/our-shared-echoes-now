@@ -119,6 +119,7 @@ const BoardRenameDialog: React.FC<BoardRenameDialogProps> = ({
                 placeholder="Enter board name"
                 disabled={isRenaming}
                 maxLength={100}
+                autoComplete="off"
               />
             </div>
           </div>

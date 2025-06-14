@@ -307,6 +307,7 @@ const Boards = () => {
                         placeholder="Board name"
                         value={newBoardName}
                         onChange={(e) => setNewBoardName(e.target.value)}
+                        autoComplete="off"
                       />
                     </div>
                     <DialogFooter>
@@ -402,6 +403,7 @@ const Boards = () => {
                         placeholder="Board name"
                         value={newBoardName}
                         onChange={(e) => setNewBoardName(e.target.value)}
+                        autoComplete="off"
                       />
                     </div>
                     <DialogFooter>

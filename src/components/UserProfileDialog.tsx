@@ -84,6 +84,7 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ children }) => {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
                 disabled={isUpdating}
+                autoComplete="name"
               />
             </div>
           </div>

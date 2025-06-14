@@ -210,6 +210,7 @@ const Share = () => {
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={6}
+                autoComplete="off"
               />
             </div>
 

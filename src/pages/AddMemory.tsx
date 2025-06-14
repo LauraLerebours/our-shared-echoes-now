@@ -170,7 +170,8 @@ const AddMemory = () => {
         isLiked: false,
         isVideo: mediaType === 'video',
         type: 'memory',
-        accessCode: selectedAccessCode
+        accessCode: selectedAccessCode,
+        createdBy: user?.id
       };
       
       // Save to Supabase
@@ -307,6 +308,7 @@ const AddMemory = () => {
                     className="absolute inset-0 opacity-0 pointer-events-none"
                     onChange={handleFileChange}
                     disabled={uploading}
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -326,6 +328,7 @@ const AddMemory = () => {
                 className="resize-none"
                 rows={3}
                 required
+                autoComplete="off"
               />
             </div>
             
@@ -367,6 +370,7 @@ const AddMemory = () => {
                   value={location_}
                   onChange={(e) => setLocation(e.target.value)}
                   className="pl-10"
+                  autoComplete="off"
                 />
               </div>
             </div>
