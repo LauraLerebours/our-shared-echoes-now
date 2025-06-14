@@ -32,31 +32,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    storage: {
-      getItem: (key) => {
-        try {
-          const value = localStorage.getItem(key);
-          return value;
-        } catch (error) {
-          console.error('Error accessing localStorage:', error);
-          return null;
-        }
-      },
-      setItem: (key, value) => {
-        try {
-          localStorage.setItem(key, value);
-        } catch (error) {
-          console.error('Error writing to localStorage:', error);
-        }
-      },
-      removeItem: (key) => {
-        try {
-          localStorage.removeItem(key);
-        } catch (error) {
-          console.error('Error removing from localStorage:', error);
-        }
-      }
-    }
+    debug: true // Enable debug mode to see more auth-related logs
   },
   db: {
     schema: 'public',
@@ -119,6 +95,16 @@ const testConnection = async () => {
         console.warn('⚠️ Auth session check failed:', authError.message);
       } else {
         console.log('✅ Auth system accessible, session:', session ? 'active' : 'none');
+        
+        // Log more details about the session for debugging
+        if (session) {
+          console.log('📊 Session details:', {
+            userId: session.user?.id,
+            expiresAt: session.expires_at,
+            hasRefreshToken: !!session.refresh_token,
+            hasAccessToken: !!session.access_token
+          });
+        }
       }
     } catch (authErr) {
       console.warn('⚠️ Auth test failed:', authErr);
@@ -138,6 +124,16 @@ const testConnection = async () => {
 
 // Start connection test
 testConnection();
+
+// Listen for auth state changes to debug auth issues
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log(`🔔 [Auth] Event: ${event}`, {
+    hasSession: !!session,
+    userId: session?.user?.id,
+    hasRefreshToken: !!session?.refresh_token,
+    hasAccessToken: !!session?.access_token
+  });
+});
 
 // Note: Service role client is not needed for this implementation
 export const supabaseServiceRole = null;

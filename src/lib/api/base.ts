@@ -47,25 +47,31 @@ export async function withRetry<T>(
     try {
       // Check if the operation has been aborted
       if (signal?.aborted) {
+        console.log(`🛑 [withRetry] Operation aborted before attempt ${attempt}`);
         throw new Error('Operation aborted by user');
       }
       
+      console.log(`🔄 [withRetry] Attempt ${attempt}/${maxRetries}`);
       return await operation();
     } catch (error) {
       // If the operation was aborted, rethrow immediately
       if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request aborted' || error.message === 'Operation aborted by user')) {
+        console.log(`🛑 [withRetry] Operation aborted during attempt ${attempt}`);
         throw error;
       }
       
       lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`❌ [withRetry] Attempt ${attempt} failed:`, lastError.message);
       
       // Check if the signal was aborted during the operation
       if (signal?.aborted) {
+        console.log(`🛑 [withRetry] Operation aborted after attempt ${attempt} failed`);
         throw new Error('Operation aborted by user');
       }
       
       // Don't retry on the last attempt
       if (attempt === maxRetries) {
+        console.log(`❌ [withRetry] All ${maxRetries} attempts failed`);
         break;
       }
       
@@ -77,15 +83,17 @@ export async function withRetry<T>(
                          lastError.message.includes('ETIMEDOUT');
       
       if (!isRetryable) {
+        console.log(`❌ [withRetry] Error is not retryable, giving up:`, lastError.message);
         break;
       }
       
-      console.log(`⏳ Retrying operation in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+      console.log(`⏳ [withRetry] Retrying operation in ${delay}ms (attempt ${attempt}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
       delay *= 2; // Exponential backoff
       
       // Check again if the operation was aborted during the delay
       if (signal?.aborted) {
+        console.log(`🛑 [withRetry] Operation aborted during retry delay`);
         throw new Error('Operation aborted by user');
       }
     }

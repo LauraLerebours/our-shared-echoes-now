@@ -41,11 +41,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      console.log('🔄 Fetching user profile for:', userId);
+      console.log('🔄 [AuthContext] Fetching user profile for:', userId);
       
       // Check if component is still mounted and auth is active
       if (!authStateRef.current.isActive) {
-        console.log('⚠️ Auth state no longer active, aborting profile fetch');
+        console.log('⚠️ [AuthContext] Auth state no longer active, aborting profile fetch');
         return null;
       }
       
@@ -56,14 +56,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('❌ Error fetching user profile:', error);
+        console.error('❌ [AuthContext] Error fetching user profile:', error);
+        
+        // Check if this is a "not found" error, which might indicate we need to create the profile
+        if (error.code === 'PGRST116') {
+          console.log('⚠️ [AuthContext] User profile not found, will attempt to create it');
+          return null;
+        }
+        
         return null;
       }
 
-      console.log('✅ User profile fetched successfully:', data.name);
+      console.log('✅ [AuthContext] User profile fetched successfully:', data.name);
       return data;
     } catch (error) {
-      console.error('❌ Error fetching user profile:', error);
+      console.error('❌ [AuthContext] Error fetching user profile:', error);
       return null;
     }
   };
@@ -74,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      console.log('🔄 Updating user profile:', name);
+      console.log('🔄 [AuthContext] Updating user profile:', name);
       
       const { data, error } = await supabase
         .from('user_profiles')
@@ -84,16 +91,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('❌ Error updating profile:', error);
+        console.error('❌ [AuthContext] Error updating profile:', error);
         return { error: new Error(error.message) };
       }
 
-      console.log('✅ Profile updated successfully');
+      console.log('✅ [AuthContext] Profile updated successfully');
       setUserProfile(data);
       return { error: null };
     } catch (error) {
-      console.error('❌ Error updating profile:', error);
+      console.error('❌ [AuthContext] Error updating profile:', error);
       return { error: error as Error };
+    }
+  };
+
+  const createUserProfile = async (userId: string, name: string = 'User') => {
+    try {
+      console.log('🔄 [AuthContext] Creating user profile for:', userId);
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert([{ id: userId, name }])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('❌ [AuthContext] Error creating user profile:', error);
+        return null;
+      }
+      
+      console.log('✅ [AuthContext] User profile created successfully');
+      return data;
+    } catch (error) {
+      console.error('❌ [AuthContext] Error creating user profile:', error);
+      return null;
     }
   };
 
@@ -104,17 +134,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Get initial session
     const getInitialSession = async () => {
       try {
-        console.log('🔄 Getting initial session...');
+        console.log('🔄 [AuthContext] Getting initial session...');
         
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('❌ Error getting initial session:', error);
+          console.error('❌ [AuthContext] Error getting initial session:', error);
           
           // Check if the error is related to invalid refresh token
           if (error.message?.includes('Invalid Refresh Token') || 
               error.message?.includes('Refresh Token Not Found')) {
-            console.log('⚠️ Invalid refresh token detected, clearing session...');
+            console.log('⚠️ [AuthContext] Invalid refresh token detected, clearing session...');
             // Clear any stale session data
             await supabase.auth.signOut();
             setSession(null);
@@ -122,11 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserProfile(null);
           }
         } else {
-          console.log('✅ Initial session retrieved:', !!session);
+          console.log('✅ [AuthContext] Initial session retrieved:', !!session);
           
           // Check if component is still mounted and auth is active
           if (!authStateRef.current.isActive) {
-            console.log('⚠️ Auth state no longer active, aborting session setup');
+            console.log('⚠️ [AuthContext] Auth state no longer active, aborting session setup');
             return;
           }
           
@@ -135,30 +165,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Fetch user profile if user exists
           if (session?.user) {
+            console.log('🔄 [AuthContext] User found in session, fetching profile');
             const profile = await fetchUserProfile(session.user.id);
             
-            // Check again if component is still mounted and auth is active
-            if (authStateRef.current.isActive) {
+            // If profile doesn't exist, create it
+            if (!profile && authStateRef.current.isActive) {
+              console.log('🔄 [AuthContext] Profile not found, creating new profile');
+              const name = session.user.user_metadata?.name || 'User';
+              const newProfile = await createUserProfile(session.user.id, name);
+              
+              if (authStateRef.current.isActive) {
+                setUserProfile(newProfile);
+              }
+            } else if (authStateRef.current.isActive) {
               setUserProfile(profile);
             }
           }
         }
       } catch (error) {
-        console.error('❌ Error getting initial session:', error);
+        console.error('❌ [AuthContext] Error getting initial session:', error);
         
         // Handle any other authentication errors by clearing session
-        try {
-          await supabase.auth.signOut();
-        } catch (signOutError) {
-          console.error('❌ Error during signOut cleanup:', signOutError);
-        }
-        
+        await supabase.auth.signOut();
         setSession(null);
         setUser(null);
         setUserProfile(null);
       } finally {
         // Only update loading state if component is still mounted and auth is active
         if (authStateRef.current.isActive) {
+          console.log('✅ [AuthContext] Initial auth check complete, setting loading=false');
           setLoading(false);
         }
       }
@@ -169,34 +204,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.email);
+        console.log('🔄 [AuthContext] Auth state changed:', event, session?.user?.email);
         
         // Check if component is still mounted and auth is active
         if (!authStateRef.current.isActive) {
-          console.log('⚠️ Auth state no longer active, aborting auth state change handling');
+          console.log('⚠️ [AuthContext] Auth state no longer active, aborting auth state change handling');
           return;
         }
         
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('🔄 [AuthContext] User signed out, clearing profile');
+          setUserProfile(null);
+          setLoading(false);
+          return;
+        }
 
         if (session?.user) {
+          console.log('🔄 [AuthContext] User authenticated, fetching profile');
           // Fetch user profile
           const profile = await fetchUserProfile(session.user.id);
           
           // Check again if component is still mounted and auth is active
           if (!authStateRef.current.isActive) {
-            console.log('⚠️ Auth state no longer active, aborting profile update');
+            console.log('⚠️ [AuthContext] Auth state no longer active, aborting profile update');
             return;
           }
           
-          setUserProfile(profile);
-
           // Create user profile if it doesn't exist
           if (event === 'SIGNED_IN' && !profile) {
             try {
-              console.log('🔄 Creating user profile for new user');
+              console.log('🔄 [AuthContext] Creating user profile for new user');
               
               const { error: insertError } = await supabase
                 .from('user_profiles')
@@ -206,7 +246,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 });
 
               if (insertError) {
-                console.error('❌ Error creating user profile:', insertError);
+                console.error('❌ [AuthContext] Error creating user profile:', insertError);
               } else {
                 // Fetch the newly created profile
                 const newProfile = await fetchUserProfile(session.user.id);
@@ -214,22 +254,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Check again if component is still mounted and auth is active
                 if (authStateRef.current.isActive) {
                   setUserProfile(newProfile);
-                  console.log('✅ User profile created successfully');
+                  console.log('✅ [AuthContext] User profile created successfully');
                 }
               }
             } catch (error) {
-              console.error('❌ Error handling user profile:', error);
+              console.error('❌ [AuthContext] Error handling user profile:', error);
             }
+          } else {
+            setUserProfile(profile);
           }
         } else {
           // Clear user profile when user signs out
           setUserProfile(null);
         }
+        
+        setLoading(false);
       }
     );
 
     return () => {
       // Mark auth state as inactive when component unmounts
+      console.log('🧹 [AuthContext] Cleanup: component unmounting');
       authStateRef.current.isActive = false;
       subscription.unsubscribe();
     };
@@ -237,10 +282,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log('🔄 Signing in user:', email);
-      
-      // Clear any existing session first to prevent token conflicts
-      await supabase.auth.signOut();
+      console.log('🔄 [AuthContext] Signing in user:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -248,32 +290,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('❌ Sign in error:', error);
+        console.error('❌ [AuthContext] Sign in error:', error);
         return { error };
       }
 
-      console.log('✅ Sign in successful');
-      
-      // Explicitly set the user and session
-      setUser(data.user);
-      setSession(data.session);
-      
-      // Fetch user profile
-      if (data.user) {
-        const profile = await fetchUserProfile(data.user.id);
-        setUserProfile(profile);
-      }
-      
+      console.log('✅ [AuthContext] Sign in successful');
       return { error: null };
     } catch (error) {
-      console.error('❌ Sign in error:', error);
+      console.error('❌ [AuthContext] Sign in error:', error);
       return { error: error as AuthError };
     }
   };
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      console.log('🔄 Signing up user:', email);
+      console.log('🔄 [AuthContext] Signing up user:', email);
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -287,21 +318,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('❌ Sign up error:', error);
+        console.error('❌ [AuthContext] Sign up error:', error);
         return { error, user: null };
       }
 
-      console.log('✅ Sign up successful');
+      console.log('✅ [AuthContext] Sign up successful');
       return { error: null, user: data.user };
     } catch (error) {
-      console.error('❌ Sign up error:', error);
+      console.error('❌ [AuthContext] Sign up error:', error);
       return { error: error as AuthError, user: null };
     }
   };
 
   const signOut = async () => {
     try {
-      console.log('🔄 Signing out user');
+      console.log('🔄 [AuthContext] Signing out user');
       setIsSigningOut(true);
       
       // Mark auth state as inactive to cancel any ongoing operations
@@ -312,7 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('❌ Sign out error:', error);
+        console.error('❌ [AuthContext] Sign out error:', error);
       }
       
       // Clear user profile state
@@ -320,9 +351,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSession(null);
       
-      console.log('✅ Sign out successful');
+      console.log('✅ [AuthContext] Sign out successful');
     } catch (error) {
-      console.error('❌ Sign out error:', error);
+      console.error('❌ [AuthContext] Sign out error:', error);
     } finally {
       setIsSigningOut(false);
       
