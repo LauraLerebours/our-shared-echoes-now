@@ -97,12 +97,18 @@ const Auth = () => {
     // Handle password reset success
     if (type === 'recovery') {
       console.log('✅ Password reset link clicked');
-      toast({
-        title: 'Password Reset',
-        description: 'Please check your email for a link to reset your password.',
-      });
-      // Clear the URL parameters
-      navigate('/auth', { replace: true });
+      // Redirect to the reset password page with the access token
+      const accessToken = searchParams.get('access_token');
+      if (accessToken) {
+        navigate(`/reset-password?access_token=${accessToken}`, { replace: true });
+      } else {
+        toast({
+          title: 'Password Reset',
+          description: 'Please check your email for a link to reset your password.',
+        });
+        // Clear the URL parameters
+        navigate('/auth', { replace: true });
+      }
     }
     
     if (error) {
