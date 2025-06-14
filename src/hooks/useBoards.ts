@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Board, boardsApi } from '@/lib/api/boards';
 import { useAsyncOperation } from './useAsyncOperation';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useBoards() {
   const [boards, setBoards] = useState<Board[]>([]);
