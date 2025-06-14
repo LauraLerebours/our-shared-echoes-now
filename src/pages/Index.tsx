@@ -38,8 +38,21 @@ const Index = () => {
     retryLoad: retryBoardsLoad 
   } = useBoards();
   
+  console.log('🔄 [Index] Component rendering with state:', {
+    user: !!user,
+    authLoading,
+    boardsLoading,
+    memoriesLoading,
+    boardsCount: boards.length,
+    memoriesCount: memories.length,
+    hasInitiallyLoaded,
+    isSigningOut
+  });
+  
   // Optimized memories loading with race condition prevention and abort support
   useEffect(() => {
+    console.log('🔄 [Index] useEffect for memories loading triggered');
+    
     // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       console.log('🛑 [Index] Cancelling previous request');
@@ -98,6 +111,8 @@ const Index = () => {
     // Add a small delay to prevent rapid state changes
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
+        console.log('🔄 [Index] Starting memory load after timeout');
+        
         // Check if the request has been aborted or user is signing out
         if (abortControllerRef.current?.signal.aborted || isSigningOut) {
           console.log('🛑 [Index] Request aborted or user signing out, aborting memory load');
@@ -109,9 +124,10 @@ const Index = () => {
           .map(board => board.access_code)
           .filter((code): code is string => code !== null && code !== undefined);
         
-        console.log('🔄 [Index] Access codes:', accessCodes.length);
+        console.log('🔄 [Index] Access codes extracted:', accessCodes.length);
         
         if (accessCodes.length > 0) {
+          console.log('🔄 [Index] Calling memoriesApi.fetchMemoriesByAccessCodes with', accessCodes.length, 'codes');
           // Use the optimized parallel loading with abort signal
           const result = await memoriesApi.fetchMemoriesByAccessCodes(
             accessCodes, 
@@ -127,6 +143,10 @@ const Index = () => {
           
           if (result.success && result.data) {
             console.log('✅ [Index] Memories loaded:', result.data.length);
+            console.log('📊 [Index] Memory types:', {
+              photos: result.data.filter(m => !m.isVideo).length,
+              videos: result.data.filter(m => m.isVideo).length
+            });
             setMemories(result.data);
             setMemoriesError(null);
             setHasInitiallyLoaded(true);
@@ -174,6 +194,7 @@ const Index = () => {
       } finally {
         // Only update loading state if not aborted and not signing out
         if (!abortControllerRef.current?.signal.aborted && !isSigningOut) {
+          console.log('✅ [Index] Finished loading memories, setting memoriesLoading=false');
           setMemoriesLoading(false);
         }
       }
@@ -181,6 +202,7 @@ const Index = () => {
 
     // Cleanup function
     return () => {
+      console.log('🧹 [Index] Cleaning up memories loading effect');
       // Clear any existing timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
@@ -199,12 +221,14 @@ const Index = () => {
     if (!user?.id) return;
     
     try {
+      console.log('🔄 [Index] Deleting memory:', id);
       const memory = memories.find(m => m.id === id);
       if (!memory) return;
 
       const success = await deleteMemory(id, memory.accessCode);
       
       if (success) {
+        console.log('✅ [Index] Memory deleted successfully');
         setMemories(prev => prev.filter(memory => memory.id !== id));
         toast({
           title: "Memory deleted",
@@ -214,7 +238,7 @@ const Index = () => {
         throw new Error('Failed to delete memory');
       }
     } catch (error) {
-      console.error('❌ Error deleting memory:', error);
+      console.error('❌ [Index] Error deleting memory:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete memory',
@@ -224,12 +248,14 @@ const Index = () => {
   };
 
   const handleUpdateMemory = (id: string, updates: Partial<Memory>) => {
+    console.log('🔄 [Index] Updating memory:', id, 'with updates:', updates);
     setMemories(prev => prev.map(memory => 
       memory.id === id ? { ...memory, ...updates } : memory
     ));
   };
 
   const handleViewDetail = (id: string, accessCode: string) => {
+    console.log('🔄 [Index] Navigating to memory detail:', id);
     navigate(`/memory/${id}`, { state: { accessCode } });
   };
 
@@ -251,9 +277,11 @@ const Index = () => {
     if (!user?.id) return;
     
     try {
+      console.log('🔄 [Index] Creating default board');
       await createNewBoard('My Memories');
+      console.log('✅ [Index] Default board created successfully');
     } catch (error) {
-      console.error('❌ Error creating default board:', error);
+      console.error('❌ [Index] Error creating default board:', error);
       toast({
         title: 'Error',
         description: 'Failed to create default board',
@@ -264,6 +292,7 @@ const Index = () => {
 
   // Show loading only if we're still in the initial auth loading phase
   if (authLoading) {
+    console.log('🔄 [Index] Still in auth loading phase, showing loading spinner');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <LoadingSpinner size="lg" text="Loading..." />
@@ -273,6 +302,7 @@ const Index = () => {
 
   // Show error state if boards failed to load
   if (boardsError) {
+    console.log('❌ [Index] Boards error detected:', boardsError);
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
@@ -301,6 +331,7 @@ const Index = () => {
 
   // Show memories error if boards loaded but memories failed
   if (memoriesError && !boardsLoading && boards.length > 0 && !hasInitiallyLoaded) {
+    console.log('❌ [Index] Memories error detected:', memoriesError);
     return (
       <ErrorBoundary>
         <div className="min-h-screen bg-background flex flex-col">
@@ -323,6 +354,15 @@ const Index = () => {
       </ErrorBoundary>
     );
   }
+
+  console.log('🔄 [Index] Rendering main UI with state:', {
+    boardsLoading,
+    memoriesLoading,
+    boardsCount: boards.length,
+    memoriesCount: memories.length,
+    hasInitiallyLoaded,
+    viewMode
+  });
 
   return (
     <ErrorBoundary>

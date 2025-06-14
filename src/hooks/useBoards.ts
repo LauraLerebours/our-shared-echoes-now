@@ -20,10 +20,12 @@ export function useBoards() {
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
+      console.log('🔄 [useBoards] Creating new board:', name);
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.createBoard(name, user.id);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
       if (mountedRef.current) {
+        console.log('✅ [useBoards] Board created successfully:', result.data.name);
         setBoards(prev => [...prev, result.data!]);
       }
       return result.data;
@@ -33,10 +35,12 @@ export function useBoards() {
 
   const { execute: executeRemoveFromBoard, loading: removing } = useAsyncOperation(
     async (boardId: string) => {
+      console.log('🔄 [useBoards] Removing user from board:', boardId);
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.removeUserFromBoard(boardId, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
+        console.log('✅ [useBoards] User removed from board successfully');
         setBoards(prev => prev.filter(board => board.id !== boardId));
       }
       return result;
@@ -46,10 +50,12 @@ export function useBoards() {
 
   const { execute: executeRenameBoard, loading: renaming } = useAsyncOperation(
     async (boardId: string, newName: string) => {
+      console.log('🔄 [useBoards] Renaming board:', boardId, 'to', newName);
       if (!user?.id) throw new Error('User not authenticated');
       const result = await boardsApi.renameBoard(boardId, newName, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
+        console.log('✅ [useBoards] Board renamed successfully to:', result.newName || newName);
         setBoards(prev => prev.map(board => 
           board.id === boardId ? { ...board, name: result.newName || newName } : board
         ));
@@ -61,6 +67,8 @@ export function useBoards() {
 
   // Optimized load function with better race condition handling and abort support
   const loadBoards = async (isRetry = false) => {
+    console.log('🔄 [useBoards] loadBoards called, isRetry:', isRetry);
+    
     // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       console.log('🛑 [useBoards] Cancelling previous request');
@@ -114,6 +122,7 @@ export function useBoards() {
     }
     
     try {
+      console.log('🔄 [useBoards] Calling boardsApi.fetchBoards...');
       const signal = abortControllerRef.current.signal;
       const result = await boardsApi.fetchBoards(user.id, signal);
       
@@ -125,6 +134,12 @@ export function useBoards() {
       
       if (result.success && result.data) {
         console.log('✅ [useBoards] Boards loaded successfully:', result.data.length);
+        console.log('📊 [useBoards] Board details:', result.data.map(b => ({
+          id: b.id,
+          name: b.name,
+          memberCount: b.member_ids?.length || 0
+        })));
+        
         setBoards(result.data);
         setError(null);
         hasLoadedRef.current = true;
@@ -197,6 +212,7 @@ export function useBoards() {
       hasLoadedRef.current = false;
     } finally {
       if (mountedRef.current && !isSigningOut) {
+        console.log('✅ [useBoards] Finished loading boards, setting loading=false');
         setLoading(false);
         loadingRef.current = false;
       }
@@ -204,18 +220,24 @@ export function useBoards() {
   };
 
   useEffect(() => {
+    console.log('🔄 [useBoards] useEffect triggered with user.id:', user?.id);
     mountedRef.current = true;
     
     // Don't load boards if user is signing out
     if (!isSigningOut) {
+      console.log('🔄 [useBoards] Calling loadBoards from useEffect');
       loadBoards();
+    } else {
+      console.log('🛑 [useBoards] User is signing out, skipping board load');
     }
     
     return () => {
+      console.log('🧹 [useBoards] Cleaning up useBoards hook');
       mountedRef.current = false;
       
       // Cancel any in-flight requests when component unmounts
       if (abortControllerRef.current) {
+        console.log('🛑 [useBoards] Aborting any in-flight requests during cleanup');
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
@@ -241,6 +263,8 @@ export function useBoards() {
         retryCountRef.current = 0;
         setError(null);
         loadBoards(true);
+      } else {
+        console.log('⚠️ [useBoards] Manual refresh skipped - no user, unmounted, or signing out');
       }
     },
     // Add retry function
@@ -253,6 +277,8 @@ export function useBoards() {
         retryCountRef.current = 0;
         setError(null);
         loadBoards(true);
+      } else {
+        console.log('⚠️ [useBoards] Retry load skipped - unmounted or signing out');
       }
     }
   };

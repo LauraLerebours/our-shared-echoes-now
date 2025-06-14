@@ -16,10 +16,12 @@ export const boardsApi = {
       const result = await withRetry(async () => {
         // Check if the request has been aborted
         if (signal?.aborted) {
+          console.log('🛑 [boardsApi.fetchBoards] Request aborted');
           throw new Error('Request aborted');
         }
         
         // Test database connection first
+        console.log('🔄 [boardsApi.fetchBoards] Testing database connection...');
         const { error: connectionError } = await supabase
           .from('user_profiles')
           .select('id')
@@ -30,13 +32,16 @@ export const boardsApi = {
           console.error('❌ [boardsApi.fetchBoards] Connection test failed:', connectionError);
           throw new Error(`Database connection failed: ${connectionError.message}`);
         }
+        console.log('✅ [boardsApi.fetchBoards] Database connection successful');
 
         // Check if the request has been aborted after connection test
         if (signal?.aborted) {
+          console.log('🛑 [boardsApi.fetchBoards] Request aborted after connection test');
           throw new Error('Request aborted');
         }
 
         // Now fetch boards with comprehensive error handling
+        console.log('🔄 [boardsApi.fetchBoards] Querying boards table...');
         const { data, error } = await supabase
           .from('boards')
           .select(`
@@ -72,10 +77,16 @@ export const boardsApi = {
           throw new Error(`Failed to fetch boards: ${error.message}`);
         }
 
+        console.log('✅ [boardsApi.fetchBoards] Query successful, received', data?.length || 0, 'boards');
         return data || [];
       }, 3, 1000, signal);
       
       console.log('✅ [boardsApi.fetchBoards] Success:', result.length, 'boards');
+      console.log('📊 [boardsApi.fetchBoards] Board details:', result.map(b => ({
+        id: b.id,
+        name: b.name,
+        memberCount: b.member_ids?.length || 0
+      })));
       return result as Board[];
     }, 'fetchBoards');
   },
@@ -89,6 +100,7 @@ export const boardsApi = {
       }
 
       const result = await withRetry(async () => {
+        console.log('🔄 [boardsApi.getBoardById] Querying board with ID:', boardId);
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -110,6 +122,7 @@ export const boardsApi = {
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
+        console.log('✅ [boardsApi.getBoardById] Board found:', data.name);
         return data;
       }, 3, 1000);
 
@@ -131,6 +144,7 @@ export const boardsApi = {
       console.log('🔄 [boardsApi.getBoardByShareCode] Starting:', shareCode);
       
       const result = await withRetry(async () => {
+        console.log('🔄 [boardsApi.getBoardByShareCode] Querying board with share code:', shareCode);
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -180,6 +194,7 @@ export const boardsApi = {
 
       const result = await withRetry(async () => {
         // Create access code first
+        console.log('🔄 [boardsApi.createBoard] Creating access code...');
         const { error: accessCodeError } = await supabase
           .from('access_codes')
           .insert([{ code: accessCode, name: sanitizedName }]);
@@ -197,6 +212,7 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Access code created');
 
         // Use the safe function to create board
+        console.log('🔄 [boardsApi.createBoard] Creating board...');
         const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
           board_name: sanitizedName,
           owner_user_id: userId,
@@ -226,6 +242,7 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
 
         // Fetch the created board
+        console.log('🔄 [boardsApi.createBoard] Fetching created board...');
         const { data: boardData, error: fetchError } = await supabase
           .from('boards')
           .select('*')
@@ -241,6 +258,7 @@ export const boardsApi = {
           throw new Error('Created board not found');
         }
 
+        console.log('✅ [boardsApi.createBoard] Board fetched successfully');
         return boardData;
       }, 3, 1000);
 
@@ -259,6 +277,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.renameBoard] Calling rename_board function...');
         const { data, error } = await supabase.rpc('rename_board', {
           board_id: boardId,
           new_name: sanitizedName,
@@ -304,6 +323,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.addUserToBoard] Calling add_user_to_board_by_share_code function...');
         const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
           share_code_param: shareCode.toUpperCase(),
           user_id_param: userId
@@ -338,9 +358,13 @@ export const boardsApi = {
     };
 
     if (result.data!.success && result.data!.board_id) {
+      console.log('🔄 [boardsApi.addUserToBoard] Getting board details for board_id:', result.data!.board_id);
       const boardResult = await this.getBoardByShareCode(shareCode);
       if (boardResult.success && boardResult.data) {
+        console.log('✅ [boardsApi.addUserToBoard] Board details retrieved successfully');
         response.board = boardResult.data;
+      } else {
+        console.log('⚠️ [boardsApi.addUserToBoard] Could not retrieve board details');
       }
     }
 
@@ -352,6 +376,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.removeUserFromBoard] Calling remove_board_member function...');
         const { data: success, error } = await supabase.rpc('remove_board_member', {
           board_id: boardId,
           user_id: userId
@@ -371,7 +396,7 @@ export const boardsApi = {
           throw new Error(`Failed to remove user: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.removeUserFromBoard] Success');
+        console.log('✅ [boardsApi.removeUserFromBoard] Success:', success);
         return success;
       }, 3, 1000);
     }, 'removeUserFromBoard');
