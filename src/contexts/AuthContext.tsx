@@ -25,6 +25,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Create a local storage key for caching the user profile
 const USER_PROFILE_CACHE_KEY = 'thisisus_user_profile';
+// Flag to track if this is an initial page load or a refresh
+const isPageRefresh = window.performance && window.performance.navigation && 
+                     (window.performance.navigation.type === 1 || 
+                      document.referrer.includes(window.location.host));
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -46,6 +50,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load cached profile from localStorage
   const loadCachedProfile = useCallback(() => {
+    // Only load from cache on page refresh, not initial login
+    if (!isPageRefresh) {
+      console.log('🔄 [AuthContext] Initial page load, not using cached profile');
+      return null;
+    }
+    
     try {
       const cachedProfileJson = localStorage.getItem(USER_PROFILE_CACHE_KEY);
       if (cachedProfileJson) {
@@ -159,10 +169,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(true);
         
         // Try to load cached profile first for immediate UI display
-        const cachedProfile = loadCachedProfile();
-        if (cachedProfile) {
-          console.log('📋 [AuthContext] Using cached profile while session loads:', cachedProfile.name);
-          setUserProfile(cachedProfile);
+        // But only if this is a page refresh, not an initial login
+        if (isPageRefresh) {
+          const cachedProfile = loadCachedProfile();
+          if (cachedProfile) {
+            console.log('📋 [AuthContext] Using cached profile while session loads:', cachedProfile.name);
+            setUserProfile(cachedProfile);
+          }
         }
         
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -196,8 +209,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fetch user profile if user exists
           if (session?.user) {
             // If we already have a cached profile, keep using it while we fetch the latest
-            if (!userProfile && cachedProfile && cachedProfile.id === session.user.id) {
-              setUserProfile(cachedProfile);
+            if (isPageRefresh && !userProfile) {
+              const cachedProfile = loadCachedProfile();
+              if (cachedProfile && cachedProfile.id === session.user.id) {
+                setUserProfile(cachedProfile);
+              }
             }
             
             const profile = await fetchUserProfile(session.user.id);
@@ -206,10 +222,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (authStateRef.current.isActive) {
               if (profile) {
                 setUserProfile(profile);
-              } else if (cachedProfile && cachedProfile.id === session.user.id) {
+              } else if (isPageRefresh) {
                 // If fetch failed but we have a cached profile, keep using it
-                console.log('⚠️ [AuthContext] Using cached profile after failed fetch');
-                setUserProfile(cachedProfile);
+                const cachedProfile = loadCachedProfile();
+                if (cachedProfile && cachedProfile.id === session.user.id) {
+                  console.log('⚠️ [AuthContext] Using cached profile after failed fetch');
+                  setUserProfile(cachedProfile);
+                }
               }
             }
           }
@@ -250,10 +269,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.user) {
           // Try to use cached profile first for immediate UI update
-          const cachedProfile = loadCachedProfile();
-          if (cachedProfile && cachedProfile.id === session.user.id) {
-            console.log('📋 [AuthContext] Using cached profile during auth change:', cachedProfile.name);
-            setUserProfile(cachedProfile);
+          // But only if this is a page refresh, not during normal auth flow
+          if (isPageRefresh) {
+            const cachedProfile = loadCachedProfile();
+            if (cachedProfile && cachedProfile.id === session.user.id) {
+              console.log('📋 [AuthContext] Using cached profile during auth change:', cachedProfile.name);
+              setUserProfile(cachedProfile);
+            }
           }
           
           // Reset profile fetch attempts counter
@@ -270,9 +292,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (profile) {
             setUserProfile(profile);
-          } else if (cachedProfile && cachedProfile.id === session.user.id) {
+          } else if (isPageRefresh) {
             // If fetch failed but we have a cached profile, keep using it
-            console.log('⚠️ [AuthContext] Keeping cached profile after failed fetch');
+            const cachedProfile = loadCachedProfile();
+            if (cachedProfile && cachedProfile.id === session.user.id) {
+              console.log('⚠️ [AuthContext] Keeping cached profile after failed fetch');
+              setUserProfile(cachedProfile);
+            }
           }
 
           // Create user profile if it doesn't exist

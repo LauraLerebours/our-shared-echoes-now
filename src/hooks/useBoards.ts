@@ -3,6 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Board, boardsApi } from '@/lib/api/boards';
 import { useAsyncOperation } from './useAsyncOperation';
 
+// Check if this is a page refresh or initial load
+const isPageRefresh = window.performance && 
+                     ((window.performance.navigation && window.performance.navigation.type === 1) || 
+                      document.referrer.includes(window.location.host));
+
 // Create a cache key for boards
 const BOARDS_CACHE_KEY = 'thisisus_boards';
 
@@ -76,6 +81,11 @@ export function useBoards() {
 
   // Function to get cached boards
   const getBoardsFromCache = (): Board[] | null => {
+    // Only use cache on page refresh, not during normal app flow
+    if (!isPageRefresh) {
+      return null;
+    }
+    
     try {
       const cachedData = localStorage.getItem(BOARDS_CACHE_KEY);
       if (cachedData) {
@@ -168,6 +178,7 @@ export function useBoards() {
       setLoading(true);
       
       // Try to get boards from cache first for immediate UI update
+      // But only on page refresh, not during normal app flow
       const cachedBoards = getBoardsFromCache();
       if (cachedBoards) {
         console.log('📋 [useBoards] Setting boards from cache:', cachedBoards.length);

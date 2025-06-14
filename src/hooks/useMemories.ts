@@ -22,6 +22,12 @@ export function useMemories(accessCode?: string) {
       const result = await memoriesApi.deleteMemory(memoryId, memoryAccessCode);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to delete memory');
       setMemories(prev => prev.filter(memory => memory.id !== memoryId));
+      
+      // Update cache with updated memories list
+      if (memoryAccessCode) {
+        updateMemoriesCache(memoryAccessCode, memories.filter(memory => memory.id !== memoryId));
+      }
+      
       return result.data;
     },
     { successMessage: 'Memory deleted successfully' }
@@ -31,11 +37,13 @@ export function useMemories(accessCode?: string) {
     async (memory: Memory) => {
       const result = await memoriesApi.createMemory(memory);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create memory');
-      setMemories(prev => [result.data!, ...prev]);
+      
+      const updatedMemories = [result.data!, ...memories];
+      setMemories(updatedMemories);
       
       // Update cache with new memory
       if (memory.accessCode) {
-        updateMemoriesCache(memory.accessCode, [...memories, result.data!]);
+        updateMemoriesCache(memory.accessCode, updatedMemories);
       }
       
       return result.data;
@@ -160,7 +168,7 @@ export function useMemories(accessCode?: string) {
           }
           
           // If we have cached data, keep using it despite the error
-          if (!cachedMemories) {
+          if (!getMemoriesFromCache(accessCode)) {
             setMemories([]);
           }
         }

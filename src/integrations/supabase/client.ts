@@ -26,6 +26,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 console.log('✅ Supabase environment variables loaded successfully');
 
+// Check if this is a page refresh or initial load
+const isPageRefresh = window.performance && 
+                     ((window.performance.navigation && window.performance.navigation.type === 1) || 
+                      document.referrer.includes(window.location.host));
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
