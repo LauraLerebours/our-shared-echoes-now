@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toggleMemoryLike } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,7 +65,14 @@ const MemoryCard = ({
   const [currentIsLiked, setCurrentIsLiked] = useState(isLiked);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [showVideoIcon, setShowVideoIcon] = useState(true);
+  const [canDelete, setCanDelete] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Check if current user can delete this memory
+    setCanDelete(user?.id === createdBy);
+  }, [user?.id, createdBy]);
 
   useEffect(() => {
     const fetchCreatorProfile = async () => {
@@ -166,6 +174,21 @@ const MemoryCard = ({
     }
   };
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!canDelete) {
+      toast({
+        title: "Permission Denied",
+        description: "You can only delete memories that you created.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If user can delete, the AlertDialog will handle the rest
+  };
+
   const getCreatorInitials = () => {
     if (!creatorProfile?.name) return 'U';
     return creatorProfile.name
@@ -263,34 +286,52 @@ const MemoryCard = ({
         </div>
         
         {onDelete && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="p-1 h-auto text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Memory</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this memory? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => onDelete(id)}
-                  className="bg-destructive hover:bg-destructive/90"
+          canDelete ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="p-1 h-auto text-destructive hover:bg-destructive/10"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this memory? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(id);
+                    }}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="p-1 h-auto text-muted-foreground cursor-not-allowed opacity-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(e);
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          )
         )}
       </CardFooter>
     </Card>

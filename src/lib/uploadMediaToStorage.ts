@@ -30,13 +30,17 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       path: filePath
     });
 
+    // Create custom headers for this specific upload
+    const uploadOptions = {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type // Explicitly set the content type
+    };
+
     // Upload the file to Supabase Storage
     const { data, error } = await supabase.storage
       .from('memories')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+      .upload(filePath, file, uploadOptions);
 
     if (error) {
       console.error('Supabase storage error:', error);

@@ -1,9 +1,9 @@
-
 import React from 'react';
 import MemoryCard, { MemoryCardProps } from './MemoryCard';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { Memory } from '@/lib/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MemoryListProps {
   memories: Memory[];
@@ -13,6 +13,7 @@ interface MemoryListProps {
 
 const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory, onUpdateMemory }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const handleLike = (id: string, newLikes: number, newIsLiked: boolean) => {
     // Update the memory in the parent component
@@ -26,6 +27,21 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory, onUpd
   };
 
   const handleDelete = (id: string) => {
+    // Find the memory to check if the current user is the creator
+    const memory = memories.find(m => m.id === id);
+    
+    if (!memory) return;
+    
+    // Check if the current user is the creator of this memory
+    if (memory.createdBy && user?.id !== memory.createdBy) {
+      toast({
+        title: "Permission Denied",
+        description: "You can only delete memories that you created.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (onDeleteMemory) {
       onDeleteMemory(id);
       toast({

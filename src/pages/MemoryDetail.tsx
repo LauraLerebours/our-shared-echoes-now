@@ -31,6 +31,7 @@ const MemoryDetail = () => {
   const [likes, setLikes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isLiking, setIsLiking] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   
   const accessCode = location.state?.accessCode;
   
@@ -62,6 +63,9 @@ const MemoryDetail = () => {
         setMemory(memoryData);
         setIsLiked(memoryData.isLiked);
         setLikes(memoryData.likes);
+        
+        // Check if current user can delete this memory
+        setCanDelete(user?.id === memoryData.createdBy);
       } catch (error) {
         console.error('Error loading memory:', error);
         toast({
@@ -75,7 +79,7 @@ const MemoryDetail = () => {
     };
     
     loadMemory();
-  }, [id, accessCode, navigate]);
+  }, [id, accessCode, navigate, user?.id]);
 
   const handleLike = async () => {
     if (!memory || !accessCode || isLiking) return;
@@ -114,6 +118,16 @@ const MemoryDetail = () => {
 
   const handleDelete = async () => {
     if (!memory || !accessCode) return;
+    
+    // Double-check permission before attempting to delete
+    if (!canDelete) {
+      toast({
+        title: "Permission Denied",
+        description: "You can only delete memories that you created.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       const success = await deleteMemory(memory.id, accessCode);
@@ -167,34 +181,51 @@ const MemoryDetail = () => {
           {format(memory.date, 'MMMM d, yyyy')}
         </h1>
         
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="p-1 h-auto text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Memory</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete this memory? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDelete}
-                className="bg-destructive hover:bg-destructive/90"
+        {canDelete ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="p-1 h-auto text-destructive hover:bg-destructive/10"
               >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this memory? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDelete}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            className="p-1 h-auto text-muted-foreground cursor-not-allowed opacity-50"
+            onClick={() => {
+              toast({
+                title: "Permission Denied",
+                description: "You can only delete memories that you created.",
+                variant: "destructive",
+              });
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        )}
       </header>
       
       <main className="flex-1">
