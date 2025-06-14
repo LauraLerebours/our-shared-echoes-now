@@ -1,15 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Board, boardsApi } from '@/lib/api/boards';
 import { useAsyncOperation } from './useAsyncOperation';
-
-// Check if this is a page refresh or initial load
-const isPageRefresh = window.performance && 
-                     ((window.performance.navigation && window.performance.navigation.type === 1) || 
-                      document.referrer.includes(window.location.host));
-
-// Create a cache key for boards
-const BOARDS_CACHE_KEY = 'thisisus_boards';
 
 export function useBoards() {
   const [boards, setBoards] = useState<Board[]>([]);
@@ -29,14 +21,12 @@ export function useBoards() {
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
       if (!user?.id) throw new Error('User not authenticated');
+      console.log('🔄 [useBoards] Creating board:', name);
       const result = await boardsApi.createBoard(name, user.id);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
       if (mountedRef.current) {
-        const updatedBoards = [...boards, result.data!];
-        setBoards(updatedBoards);
-        
-        // Update cache with new board
-        updateBoardsCache(updatedBoards);
+        console.log('✅ [useBoards] Board created successfully');
+        setBoards(prev => [...prev, result.data!]);
       }
       return result.data;
     },
@@ -46,14 +36,12 @@ export function useBoards() {
   const { execute: executeRemoveFromBoard, loading: removing } = useAsyncOperation(
     async (boardId: string) => {
       if (!user?.id) throw new Error('User not authenticated');
+      console.log('🔄 [useBoards] Removing from board:', boardId);
       const result = await boardsApi.removeUserFromBoard(boardId, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
-        const updatedBoards = boards.filter(board => board.id !== boardId);
-        setBoards(updatedBoards);
-        
-        // Update cache with updated boards list
-        updateBoardsCache(updatedBoards);
+        console.log('✅ [useBoards] Removed from board successfully');
+        setBoards(prev => prev.filter(board => board.id !== boardId));
       }
       return result;
     },
@@ -63,70 +51,22 @@ export function useBoards() {
   const { execute: executeRenameBoard, loading: renaming } = useAsyncOperation(
     async (boardId: string, newName: string) => {
       if (!user?.id) throw new Error('User not authenticated');
+      console.log('🔄 [useBoards] Renaming board:', boardId, 'to', newName);
       const result = await boardsApi.renameBoard(boardId, newName, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
-        const updatedBoards = boards.map(board => 
+        console.log('✅ [useBoards] Board renamed successfully');
+        setBoards(prev => prev.map(board => 
           board.id === boardId ? { ...board, name: result.newName || newName } : board
-        );
-        setBoards(updatedBoards);
-        
-        // Update cache with renamed board
-        updateBoardsCache(updatedBoards);
+        ));
       }
       return result;
     },
     { successMessage: 'Board renamed successfully' }
   );
 
-  // Function to get cached boards
-  const getBoardsFromCache = (): Board[] | null => {
-    // Only use cache on page refresh, not during normal app flow
-    if (!isPageRefresh) {
-      return null;
-    }
-    
-    try {
-      const cachedData = localStorage.getItem(BOARDS_CACHE_KEY);
-      if (cachedData) {
-        const { boards, userId, timestamp } = JSON.parse(cachedData);
-        
-        // Only use cache if it's for the current user
-        if (userId === user?.id) {
-          // Check if cache is still valid (less than 5 minutes old)
-          const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-          if (Date.now() - timestamp < CACHE_TTL) {
-            console.log('📋 [useBoards] Using cached boards for user:', userId);
-            return boards;
-          } else {
-            console.log('⏰ [useBoards] Cache expired for user:', userId);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ [useBoards] Error reading from cache:', error);
-    }
-    return null;
-  };
-
-  // Function to update boards cache
-  const updateBoardsCache = (boardsData: Board[]) => {
-    if (!user?.id) return;
-    
-    try {
-      localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify({
-        boards: boardsData,
-        userId: user.id,
-        timestamp: Date.now()
-      }));
-      console.log('💾 [useBoards] Updated boards cache for user:', user.id);
-    } catch (error) {
-      console.error('❌ [useBoards] Error updating cache:', error);
-    }
-  };
-
   // Optimized load function with better race condition handling and abort support
-  const loadBoards = async (isRetry = false) => {
+  const loadBoards = useCallback(async (isRetry = false) => {
     // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       console.log('🛑 [useBoards] Cancelling previous request');
@@ -176,24 +116,12 @@ export function useBoards() {
     
     if (mountedRef.current) {
       setLoading(true);
-      
-      // Try to get boards from cache first for immediate UI update
-      // But only on page refresh, not during normal app flow
-      const cachedBoards = getBoardsFromCache();
-      if (cachedBoards) {
-        console.log('📋 [useBoards] Setting boards from cache:', cachedBoards.length);
-        setBoards(cachedBoards);
-        setError(null);
-        
-        // Don't set loading to false yet, as we're still fetching fresh data
-        // But we can set hasLoaded to true to prevent unnecessary loading states
-        hasLoadedRef.current = true;
-      }
+      setError(null);
     }
     
     try {
       const signal = abortControllerRef.current.signal;
-      console.log('🔄 [useBoards] Fetching fresh boards data from API');
+      console.log('🔄 [useBoards] Fetching boards from API');
       const result = await boardsApi.fetchBoards(user.id, signal);
       
       // Check if request was aborted or component unmounted
@@ -208,9 +136,6 @@ export function useBoards() {
         setError(null);
         hasLoadedRef.current = true;
         retryCountRef.current = 0; // Reset retry count on success
-        
-        // Update cache with fresh data
-        updateBoardsCache(result.data);
       } else {
         console.error('❌ [useBoards] Failed to load boards:', result.error);
         
@@ -240,12 +165,7 @@ export function useBoards() {
         }
         
         setError(result.error || 'Failed to load boards');
-        
-        // If we have cached data, keep using it despite the error
-        if (!getBoardsFromCache()) {
-          setBoards([]);
-        }
-        
+        setBoards([]);
         hasLoadedRef.current = false;
       }
     } catch (error) {
@@ -280,12 +200,7 @@ export function useBoards() {
       }
       
       setError(errorMessage);
-      
-      // If we have cached data, keep using it despite the error
-      if (!getBoardsFromCache()) {
-        setBoards([]);
-      }
-      
+      setBoards([]);
       hasLoadedRef.current = false;
     } finally {
       if (mountedRef.current && !isSigningOut) {
@@ -293,13 +208,14 @@ export function useBoards() {
         loadingRef.current = false;
       }
     }
-  };
+  }, [user?.id, isSigningOut, error]);
 
   useEffect(() => {
     mountedRef.current = true;
     
     // Don't load boards if user is signing out
-    if (!isSigningOut) {
+    if (!isSigningOut && user?.id) {
+      console.log('🔄 [useBoards] User authenticated, loading boards');
       loadBoards();
     }
     
@@ -312,7 +228,7 @@ export function useBoards() {
         abortControllerRef.current = null;
       }
     };
-  }, [user?.id, isSigningOut]); // Add isSigningOut to dependencies
+  }, [user?.id, isSigningOut, loadBoards]); 
 
   return {
     boards,

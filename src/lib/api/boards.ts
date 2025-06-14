@@ -3,46 +3,6 @@ import { Board, BoardOperationResponse } from '@/lib/types';
 import { withErrorHandling, requireAuth, withRetry } from './base';
 import { sanitizeInput, validateAccessCodeFormat } from '@/lib/validation';
 
-// Create a cache key for boards
-const BOARDS_CACHE_KEY_PREFIX = 'thisisus_boards_';
-
-// Function to get cached boards
-const getBoardsFromCache = (userId: string): Board[] | null => {
-  try {
-    const cacheKey = `${BOARDS_CACHE_KEY_PREFIX}${userId}`;
-    const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
-      const { boards, timestamp } = JSON.parse(cachedData);
-      
-      // Check if cache is still valid (less than 5 minutes old)
-      const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-      if (Date.now() - timestamp < CACHE_TTL) {
-        console.log('📋 [boardsApi] Using cached boards for user:', userId);
-        return boards;
-      } else {
-        console.log('⏰ [boardsApi] Cache expired for user:', userId);
-      }
-    }
-  } catch (error) {
-    console.error('❌ [boardsApi] Error reading from cache:', error);
-  }
-  return null;
-};
-
-// Function to update boards cache
-const updateBoardsCache = (userId: string, boards: Board[]) => {
-  try {
-    const cacheKey = `${BOARDS_CACHE_KEY_PREFIX}${userId}`;
-    localStorage.setItem(cacheKey, JSON.stringify({
-      boards,
-      timestamp: Date.now()
-    }));
-    console.log('💾 [boardsApi] Updated boards cache for user:', userId);
-  } catch (error) {
-    console.error('❌ [boardsApi] Error updating cache:', error);
-  }
-};
-
 export const boardsApi = {
   async fetchBoards(userId: string, signal?: AbortSignal) {
     return withErrorHandling(async () => {
@@ -52,24 +12,6 @@ export const boardsApi = {
         throw new Error('User ID is required');
       }
 
-      // Try to get boards from cache first
-      const cachedBoards = getBoardsFromCache(userId);
-      if (cachedBoards) {
-        console.log('✅ [boardsApi.fetchBoards] Returning cached boards:', cachedBoards.length);
-        
-        // Fetch fresh data in the background
-        this.fetchBoardsBackground(userId, signal).then(freshBoards => {
-          if (freshBoards.success && freshBoards.data) {
-            console.log('✅ [boardsApi.fetchBoards] Background fetch completed, updated cache');
-            updateBoardsCache(userId, freshBoards.data);
-          }
-        }).catch(error => {
-          console.error('❌ [boardsApi.fetchBoards] Background fetch error:', error);
-        });
-        
-        return cachedBoards;
-      }
-
       // Use retry wrapper for network resilience
       const result = await withRetry(async () => {
         // Check if the request has been aborted
@@ -77,8 +19,8 @@ export const boardsApi = {
           throw new Error('Request aborted');
         }
         
-        console.log('🔄 [boardsApi.fetchBoards] Testing database connection');
         // Test database connection first
+        console.log('🔄 [boardsApi.fetchBoards] Testing database connection');
         const { error: connectionError } = await supabase
           .from('user_profiles')
           .select('id')
@@ -95,8 +37,8 @@ export const boardsApi = {
           throw new Error('Request aborted');
         }
 
-        console.log('🔄 [boardsApi.fetchBoards] Executing query for user:', userId);
         // Now fetch boards with comprehensive error handling
+        console.log('🔄 [boardsApi.fetchBoards] Fetching boards from database');
         const { data, error } = await supabase
           .from('boards')
           .select(`
@@ -113,8 +55,6 @@ export const boardsApi = {
           .order('created_at', { ascending: false })
           .limit(50);
 
-        console.log('🔄 [boardsApi.fetchBoards] Query completed');
-        
         if (error) {
           console.error('❌ [boardsApi.fetchBoards] Database error:', error);
           
@@ -134,74 +74,13 @@ export const boardsApi = {
           throw new Error(`Failed to fetch boards: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.fetchBoards] Query successful, got', data?.length || 0, 'boards');
+        console.log('✅ [boardsApi.fetchBoards] Received data from database:', data?.length || 0, 'boards');
         return data || [];
       }, 3, 1000, signal);
       
       console.log('✅ [boardsApi.fetchBoards] Success:', result.length, 'boards');
-      
-      // Update cache with fresh data
-      updateBoardsCache(userId, result);
-      
       return result as Board[];
     }, 'fetchBoards');
-  },
-
-  // Background fetch function that doesn't affect UI
-  async fetchBoardsBackground(userId: string, signal?: AbortSignal) {
-    try {
-      console.log('🔄 [boardsApi.fetchBoardsBackground] Starting for user:', userId);
-      
-      if (!userId) {
-        return { success: false, error: 'User ID is required' };
-      }
-
-      // Check if the request has been aborted
-      if (signal?.aborted) {
-        return { success: false, error: 'Request aborted by user' };
-      }
-
-      const result = await withRetry(async () => {
-        // Check if the request has been aborted
-        if (signal?.aborted) {
-          throw new Error('Request aborted');
-        }
-        
-        const { data, error } = await supabase
-          .from('boards')
-          .select(`
-            id,
-            name,
-            owner_id,
-            member_ids,
-            access_code,
-            share_code,
-            created_at,
-            updated_at
-          `)
-          .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        if (error) {
-          throw new Error(`Failed to fetch boards: ${error.message}`);
-        }
-
-        return data || [];
-      }, 3, 1000, signal);
-      
-      console.log('✅ [boardsApi.fetchBoardsBackground] Success:', result.length, 'boards');
-      return { success: true, data: result as Board[] };
-    } catch (error) {
-      // Check if this is an abort error
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('🛑 [boardsApi.fetchBoardsBackground] Request aborted');
-        return { success: false, error: 'Request aborted by user' };
-      }
-      
-      console.error('❌ [boardsApi.fetchBoardsBackground] Error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch boards' };
-    }
   },
 
   async getBoardById(boardId: string, userId: string) {
@@ -213,6 +92,7 @@ export const boardsApi = {
       }
 
       const result = await withRetry(async () => {
+        console.log('🔄 [boardsApi.getBoardById] Fetching board from database');
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -234,6 +114,7 @@ export const boardsApi = {
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
+        console.log('✅ [boardsApi.getBoardById] Board found');
         return data;
       }, 3, 1000);
 
@@ -255,6 +136,7 @@ export const boardsApi = {
       console.log('🔄 [boardsApi.getBoardByShareCode] Starting:', shareCode);
       
       const result = await withRetry(async () => {
+        console.log('🔄 [boardsApi.getBoardByShareCode] Fetching board from database');
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -271,6 +153,7 @@ export const boardsApi = {
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
+        console.log('✅ [boardsApi.getBoardByShareCode] Query completed');
         return data;
       }, 3, 1000);
 
@@ -304,6 +187,7 @@ export const boardsApi = {
 
       const result = await withRetry(async () => {
         // Create access code first
+        console.log('🔄 [boardsApi.createBoard] Creating access code');
         const { error: accessCodeError } = await supabase
           .from('access_codes')
           .insert([{ code: accessCode, name: sanitizedName }]);
@@ -321,6 +205,7 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Access code created');
 
         // Use the safe function to create board
+        console.log('🔄 [boardsApi.createBoard] Creating board');
         const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
           board_name: sanitizedName,
           owner_user_id: userId,
@@ -350,6 +235,7 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
 
         // Fetch the created board
+        console.log('🔄 [boardsApi.createBoard] Fetching created board');
         const { data: boardData, error: fetchError } = await supabase
           .from('boards')
           .select('*')
@@ -365,21 +251,11 @@ export const boardsApi = {
           throw new Error('Created board not found');
         }
 
+        console.log('✅ [boardsApi.createBoard] Board fetched successfully');
         return boardData;
       }, 3, 1000);
 
       console.log('✅ [boardsApi.createBoard] Success:', result.name);
-      
-      // Update cache with new board
-      try {
-        const cachedBoards = getBoardsFromCache(userId);
-        if (cachedBoards) {
-          updateBoardsCache(userId, [result, ...cachedBoards]);
-        }
-      } catch (error) {
-        console.error('❌ [boardsApi.createBoard] Error updating cache:', error);
-      }
-      
       return result as Board;
     }, 'createBoard');
   },
@@ -394,6 +270,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.renameBoard] Calling rename_board function');
         const { data, error } = await supabase.rpc('rename_board', {
           board_id: boardId,
           new_name: sanitizedName,
@@ -423,19 +300,6 @@ export const boardsApi = {
       return { success: false, message: result.error || 'Failed to rename board' };
     }
 
-    // Update cache with renamed board
-    try {
-      const cachedBoards = getBoardsFromCache(userId);
-      if (cachedBoards) {
-        const updatedBoards = cachedBoards.map(board => 
-          board.id === boardId ? { ...board, name: result.data!.new_name || sanitizedName } : board
-        );
-        updateBoardsCache(userId, updatedBoards);
-      }
-    } catch (error) {
-      console.error('❌ [boardsApi.renameBoard] Error updating cache:', error);
-    }
-
     return {
       success: result.data!.success,
       message: result.data!.message,
@@ -452,6 +316,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.addUserToBoard] Calling add_user_to_board_by_share_code function');
         const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
           share_code_param: shareCode.toUpperCase(),
           user_id_param: userId
@@ -480,14 +345,6 @@ export const boardsApi = {
       return { success: false, message: result.error || 'Failed to join board' };
     }
 
-    // Clear cache to force refresh of boards
-    try {
-      localStorage.removeItem(`${BOARDS_CACHE_KEY_PREFIX}${userId}`);
-      console.log('🧹 [boardsApi.addUserToBoard] Cleared boards cache for user:', userId);
-    } catch (error) {
-      console.error('❌ [boardsApi.addUserToBoard] Error clearing cache:', error);
-    }
-
     const response: BoardOperationResponse = {
       success: result.data!.success,
       message: result.data!.message
@@ -508,6 +365,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
+        console.log('🔄 [boardsApi.removeUserFromBoard] Calling remove_board_member function');
         const { data: success, error } = await supabase.rpc('remove_board_member', {
           board_id: boardId,
           user_id: userId
@@ -534,14 +392,6 @@ export const boardsApi = {
 
     if (!result.success) {
       return { success: false, message: result.error || 'Failed to remove user from board' };
-    }
-
-    // Clear cache to force refresh of boards
-    try {
-      localStorage.removeItem(`${BOARDS_CACHE_KEY_PREFIX}${userId}`);
-      console.log('🧹 [boardsApi.removeUserFromBoard] Cleared boards cache for user:', userId);
-    } catch (error) {
-      console.error('❌ [boardsApi.removeUserFromBoard] Error clearing cache:', error);
     }
 
     return {

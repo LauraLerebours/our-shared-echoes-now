@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from '@/components/Header';
 import MemoryList from '@/components/MemoryList';
 import MemoryGrid from '@/components/MemoryGrid';
@@ -17,22 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Grid3X3, List, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// Create a cache key for view mode preference
-const VIEW_MODE_CACHE_KEY = 'thisisus_view_mode';
-
 const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [memoriesError, setMemoriesError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>(() => {
-    // Load view mode preference from localStorage
-    try {
-      const savedMode = localStorage.getItem(VIEW_MODE_CACHE_KEY);
-      return savedMode === 'grid' ? 'grid' : 'timeline';
-    } catch (e) {
-      return 'timeline';
-    }
-  });
+  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const { user, loading: authLoading, isSigningOut } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
@@ -49,18 +38,8 @@ const Index = () => {
     retryLoad: retryBoardsLoad 
   } = useBoards();
   
-  // Save view mode preference when it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(VIEW_MODE_CACHE_KEY, viewMode);
-      console.log('💾 [Index] Saved view mode preference:', viewMode);
-    } catch (e) {
-      console.error('❌ [Index] Error saving view mode preference:', e);
-    }
-  }, [viewMode]);
-  
   // Optimized memories loading with race condition prevention and abort support
-  useEffect(() => {
+  const loadMemories = useCallback(async () => {
     // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       console.log('🛑 [Index] Cancelling previous request');
@@ -116,139 +95,97 @@ const Index = () => {
     setMemoriesLoading(true);
     setMemoriesError(null);
 
-    // Try to load from cache first
-    const cacheKey = `thisisus_all_memories_${user.id}`;
     try {
-      const cachedData = localStorage.getItem(cacheKey);
-      if (cachedData) {
-        const { memories: cachedMemories, timestamp } = JSON.parse(cachedData);
-        
-        // Check if cache is still valid (less than 5 minutes old)
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-        if (Date.now() - timestamp < CACHE_TTL) {
-          console.log('📋 [Index] Using cached memories:', cachedMemories.length);
-          setMemories(cachedMemories);
-          setHasInitiallyLoaded(true);
-          setMemoriesLoading(false);
-          
-          // Still fetch fresh data in the background
-          console.log('🔄 [Index] Will fetch fresh data in background');
-        }
+      // Check if the request has been aborted or user is signing out
+      if (abortControllerRef.current?.signal.aborted || isSigningOut) {
+        console.log('🛑 [Index] Request aborted or user signing out, aborting memory load');
+        return;
       }
-    } catch (error) {
-      console.error('❌ [Index] Error reading from cache:', error);
-    }
-
-    // Add a small delay to prevent rapid state changes
-    loadingTimeoutRef.current = setTimeout(async () => {
-      try {
+      
+      // Extract access codes from boards
+      const accessCodes = boards
+        .map(board => board.access_code)
+        .filter((code): code is string => code !== null && code !== undefined);
+      
+      console.log('🔄 [Index] Access codes:', accessCodes.length);
+      
+      if (accessCodes.length > 0) {
+        // Use the optimized parallel loading with abort signal
+        console.log('🔄 [Index] Fetching memories for access codes');
+        const result = await memoriesApi.fetchMemoriesByAccessCodes(
+          accessCodes, 
+          100, 
+          abortControllerRef.current?.signal
+        );
+        
         // Check if the request has been aborted or user is signing out
         if (abortControllerRef.current?.signal.aborted || isSigningOut) {
-          console.log('🛑 [Index] Request aborted or user signing out, aborting memory load');
+          console.log('🛑 [Index] Request aborted or user signing out after fetch, aborting state update');
           return;
         }
         
-        // Extract access codes from boards
-        const accessCodes = boards
-          .map(board => board.access_code)
-          .filter((code): code is string => code !== null && code !== undefined);
-        
-        console.log('🔄 [Index] Access codes:', accessCodes.length);
-        
-        if (accessCodes.length > 0) {
-          // Use the optimized parallel loading with abort signal
-          const result = await memoriesApi.fetchMemoriesByAccessCodes(
-            accessCodes, 
-            100, 
-            abortControllerRef.current?.signal
-          );
-          
-          // Check if the request has been aborted or user is signing out
-          if (abortControllerRef.current?.signal.aborted || isSigningOut) {
-            console.log('🛑 [Index] Request aborted or user signing out after fetch, aborting state update');
+        if (result.success && result.data) {
+          console.log('✅ [Index] Memories loaded:', result.data.length);
+          setMemories(result.data);
+          setMemoriesError(null);
+          setHasInitiallyLoaded(true);
+        } else {
+          // Handle aborted operations silently - don't show error to user
+          if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
+            console.log('🛑 [Index] Operation was aborted, clearing error state');
+            setMemoriesError(null);
             return;
           }
           
-          if (result.success && result.data) {
-            console.log('✅ [Index] Memories loaded:', result.data.length);
-            setMemories(result.data);
-            setMemoriesError(null);
-            setHasInitiallyLoaded(true);
-            
-            // Cache the results
-            try {
-              localStorage.setItem(cacheKey, JSON.stringify({
-                memories: result.data,
-                timestamp: Date.now()
-              }));
-              console.log('💾 [Index] Cached memories for user:', user.id);
-            } catch (error) {
-              console.error('❌ [Index] Error caching memories:', error);
-            }
-          } else {
-            // Handle aborted operations silently - don't show error to user
-            if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
-              console.log('🛑 [Index] Operation was aborted, clearing error state');
-              setMemoriesError(null);
-              return;
-            }
-            
-            console.error('❌ [Index] Failed to load memories:', result.error);
-            setMemoriesError(result.error || 'Failed to load memories');
-            if (!hasInitiallyLoaded) {
-              setMemories([]);
-            }
+          console.error('❌ [Index] Failed to load memories:', result.error);
+          setMemoriesError(result.error || 'Failed to load memories');
+          if (!hasInitiallyLoaded) {
+            setMemories([]);
           }
-        } else {
-          console.log('✅ [Index] No access codes, empty memories');
-          setMemories([]);
-          setMemoriesError(null);
-          setHasInitiallyLoaded(true);
         }
-      } catch (error) {
-        // Check if the request has been aborted or user is signing out
-        if (abortControllerRef.current?.signal.aborted || isSigningOut) {
-          console.log('🛑 [Index] Request aborted or user signing out during error handling');
-          return;
-        }
-        
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
-        
-        // Handle aborted operations silently - don't show error to user
-        if (errorMessage === 'Operation aborted by user' || errorMessage === 'Request aborted by user') {
-          console.log('🛑 [Index] Operation was aborted, clearing error state');
-          setMemoriesError(null);
-          return;
-        }
-        
-        console.error('❌ [Index] Error loading memories:', error);
-        setMemoriesError(errorMessage);
-        if (!hasInitiallyLoaded) {
-          setMemories([]);
-        }
-      } finally {
-        // Only update loading state if not aborted and not signing out
-        if (!abortControllerRef.current?.signal.aborted && !isSigningOut) {
-          setMemoriesLoading(false);
-        }
+      } else {
+        console.log('✅ [Index] No access codes, empty memories');
+        setMemories([]);
+        setMemoriesError(null);
+        setHasInitiallyLoaded(true);
       }
-    }, 100); // Small delay to prevent race conditions
-
-    // Cleanup function
-    return () => {
-      // Clear any existing timeout
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
+    } catch (error) {
+      // Check if the request has been aborted or user is signing out
+      if (abortControllerRef.current?.signal.aborted || isSigningOut) {
+        console.log('🛑 [Index] Request aborted or user signing out during error handling');
+        return;
       }
       
-      // Cancel any in-flight requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
+      
+      // Handle aborted operations silently - don't show error to user
+      if (errorMessage === 'Operation aborted by user' || errorMessage === 'Request aborted by user') {
+        console.log('🛑 [Index] Operation was aborted, clearing error state');
+        setMemoriesError(null);
+        return;
       }
-    };
-  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut, memories.length]); // Add memories.length to dependencies
+      
+      console.error('❌ [Index] Error loading memories:', error);
+      setMemoriesError(errorMessage);
+      if (!hasInitiallyLoaded) {
+        setMemories([]);
+      }
+    } finally {
+      // Only update loading state if not aborted and not signing out
+      if (!abortControllerRef.current?.signal.aborted && !isSigningOut) {
+        console.log('✅ [Index] Finished loading memories');
+        setMemoriesLoading(false);
+      }
+    }
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]);
+
+  // Load memories when boards change or user changes
+  useEffect(() => {
+    if (user?.id && !isSigningOut) {
+      console.log('🔄 [Index] User or boards changed, loading memories');
+      loadMemories();
+    }
+  }, [user?.id, boards, loadMemories, isSigningOut]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
@@ -257,23 +194,12 @@ const Index = () => {
       const memory = memories.find(m => m.id === id);
       if (!memory) return;
 
+      console.log('🔄 [Index] Deleting memory:', id);
       const success = await deleteMemory(id, memory.accessCode);
       
       if (success) {
-        const updatedMemories = memories.filter(memory => memory.id !== id);
-        setMemories(updatedMemories);
-        
-        // Update cache
-        const cacheKey = `thisisus_all_memories_${user.id}`;
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            memories: updatedMemories,
-            timestamp: Date.now()
-          }));
-        } catch (error) {
-          console.error('❌ [Index] Error updating cache after delete:', error);
-        }
-        
+        console.log('✅ [Index] Memory deleted successfully');
+        setMemories(prev => prev.filter(memory => memory.id !== id));
         toast({
           title: "Memory deleted",
           description: "Your memory has been deleted successfully",
@@ -282,7 +208,7 @@ const Index = () => {
         throw new Error('Failed to delete memory');
       }
     } catch (error) {
-      console.error('❌ Error deleting memory:', error);
+      console.error('❌ [Index] Error deleting memory:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete memory',
@@ -292,26 +218,14 @@ const Index = () => {
   };
 
   const handleUpdateMemory = (id: string, updates: Partial<Memory>) => {
-    const updatedMemories = memories.map(memory => 
+    console.log('🔄 [Index] Updating memory:', id);
+    setMemories(prev => prev.map(memory => 
       memory.id === id ? { ...memory, ...updates } : memory
-    );
-    setMemories(updatedMemories);
-    
-    // Update cache
-    if (user?.id) {
-      const cacheKey = `thisisus_all_memories_${user.id}`;
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify({
-          memories: updatedMemories,
-          timestamp: Date.now()
-        }));
-      } catch (error) {
-        console.error('❌ [Index] Error updating cache after memory update:', error);
-      }
-    }
+    ));
   };
 
   const handleViewDetail = (id: string, accessCode: string) => {
+    console.log('🔄 [Index] Navigating to memory detail:', id);
     navigate(`/memory/${id}`, { state: { accessCode } });
   };
 
@@ -326,16 +240,17 @@ const Index = () => {
     console.log('🔄 [Index] Retry memories triggered');
     setMemoriesError(null);
     setHasInitiallyLoaded(false);
-    // This will trigger the useEffect to reload memories
+    loadMemories();
   };
 
   const handleCreateDefaultBoard = async () => {
     if (!user?.id) return;
     
     try {
+      console.log('🔄 [Index] Creating default board');
       await createNewBoard('My Memories');
     } catch (error) {
-      console.error('❌ Error creating default board:', error);
+      console.error('❌ [Index] Error creating default board:', error);
       toast({
         title: 'Error',
         description: 'Failed to create default board',

@@ -20,6 +20,7 @@ export const memoriesApi = {
         }
         
         // Test database connection first
+        console.log('🔄 [memoriesApi.fetchMemories] Testing database connection');
         const { error: connectionError } = await supabase
           .from('user_profiles')
           .select('id')
@@ -36,15 +37,13 @@ export const memoriesApi = {
           throw new Error('Request aborted');
         }
 
-        console.log('🔄 [memoriesApi.fetchMemories] Executing query for access code:', accessCode);
+        console.log('🔄 [memoriesApi.fetchMemories] Fetching memories from database');
         const { data, error } = await supabase
           .from('memories')
           .select('*')
           .eq('access_code', accessCode)
           .order('event_date', { ascending: false })
           .limit(100);
-        
-        console.log('🔄 [memoriesApi.fetchMemories] Query completed');
         
         if (error) {
           console.error('❌ [memoriesApi.fetchMemories] Error:', error);
@@ -64,7 +63,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
-        console.log('✅ [memoriesApi.fetchMemories] Query successful, got', data?.length || 0, 'memories');
+        console.log('✅ [memoriesApi.fetchMemories] Received data from database:', data?.length || 0, 'memories');
         return data || [];
       }, 3, 1000, signal);
       
@@ -118,8 +117,8 @@ export const memoriesApi = {
         return { success: true, data: [] };
       }
       
-      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Testing database connection');
       // Test database connection first
+      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Testing database connection');
       const { error: connectionError } = await supabase
         .from('user_profiles')
         .select('id')
@@ -163,15 +162,13 @@ export const memoriesApi = {
               throw new Error('Request aborted');
             }
             
-            console.log(`🔄 [Chunk ${index + 1}] Executing query for codes:`, chunk);
+            console.log(`🔄 [Chunk ${index + 1}] Fetching memories from database`);
             const { data, error } = await supabase
               .from('memories')
               .select('*')
               .in('access_code', chunk)
               .order('event_date', { ascending: false })
               .limit(Math.ceil(limit / chunks.length));
-            
-            console.log(`🔄 [Chunk ${index + 1}] Query completed`);
             
             if (error) {
               console.error(`❌ [Chunk ${index + 1}] Error:`, error);
@@ -187,7 +184,7 @@ export const memoriesApi = {
               throw new Error(error.message);
             }
             
-            console.log(`✅ [Chunk ${index + 1}] Query successful, got`, data?.length || 0, 'memories');
+            console.log(`✅ [Chunk ${index + 1}] Received data:`, data?.length || 0, 'memories');
             return data || [];
           }, 2, 1000, signal); // Fewer retries for chunks
           
@@ -206,6 +203,7 @@ export const memoriesApi = {
       });
       
       // Wait for all chunks to complete
+      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Waiting for all chunks to complete');
       const results = await Promise.allSettled(chunkPromises);
       
       // Check if the request has been aborted after all chunks complete
@@ -218,6 +216,8 @@ export const memoriesApi = {
       const allData = results
         .filter(result => result.status === 'fulfilled')
         .flatMap(result => (result as PromiseFulfilledResult<any[]>).value);
+      
+      console.log('✅ [memoriesApi.fetchMemoriesByAccessCodes] Combined data:', allData.length, 'memories');
       
       // Transform database records to Memory type
       const memories: Memory[] = allData.map(record => ({
@@ -258,6 +258,7 @@ export const memoriesApi = {
       console.log('🔄 [memoriesApi.getMemory] Starting for ID:', id);
       
       const result = await withRetry(async () => {
+        console.log('🔄 [memoriesApi.getMemory] Fetching memory from database');
         const { data, error } = await supabase
           .from('memories')
           .select('*')
@@ -278,6 +279,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
+        console.log('✅ [memoriesApi.getMemory] Memory found');
         return data;
       }, 3, 1000);
       
@@ -320,6 +322,7 @@ export const memoriesApi = {
         created_by: memory.createdBy
       };
       
+      console.log('🔄 [memoriesApi.createMemory] Inserting memory into database');
       const result = await withRetry(async () => {
         const { data, error } = await supabase
           .from('memories')
@@ -337,6 +340,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
+        console.log('✅ [memoriesApi.createMemory] Memory inserted successfully');
         return data;
       }, 3, 1000);
       
@@ -375,6 +379,7 @@ export const memoriesApi = {
       if (updates.isLiked !== undefined) dbUpdates.is_liked = updates.isLiked;
       if (updates.isVideo !== undefined) dbUpdates.is_video = updates.isVideo;
       
+      console.log('🔄 [memoriesApi.updateMemory] Updating memory in database');
       const result = await withRetry(async () => {
         const { data, error } = await supabase
           .from('memories')
@@ -393,6 +398,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
+        console.log('✅ [memoriesApi.updateMemory] Memory updated successfully');
         return data;
       }, 3, 1000);
       
@@ -422,6 +428,7 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.deleteMemory] Starting for ID:', id);
       
+      console.log('🔄 [memoriesApi.deleteMemory] Deleting memory from database');
       const result = await withRetry(async () => {
         const { data, error } = await supabase
           .from('memories')
@@ -441,6 +448,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
+        console.log('✅ [memoriesApi.deleteMemory] Memory deleted successfully');
         return data;
       }, 3, 1000);
       
@@ -470,6 +478,7 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
+      console.log('🔄 [memoriesApi.toggleMemoryLike] Fetching current memory state');
       const result = await withRetry(async () => {
         // First get the current memory
         const { data: currentMemory, error: fetchError } = await supabase
@@ -493,6 +502,13 @@ export const memoriesApi = {
         const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
         const newIsLiked = !currentMemory.is_liked;
         
+        console.log('🔄 [memoriesApi.toggleMemoryLike] Updating like state:', { 
+          oldLikes: currentMemory.likes, 
+          newLikes, 
+          oldIsLiked: currentMemory.is_liked, 
+          newIsLiked 
+        });
+        
         const { data, error } = await supabase
           .from('memories')
           .update({ 
@@ -509,6 +525,7 @@ export const memoriesApi = {
           throw new Error(error.message);
         }
         
+        console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully');
         return { likes: data.likes, isLiked: data.is_liked };
       }, 3, 1000);
       
