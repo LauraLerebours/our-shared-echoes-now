@@ -130,14 +130,14 @@ export function useBoards() {
         hasLoadedRef.current = true;
         retryCountRef.current = 0; // Reset retry count on success
       } else {
-        console.error('❌ [useBoards] Failed to load boards:', result.error);
-        
         // Handle aborted operations silently - don't show error to user
-        if (result.error === 'Operation aborted by user') {
+        if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
           console.log('🛑 [useBoards] Operation was aborted, clearing error state');
           setError(null);
           return;
         }
+        
+        console.error('❌ [useBoards] Failed to load boards:', result.error);
         
         // Implement retry logic for transient errors
         if (retryCountRef.current < maxRetries && 
@@ -168,15 +168,16 @@ export function useBoards() {
         return;
       }
       
-      console.error('❌ [useBoards] Error loading boards:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
       // Handle aborted operations silently - don't show error to user
-      if (errorMessage === 'Operation aborted by user') {
+      if (errorMessage === 'Operation aborted by user' || errorMessage === 'Request aborted by user') {
         console.log('🛑 [useBoards] Operation was aborted, clearing error state');
         setError(null);
         return;
       }
+      
+      console.error('❌ [useBoards] Error loading boards:', error);
       
       // Implement retry logic for exceptions
       if (retryCountRef.current < maxRetries) {

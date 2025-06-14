@@ -131,6 +131,13 @@ const Index = () => {
             setMemoriesError(null);
             setHasInitiallyLoaded(true);
           } else {
+            // Handle aborted operations silently - don't show error to user
+            if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
+              console.log('🛑 [Index] Operation was aborted, clearing error state');
+              setMemoriesError(null);
+              return;
+            }
+            
             console.error('❌ [Index] Failed to load memories:', result.error);
             setMemoriesError(result.error || 'Failed to load memories');
             if (!hasInitiallyLoaded) {
@@ -150,8 +157,16 @@ const Index = () => {
           return;
         }
         
-        console.error('❌ [Index] Error loading memories:', error);
         const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
+        
+        // Handle aborted operations silently - don't show error to user
+        if (errorMessage === 'Operation aborted by user' || errorMessage === 'Request aborted by user') {
+          console.log('🛑 [Index] Operation was aborted, clearing error state');
+          setMemoriesError(null);
+          return;
+        }
+        
+        console.error('❌ [Index] Error loading memories:', error);
         setMemoriesError(errorMessage);
         if (!hasInitiallyLoaded) {
           setMemories([]);
