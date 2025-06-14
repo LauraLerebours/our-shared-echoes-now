@@ -32,6 +32,7 @@ const Welcome = () => {
       color: "from-memory-pink to-memory-purple"
     }
   ];
+  
 
   // Auto-advance slides
   useEffect(() => {
