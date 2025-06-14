@@ -115,29 +115,21 @@ export function useBoards() {
     }
     
     try {
-      const signal = abortControllerRef.current.signal;
-      
-      // Use the direct function call to bypass RLS issues
-      const { data: boardsData, error: boardsError } = await supabase.rpc('get_user_boards_fast', {
-        user_id: user.id
-      });
+      // Direct query approach - more reliable than RPC
+      const { data: boardsData, error: boardsError } = await supabase
+        .from('boards')
+        .select('*')
+        .or(`owner_id.eq.${user.id},member_ids.cs.{${user.id}}`)
+        .order('created_at', { ascending: false });
       
       // Check if request was aborted or component unmounted
-      if (signal.aborted || !mountedRef.current || isSigningOut) {
+      if (abortControllerRef.current?.signal.aborted || !mountedRef.current || isSigningOut) {
         console.log('🛑 [useBoards] Request aborted or component unmounted, skipping state update');
         return;
       }
       
       if (boardsError) {
         console.error('❌ [useBoards] Failed to load boards:', boardsError);
-        
-        // Handle aborted operations silently - don't show error to user
-        if (boardsError.message === 'The operation was aborted' || 
-            boardsError.message === 'Operation aborted by user') {
-          console.log('🛑 [useBoards] Operation was aborted, clearing error state');
-          setError(null);
-          return;
-        }
         
         // Implement retry logic for transient errors
         if (retryCountRef.current < maxRetries && 

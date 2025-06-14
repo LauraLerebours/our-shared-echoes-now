@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://hhcoeuedfeoudgxtttgn.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY29ldWVkZmVvdWRneHR0dGduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NDU4NDYsImV4cCI6MjA2MjQyMTg0Nn0.3MPbiHpdddcJipa-UxMaTBN8MfRBP1Bw_WiVX76Xt_w';
 
 console.log('=== SUPABASE CLIENT INITIALIZATION ===');
 console.log('Environment check:', {
@@ -42,6 +42,7 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promi
       const errorData = JSON.parse(responseText);
       
       if (errorData.code === 'session_not_found') {
+        console.log('ℹ️ [Supabase] Session not found during logout, returning success response');
         // Return a successful response to prevent console errors
         return new Response(JSON.stringify({ message: 'Logout successful' }), {
           status: 200,
@@ -53,6 +54,7 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promi
       }
     } catch (parseError) {
       // If we can't parse the response, let the original response through
+      console.warn('⚠️ [Supabase] Error parsing response:', parseError);
     }
   }
   
@@ -69,7 +71,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       getItem: (key) => {
         try {
           const value = localStorage.getItem(key);
-          console.log(`🔑 [Supabase] Auth storage getItem: ${key.substring(0, 20)}...`);
           return value;
         } catch (error) {
           console.error(`❌ [Supabase] Auth storage getItem error for ${key}:`, error);
@@ -79,7 +80,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       setItem: (key, value) => {
         try {
           localStorage.setItem(key, value);
-          console.log(`💾 [Supabase] Auth storage setItem: ${key.substring(0, 20)}...`);
         } catch (error) {
           console.error(`❌ [Supabase] Auth storage setItem error for ${key}:`, error);
         }
@@ -87,7 +87,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       removeItem: (key) => {
         try {
           localStorage.removeItem(key);
-          console.log(`🧹 [Supabase] Auth storage removeItem: ${key.substring(0, 20)}...`);
         } catch (error) {
           console.error(`❌ [Supabase] Auth storage removeItem error for ${key}:`, error);
         }
