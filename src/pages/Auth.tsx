@@ -11,6 +11,7 @@ import AuthAnimation from '@/components/AuthAnimation';
 import FloatingHearts from '@/components/FloatingHearts';
 import MemoryParticles from '@/components/MemoryParticles';
 import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -388,6 +389,24 @@ const Auth = () => {
       
       {/* Overlay for better readability */}
       <div className="absolute inset-0 bg-white/50 backdrop-blur-sm"></div>
+      
+      {/* Back button */}
+      <motion.div 
+        className="absolute top-4 left-4 z-20"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/welcome')}
+          className="flex items-center gap-1 bg-white/80 hover:bg-white/90"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </Button>
+      </motion.div>
       
       <motion.div 
         className="w-full max-w-md space-y-4 relative z-10"
