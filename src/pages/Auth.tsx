@@ -406,10 +406,19 @@ const Auth = () => {
             damping: 15 
           }}
         >
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
-            This Is Us
+          <h1 className="text-4xl font-bold mb-2 relative">
+            {/* Shadow effect for better contrast */}
+            <span className="absolute inset-0 text-black/10 blur-[2px] transform translate-x-[2px] translate-y-[2px]">
+              This Is Us
+            </span>
+            {/* Main title with gradient */}
+            <span className="relative bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent drop-shadow-md">
+              This Is Us
+            </span>
           </h1>
-          <p className="text-muted-foreground mt-2">Sign in to access your memories</p>
+          <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full inline-block">
+            <p className="text-muted-foreground">Sign in to access your memories</p>
+          </div>
         </motion.div>
 
         {emailSent && (
