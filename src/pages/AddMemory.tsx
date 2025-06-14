@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
+import { extractPhotoMetadata } from '@/lib/extractMetadata';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -95,6 +96,39 @@ const AddMemory = () => {
     setUploading(true);
     
     try {
+      // Extract metadata from the file
+      if (file.type.startsWith('image/')) {
+        const metadata = await extractPhotoMetadata(file);
+        
+        // Set date from metadata if available
+        if (metadata.date) {
+          setDate(metadata.date);
+          toast({
+            title: "Date extracted",
+            description: `Date automatically set to ${format(metadata.date, 'PPP')}`,
+          });
+        }
+        
+        // Set location from metadata if available
+        if (metadata.location) {
+          setLocation(metadata.location);
+          toast({
+            title: "Location extracted",
+            description: `Location automatically set to ${metadata.location}`,
+          });
+        }
+      } else if (file.type.startsWith('video/')) {
+        // For videos, try to extract creation date from the file object
+        if (file.lastModified) {
+          const fileDate = new Date(file.lastModified);
+          setDate(fileDate);
+          toast({
+            title: "Date extracted",
+            description: `Date automatically set to ${format(fileDate, 'PPP')}`,
+          });
+        }
+      }
+
       const publicUrl = await uploadMediaToStorage(file, user.id);
 
       if (publicUrl) {
