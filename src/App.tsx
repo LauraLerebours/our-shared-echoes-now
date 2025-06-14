@@ -14,6 +14,7 @@ import Share from "./pages/Share";
 import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
+import Welcome from "./pages/Welcome";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,8 +50,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!user) {
-    console.log('❌ No user found, redirecting to auth');
-    return <Navigate to="/auth" replace />;
+    console.log('❌ No user found, redirecting to welcome');
+    return <Navigate to="/welcome" replace />;
   }
   
   console.log('✅ User authenticated, rendering protected content');
@@ -69,6 +70,7 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <Routes>
+                <Route path="/welcome" element={<Welcome />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/shared/:code" element={<SharedMemories />} />
                 <Route 
