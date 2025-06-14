@@ -31,6 +31,34 @@ const isPageRefresh = window.performance &&
                      ((window.performance.navigation && window.performance.navigation.type === 1) || 
                       document.referrer.includes(window.location.host));
 
+// Custom fetch function to handle logout session_not_found errors
+const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
+  const response = await fetch(url, options);
+  
+  // Check if this is a logout request that failed with session_not_found
+  if (typeof url === 'string' && url.includes('/auth/v1/logout') && response.status === 403) {
+    try {
+      const responseText = await response.text();
+      const errorData = JSON.parse(responseText);
+      
+      if (errorData.code === 'session_not_found') {
+        // Return a successful response to prevent console errors
+        return new Response(JSON.stringify({ message: 'Logout successful' }), {
+          status: 200,
+          statusText: 'OK',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+    } catch (parseError) {
+      // If we can't parse the response, let the original response through
+    }
+  }
+  
+  return response;
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -75,6 +103,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
+    fetch: customFetch,
   },
   realtime: {
     params: {
