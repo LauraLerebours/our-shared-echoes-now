@@ -7,6 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import AuthAnimation from '@/components/AuthAnimation';
+import FloatingHearts from '@/components/FloatingHearts';
+import MemoryParticles from '@/components/MemoryParticles';
+import { motion } from 'framer-motion';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -37,6 +41,7 @@ const Auth = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
   const [resetPasswordSent, setResetPasswordSent] = useState(false);
+  const [animationVisible, setAnimationVisible] = useState(true);
 
   // Try to restore form state from localStorage
   useEffect(() => {
@@ -211,6 +216,7 @@ const Auth = () => {
     console.log('🔄 Attempting sign in for:', signInEmail);
     setIsSigningIn(true);
     setShowEmailNotConfirmed(false);
+    setAnimationVisible(false);
 
     try {
       const { error } = await signIn(signInEmail, signInPassword);
@@ -238,6 +244,7 @@ const Auth = () => {
           title: 'Sign in failed',
           description: errorMessage,
         });
+        setAnimationVisible(true);
         return;
       }
 
@@ -255,6 +262,7 @@ const Auth = () => {
         title: 'Sign in failed',
         description: 'An unexpected error occurred. Please try again.',
       });
+      setAnimationVisible(true);
     } finally {
       setIsSigningIn(false);
     }
@@ -292,6 +300,7 @@ const Auth = () => {
 
     console.log('🔄 Attempting sign up for:', signUpEmail);
     setIsSigningUp(true);
+    setAnimationVisible(false);
 
     try {
       const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
@@ -315,6 +324,7 @@ const Auth = () => {
           title: 'Sign up failed',
           description: errorMessage,
         });
+        setAnimationVisible(true);
         return;
       }
 
@@ -343,6 +353,7 @@ const Auth = () => {
         title: 'Sign up failed',
         description: 'An unexpected error occurred. Please try again.',
       });
+      setAnimationVisible(true);
     } finally {
       setIsSigningUp(false);
     }
@@ -362,7 +373,7 @@ const Auth = () => {
 
   return (
     <div 
-      className="flex min-h-screen items-center justify-center p-4 relative"
+      className="flex min-h-screen items-center justify-center p-4 relative overflow-hidden"
       style={{
         backgroundImage: `url('/best2.png')`,
         backgroundSize: 'cover',
@@ -370,66 +381,109 @@ const Auth = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Overlay for better readability */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
+      {/* Animated background */}
+      {animationVisible && <AuthAnimation />}
+      {animationVisible && <FloatingHearts count={10} />}
+      {animationVisible && <MemoryParticles />}
       
-      <div className="w-full max-w-md space-y-4 relative z-10">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
+      {/* Overlay for better readability */}
+      <div className="absolute inset-0 bg-white/50 backdrop-blur-sm"></div>
+      
+      <motion.div 
+        className="w-full max-w-md space-y-4 relative z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="text-center"
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ 
+            duration: 0.5, 
+            type: "spring", 
+            stiffness: 200, 
+            damping: 15 
+          }}
+        >
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
             This Is Us
           </h1>
           <p className="text-muted-foreground mt-2">Sign in to access your memories</p>
-        </div>
+        </motion.div>
 
         {emailSent && (
-          <Alert>
-            <AlertDescription>
-              Please check your email and click the verification link to complete your registration.
-              After verification, return here to sign in with your credentials.
-              You may need to check your spam folder.
-            </AlertDescription>
-          </Alert>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert>
+              <AlertDescription>
+                Please check your email and click the verification link to complete your registration.
+                After verification, return here to sign in with your credentials.
+                You may need to check your spam folder.
+              </AlertDescription>
+            </Alert>
+          </motion.div>
         )}
 
         {resetPasswordSent && (
-          <Alert>
-            <AlertDescription>
-              We've sent a password reset link to your email address.
-              Please check your inbox (and spam folder) and follow the instructions to reset your password.
-            </AlertDescription>
-          </Alert>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert>
+              <AlertDescription>
+                We've sent a password reset link to your email address.
+                Please check your inbox (and spam folder) and follow the instructions to reset your password.
+              </AlertDescription>
+            </Alert>
+          </motion.div>
         )}
 
         {showEmailNotConfirmed && (
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertDescription className="space-y-3">
-              <div>
-                <strong>Email verification required</strong>
-              </div>
-              <p className="text-sm">
-                Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
-                Please check your inbox (and spam folder) for the verification email.
-              </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResendConfirmation}
-                  disabled={isResendingEmail}
-                  className="w-full"
-                >
-                  {isResendingEmail ? 'Sending...' : 'Resend verification email'}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Didn't receive the email? Check your spam folder or try resending.
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertDescription className="space-y-3">
+                <div>
+                  <strong>Email verification required</strong>
+                </div>
+                <p className="text-sm">
+                  Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
+                  Please check your inbox (and spam folder) for the verification email.
                 </p>
-              </div>
-            </AlertDescription>
-          </Alert>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendConfirmation}
+                    disabled={isResendingEmail}
+                    className="w-full"
+                  >
+                    {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Didn't receive the email? Check your spam folder or try resending.
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </motion.div>
         )}
 
         {showResetForm ? (
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6">
+          <motion.div 
+            className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
             <h2 className="text-xl font-semibold mb-4">Reset Password</h2>
             <p className="text-sm text-muted-foreground mb-4">
               Enter your email address and we'll send you a link to reset your password.
@@ -462,15 +516,21 @@ const Auth = () => {
                     setShowResetForm(false);
                     setResetEmail('');
                     setResetPasswordSent(false);
+                    setAnimationVisible(true);
                   }}
                 >
                   Back to Sign In
                 </Button>
               </div>
             </form>
-          </div>
+          </motion.div>
         ) : (
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6">
+          <motion.div 
+            className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
             <Tabs 
               defaultValue="sign-in" 
               value={activeTab} 
@@ -519,6 +579,7 @@ const Auth = () => {
                       onClick={() => {
                         setShowResetForm(true);
                         setResetEmail(signInEmail);
+                        setAnimationVisible(false);
                       }}
                     >
                       Forgot your password?
@@ -569,9 +630,9 @@ const Auth = () => {
                 </form>
               </TabsContent>
             </Tabs>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };
