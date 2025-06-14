@@ -119,7 +119,7 @@ const Welcome = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.9 }}
           >
-            A beautiful space to capture and share memories with your loved one
+            A beautiful space to capture and share memories with the people you love
           </motion.p>
         </motion.div>
         
