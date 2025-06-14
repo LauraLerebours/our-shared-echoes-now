@@ -38,7 +38,9 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promi
   // Check if this is a logout request that failed with session_not_found
   if (typeof url === 'string' && url.includes('/auth/v1/logout') && response.status === 403) {
     try {
-      const responseText = await response.text();
+      // Clone the response to avoid consuming the original stream
+      const clonedResponse = response.clone();
+      const responseText = await clonedResponse.text();
       const errorData = JSON.parse(responseText);
       
       if (errorData.code === 'session_not_found') {
