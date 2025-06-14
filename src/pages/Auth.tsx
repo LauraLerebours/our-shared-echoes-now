@@ -375,7 +375,7 @@ const Auth = () => {
     <div 
       className="flex min-h-screen items-center justify-center p-4 relative overflow-hidden"
       style={{
-        backgroundImage: `url('/best2.png')`,
+        backgroundImage: `url('/best2 copy.png')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
