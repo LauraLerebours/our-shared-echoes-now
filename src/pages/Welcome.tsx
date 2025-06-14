@@ -20,14 +20,14 @@ const Welcome = () => {
       color: "from-memory-pink to-memory-pink/70"
     },
     {
-      title: "Share With Your Partner",
-      description: "Invite your loved one to collaborate on your memory boards",
+      title: "Share With Your Friends",
+      description: "Invite your friends to collaborate on your memory boards",
       icon: <Users className="h-12 w-12 text-memory-purple" />,
       color: "from-memory-purple to-memory-purple/70"
     },
     {
       title: "Build Your Timeline",
-      description: "Watch your relationship grow through a beautiful timeline",
+      description: "Watch your relationships grow through a beautiful timeline",
       icon: <Calendar className="h-12 w-12 text-memory-pink" />,
       color: "from-memory-pink to-memory-purple"
     }
