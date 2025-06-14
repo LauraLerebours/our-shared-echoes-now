@@ -170,15 +170,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               console.log('🔄 Creating user profile for new sign in');
               
-              const { error: insertError } = await supabase
+              const { error: upsertError } = await supabase
                 .from('user_profiles')
-                .insert({
+                .upsert({
                   id: newSession.user.id,
                   name: newSession.user.user_metadata?.name || 'User',
+                }, {
+                  onConflict: 'id'
                 });
 
-              if (insertError) {
-                console.error('❌ Error creating user profile:', insertError);
+              if (upsertError) {
+                console.error('❌ Error creating user profile:', upsertError);
               } else {
                 // Fetch the newly created profile
                 const newProfile = await fetchUserProfile(newSession.user.id);
