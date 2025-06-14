@@ -291,22 +291,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSession(null);
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        // Check if the error is related to session not existing
-        const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
-                              error.message?.includes('Auth session missing') ||
-                              error.message?.includes('session_not_found');
+      // Only call supabase.auth.signOut() if a session exists
+      if (session) {
+        const { error } = await supabase.auth.signOut();
         
-        if (isSessionError) {
-          // Log as warning but don't treat as critical failure
-          console.warn('⚠️ Session already expired or invalid during sign out:', error.message);
-        } else {
-          // For other types of errors, log as error and re-throw
-          console.error('❌ Sign out error:', error);
-          throw error;
+        if (error) {
+          // Check if the error is related to session not existing
+          const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
+                                error.message?.includes('Auth session missing') ||
+                                error.message?.includes('session_not_found');
+          
+          if (isSessionError) {
+            // Log as warning but don't treat as critical failure
+            console.warn('⚠️ Session already expired or invalid during sign out:', error.message);
+          } else {
+            // For other types of errors, log as error and re-throw
+            console.error('❌ Sign out error:', error);
+            throw error;
+          }
         }
+      } else {
+        console.log('ℹ️ No active session to sign out from');
       }
       
       console.log('✅ Sign out successful');
