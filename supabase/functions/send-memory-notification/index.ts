@@ -92,8 +92,22 @@ serve(async (req) => {
       )
     }
 
-    // Send emails to all members
-    const emailPromises = memberEmails.map(async (email) => {
+    // Stagger email sending to avoid rate limits (max 2 per second)
+    const EMAILS_PER_SECOND = 2;
+    const DELAY_MS = 1000 / EMAILS_PER_SECOND;
+    
+    const results = [];
+    
+    // Process emails in batches with delay
+    for (let i = 0; i < memberEmails.length; i++) {
+      const email = memberEmails[i];
+      
+      // Add delay between emails (500ms for 2 emails per second)
+      if (i > 0 && i % EMAILS_PER_SECOND === 0) {
+        console.log(`Pausing for ${DELAY_MS}ms after sending ${EMAILS_PER_SECOND} emails`);
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+      
       try {
         // Using Resend API for email sending
         const emailResponse = await fetch('https://api.resend.com/emails', {
@@ -157,30 +171,31 @@ serve(async (req) => {
               </div>
             `,
           }),
-        })
+        });
 
         if (!emailResponse.ok) {
-          const errorText = await emailResponse.text()
-          console.error(`Failed to send email to ${email}:`, errorText)
-          return { email, success: false, error: errorText }
+          const errorText = await emailResponse.text();
+          console.error(`Failed to send email to ${email}:`, errorText);
+          results.push({ email, success: false, error: errorText });
+        } else {
+          console.log(`Successfully sent email to ${email} (${i+1}/${memberEmails.length})`);
+          results.push({ email, success: true });
         }
-
-        return { email, success: true }
       } catch (error) {
-        console.error(`Error sending email to ${email}:`, error)
-        return { email, success: false, error: error.message }
+        console.error(`Error sending email to ${email}:`, error);
+        results.push({ email, success: false, error: error.message });
       }
-    })
+    }
 
-    const results = await Promise.all(emailPromises)
-    const successCount = results.filter(r => r.success).length
-    const failureCount = results.filter(r => !r.success).length
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
 
     return new Response(
       JSON.stringify({
-        message: `Notification emails sent`,
+        message: `Notification emails sent with staggered delivery`,
         success_count: successCount,
         failure_count: failureCount,
+        total_emails: memberEmails.length,
         results: results
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
