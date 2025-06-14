@@ -3,6 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Board, boardsApi } from '@/lib/api/boards';
 import { useAsyncOperation } from './useAsyncOperation';
 
+// Create a cache key for boards
+const BOARDS_CACHE_KEY = 'thisisus_boards';
+
 export function useBoards() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,17 +20,18 @@ export function useBoards() {
   const maxRetries = 3;
   const mountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const loadAttemptRef = useRef(0);
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
     async (name: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      console.log('🔄 [useBoards] Creating board:', name);
       const result = await boardsApi.createBoard(name, user.id);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
       if (mountedRef.current) {
-        console.log('✅ [useBoards] Board created successfully, updating state');
-        setBoards(prev => [...prev, result.data!]);
+        const updatedBoards = [...boards, result.data!];
+        setBoards(updatedBoards);
+        
+        // Update cache with new board
+        updateBoardsCache(updatedBoards);
       }
       return result.data;
     },
@@ -37,12 +41,14 @@ export function useBoards() {
   const { execute: executeRemoveFromBoard, loading: removing } = useAsyncOperation(
     async (boardId: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      console.log('🔄 [useBoards] Removing user from board:', boardId);
       const result = await boardsApi.removeUserFromBoard(boardId, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
-        console.log('✅ [useBoards] User removed from board, updating state');
-        setBoards(prev => prev.filter(board => board.id !== boardId));
+        const updatedBoards = boards.filter(board => board.id !== boardId);
+        setBoards(updatedBoards);
+        
+        // Update cache with updated boards list
+        updateBoardsCache(updatedBoards);
       }
       return result;
     },
@@ -52,19 +58,62 @@ export function useBoards() {
   const { execute: executeRenameBoard, loading: renaming } = useAsyncOperation(
     async (boardId: string, newName: string) => {
       if (!user?.id) throw new Error('User not authenticated');
-      console.log('🔄 [useBoards] Renaming board:', { boardId, newName });
       const result = await boardsApi.renameBoard(boardId, newName, user.id);
       if (!result.success) throw new Error(result.message);
       if (mountedRef.current) {
-        console.log('✅ [useBoards] Board renamed successfully, updating state');
-        setBoards(prev => prev.map(board => 
+        const updatedBoards = boards.map(board => 
           board.id === boardId ? { ...board, name: result.newName || newName } : board
-        ));
+        );
+        setBoards(updatedBoards);
+        
+        // Update cache with renamed board
+        updateBoardsCache(updatedBoards);
       }
       return result;
     },
     { successMessage: 'Board renamed successfully' }
   );
+
+  // Function to get cached boards
+  const getBoardsFromCache = (): Board[] | null => {
+    try {
+      const cachedData = localStorage.getItem(BOARDS_CACHE_KEY);
+      if (cachedData) {
+        const { boards, userId, timestamp } = JSON.parse(cachedData);
+        
+        // Only use cache if it's for the current user
+        if (userId === user?.id) {
+          // Check if cache is still valid (less than 5 minutes old)
+          const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+          if (Date.now() - timestamp < CACHE_TTL) {
+            console.log('📋 [useBoards] Using cached boards for user:', userId);
+            return boards;
+          } else {
+            console.log('⏰ [useBoards] Cache expired for user:', userId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ [useBoards] Error reading from cache:', error);
+    }
+    return null;
+  };
+
+  // Function to update boards cache
+  const updateBoardsCache = (boardsData: Board[]) => {
+    if (!user?.id) return;
+    
+    try {
+      localStorage.setItem(BOARDS_CACHE_KEY, JSON.stringify({
+        boards: boardsData,
+        userId: user.id,
+        timestamp: Date.now()
+      }));
+      console.log('💾 [useBoards] Updated boards cache for user:', user.id);
+    } catch (error) {
+      console.error('❌ [useBoards] Error updating cache:', error);
+    }
+  };
 
   // Optimized load function with better race condition handling and abort support
   const loadBoards = async (isRetry = false) => {
@@ -76,10 +125,6 @@ export function useBoards() {
     
     // Create a new abort controller for this request
     abortControllerRef.current = new AbortController();
-    
-    // Increment load attempt counter
-    loadAttemptRef.current++;
-    const currentAttempt = loadAttemptRef.current;
     
     if (!user?.id) {
       console.log('❌ [useBoards] No user ID, resetting state');
@@ -121,23 +166,28 @@ export function useBoards() {
     
     if (mountedRef.current) {
       setLoading(true);
-      setError(null);
+      
+      // Try to get boards from cache first for immediate UI update
+      const cachedBoards = getBoardsFromCache();
+      if (cachedBoards) {
+        console.log('📋 [useBoards] Setting boards from cache:', cachedBoards.length);
+        setBoards(cachedBoards);
+        setError(null);
+        
+        // Don't set loading to false yet, as we're still fetching fresh data
+        // But we can set hasLoaded to true to prevent unnecessary loading states
+        hasLoadedRef.current = true;
+      }
     }
     
     try {
       const signal = abortControllerRef.current.signal;
-      console.log('🔄 [useBoards] Calling boardsApi.fetchBoards');
+      console.log('🔄 [useBoards] Fetching fresh boards data from API');
       const result = await boardsApi.fetchBoards(user.id, signal);
       
       // Check if request was aborted or component unmounted
       if (signal.aborted || !mountedRef.current || isSigningOut) {
         console.log('🛑 [useBoards] Request aborted or component unmounted, skipping state update');
-        return;
-      }
-      
-      // Check if this is still the most recent load attempt
-      if (currentAttempt !== loadAttemptRef.current) {
-        console.log('🛑 [useBoards] Newer load attempt in progress, skipping state update');
         return;
       }
       
@@ -147,6 +197,9 @@ export function useBoards() {
         setError(null);
         hasLoadedRef.current = true;
         retryCountRef.current = 0; // Reset retry count on success
+        
+        // Update cache with fresh data
+        updateBoardsCache(result.data);
       } else {
         console.error('❌ [useBoards] Failed to load boards:', result.error);
         
@@ -176,7 +229,12 @@ export function useBoards() {
         }
         
         setError(result.error || 'Failed to load boards');
-        setBoards([]);
+        
+        // If we have cached data, keep using it despite the error
+        if (!getBoardsFromCache()) {
+          setBoards([]);
+        }
+        
         hasLoadedRef.current = false;
       }
     } catch (error) {
@@ -211,11 +269,15 @@ export function useBoards() {
       }
       
       setError(errorMessage);
-      setBoards([]);
+      
+      // If we have cached data, keep using it despite the error
+      if (!getBoardsFromCache()) {
+        setBoards([]);
+      }
+      
       hasLoadedRef.current = false;
     } finally {
       if (mountedRef.current && !isSigningOut) {
-        console.log('✅ [useBoards] Finished loading attempt, setting loading=false');
         setLoading(false);
         loadingRef.current = false;
       }
@@ -227,12 +289,10 @@ export function useBoards() {
     
     // Don't load boards if user is signing out
     if (!isSigningOut) {
-      console.log('🔄 [useBoards] Initial useEffect triggered, loading boards');
       loadBoards();
     }
     
     return () => {
-      console.log('🧹 [useBoards] Cleanup: component unmounting');
       mountedRef.current = false;
       
       // Cancel any in-flight requests when component unmounts

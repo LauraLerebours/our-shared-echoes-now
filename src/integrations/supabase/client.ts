@@ -32,33 +32,31 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    debug: true, // Enable debug mode to see more auth-related logs
-    storageKey: 'thisisus-auth-token', // Use a custom storage key to avoid conflicts
     storage: {
       getItem: (key) => {
         try {
           const value = localStorage.getItem(key);
-          console.log(`🔑 [Storage] Getting key: ${key.substring(0, 15)}...`, !!value);
+          console.log(`🔑 [Supabase] Auth storage getItem: ${key.substring(0, 20)}...`);
           return value;
         } catch (error) {
-          console.error(`❌ [Storage] Error getting key ${key}:`, error);
+          console.error(`❌ [Supabase] Auth storage getItem error for ${key}:`, error);
           return null;
         }
       },
       setItem: (key, value) => {
         try {
-          console.log(`🔑 [Storage] Setting key: ${key.substring(0, 15)}...`);
           localStorage.setItem(key, value);
+          console.log(`💾 [Supabase] Auth storage setItem: ${key.substring(0, 20)}...`);
         } catch (error) {
-          console.error(`❌ [Storage] Error setting key ${key}:`, error);
+          console.error(`❌ [Supabase] Auth storage setItem error for ${key}:`, error);
         }
       },
       removeItem: (key) => {
         try {
-          console.log(`🔑 [Storage] Removing key: ${key.substring(0, 15)}...`);
           localStorage.removeItem(key);
+          console.log(`🧹 [Supabase] Auth storage removeItem: ${key.substring(0, 20)}...`);
         } catch (error) {
-          console.error(`❌ [Storage] Error removing key ${key}:`, error);
+          console.error(`❌ [Supabase] Auth storage removeItem error for ${key}:`, error);
         }
       }
     }
@@ -124,16 +122,6 @@ const testConnection = async () => {
         console.warn('⚠️ Auth session check failed:', authError.message);
       } else {
         console.log('✅ Auth system accessible, session:', session ? 'active' : 'none');
-        
-        // Log more details about the session for debugging
-        if (session) {
-          console.log('📊 Session details:', {
-            userId: session.user?.id,
-            expiresAt: session.expires_at,
-            hasRefreshToken: !!session.refresh_token,
-            hasAccessToken: !!session.access_token
-          });
-        }
       }
     } catch (authErr) {
       console.warn('⚠️ Auth test failed:', authErr);
@@ -153,16 +141,6 @@ const testConnection = async () => {
 
 // Start connection test
 testConnection();
-
-// Listen for auth state changes to debug auth issues
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log(`🔔 [Auth] Event: ${event}`, {
-    hasSession: !!session,
-    userId: session?.user?.id,
-    hasRefreshToken: !!session?.refresh_token,
-    hasAccessToken: !!session?.access_token
-  });
-});
 
 // Note: Service role client is not needed for this implementation
 export const supabaseServiceRole = null;

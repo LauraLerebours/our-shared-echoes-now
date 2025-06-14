@@ -51,7 +51,11 @@ export async function withRetry<T>(
         throw new Error('Operation aborted by user');
       }
       
-      console.log(`🔄 [withRetry] Attempt ${attempt}/${maxRetries}`);
+      // Log the attempt
+      if (attempt > 1) {
+        console.log(`🔄 [withRetry] Attempt ${attempt}/${maxRetries}`);
+      }
+      
       return await operation();
     } catch (error) {
       // If the operation was aborted, rethrow immediately
@@ -83,7 +87,7 @@ export async function withRetry<T>(
                          lastError.message.includes('ETIMEDOUT');
       
       if (!isRetryable) {
-        console.log(`❌ [withRetry] Error is not retryable, giving up:`, lastError.message);
+        console.log(`❌ [withRetry] Non-retryable error, giving up:`, lastError.message);
         break;
       }
       

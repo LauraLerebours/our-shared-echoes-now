@@ -17,7 +17,7 @@ const Auth = () => {
     console.log('🔄 Auth page: checking user state', { user: !!user, loading });
     if (user && !loading) {
       console.log('✅ User already authenticated, redirecting to home');
-      navigate('/', { replace: true });
+      navigate('/');
     }
   }, [user, loading, navigate]);
 
@@ -32,6 +32,39 @@ const Auth = () => {
   const [emailSent, setEmailSent] = useState(false);
   const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
+  const [activeTab, setActiveTab] = useState<string>('sign-in');
+
+  // Try to restore form state from localStorage
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem('thisisus_auth_state');
+      if (savedState) {
+        const { signInEmail, signUpEmail, signUpName, activeTab } = JSON.parse(savedState);
+        if (signInEmail) setSignInEmail(signInEmail);
+        if (signUpEmail) setSignUpEmail(signUpEmail);
+        if (signUpName) setSignUpName(signUpName);
+        if (activeTab) setActiveTab(activeTab);
+        
+        console.log('📋 [Auth] Restored form state from localStorage');
+      }
+    } catch (error) {
+      console.error('❌ [Auth] Error restoring form state:', error);
+    }
+  }, []);
+
+  // Save form state to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('thisisus_auth_state', JSON.stringify({
+        signInEmail,
+        signUpEmail,
+        signUpName,
+        activeTab
+      }));
+    } catch (error) {
+      console.error('❌ [Auth] Error saving form state:', error);
+    }
+  }, [signInEmail, signUpEmail, signUpName, activeTab]);
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -120,14 +153,6 @@ const Auth = () => {
     setShowEmailNotConfirmed(false);
 
     try {
-      // First, try to sign out to clear any existing session
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.warn('Warning during pre-signin cleanup:', signOutError);
-        // Continue with sign in attempt even if signOut fails
-      }
-      
       const { error } = await signIn(signInEmail, signInPassword);
 
       if (error) {
@@ -159,8 +184,10 @@ const Auth = () => {
       console.log('✅ Sign in successful');
       toast({ title: 'Welcome back!' });
       
-      // Explicitly navigate to home page after successful login
-      navigate('/', { replace: true });
+      // Clear auth state from localStorage
+      localStorage.removeItem('thisisus_auth_state');
+      
+      // Navigation will be handled by the useEffect when user state changes
     } catch (error) {
       console.error('❌ Sign in error:', error);
       toast({
@@ -242,6 +269,12 @@ const Auth = () => {
         setSignUpEmail('');
         setSignUpPassword('');
         setSignUpName('');
+        
+        // Switch to sign-in tab
+        setActiveTab('sign-in');
+        
+        // Clear auth state from localStorage
+        localStorage.removeItem('thisisus_auth_state');
       }
     } catch (error) {
       console.error('❌ Sign up error:', error);
@@ -327,7 +360,12 @@ const Auth = () => {
         )}
 
         <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6">
-          <Tabs defaultValue="sign-in" className="w-full">
+          <Tabs 
+            defaultValue="sign-in" 
+            value={activeTab} 
+            onValueChange={setActiveTab} 
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="sign-in">Sign In</TabsTrigger>
               <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
@@ -343,7 +381,6 @@ const Auth = () => {
                     onChange={(e) => setSignInEmail(e.target.value)}
                     required
                     disabled={isSigningIn}
-                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -352,7 +389,6 @@ const Auth = () => {
                     onChange={(e) => setSignInPassword(e.target.value)}
                     required
                     disabled={isSigningIn}
-                    autoComplete="current-password"
                   />
                 </div>
                 <Button
@@ -375,7 +411,6 @@ const Auth = () => {
                     onChange={(e) => setSignUpName(e.target.value)}
                     required
                     disabled={isSigningUp}
-                    autoComplete="name"
                   />
                   <Input
                     type="email"
@@ -384,7 +419,6 @@ const Auth = () => {
                     onChange={(e) => setSignUpEmail(e.target.value)}
                     required
                     disabled={isSigningUp}
-                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -394,7 +428,6 @@ const Auth = () => {
                     required
                     disabled={isSigningUp}
                     minLength={6}
-                    autoComplete="new-password"
                   />
                 </div>
                 <Button

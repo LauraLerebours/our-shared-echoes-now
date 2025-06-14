@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -23,6 +23,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Create a local storage key for caching the user profile
+const USER_PROFILE_CACHE_KEY = 'thisisus_user_profile';
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -38,11 +41,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const authStateRef = useRef<{ isActive: boolean }>({ isActive: true });
-  const initializationCompleteRef = useRef<boolean>(false);
+  const profileFetchAttempts = useRef<number>(0);
+  const MAX_PROFILE_FETCH_ATTEMPTS = 3;
 
-  const fetchUserProfile = async (userId: string) => {
+  // Load cached profile from localStorage
+  const loadCachedProfile = useCallback(() => {
+    try {
+      const cachedProfileJson = localStorage.getItem(USER_PROFILE_CACHE_KEY);
+      if (cachedProfileJson) {
+        const cachedProfile = JSON.parse(cachedProfileJson);
+        console.log('📋 [AuthContext] Loaded cached profile:', cachedProfile.name);
+        return cachedProfile;
+      }
+    } catch (error) {
+      console.error('❌ [AuthContext] Error loading cached profile:', error);
+    }
+    return null;
+  }, []);
+
+  // Save profile to localStorage
+  const cacheUserProfile = useCallback((profile: UserProfile) => {
+    try {
+      localStorage.setItem(USER_PROFILE_CACHE_KEY, JSON.stringify(profile));
+      console.log('💾 [AuthContext] Cached user profile for:', profile.name);
+    } catch (error) {
+      console.error('❌ [AuthContext] Error caching user profile:', error);
+    }
+  }, []);
+
+  const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       console.log('🔄 [AuthContext] Fetching user profile for:', userId);
+      profileFetchAttempts.current += 1;
       
       // Check if component is still mounted and auth is active
       if (!authStateRef.current.isActive) {
@@ -59,22 +89,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('❌ [AuthContext] Error fetching user profile:', error);
         
-        // Check if this is a "not found" error, which might indicate we need to create the profile
-        if (error.code === 'PGRST116') {
-          console.log('⚠️ [AuthContext] User profile not found, will attempt to create it');
-          return null;
+        // If we've tried a few times and still failed, use cached profile as fallback
+        if (profileFetchAttempts.current >= MAX_PROFILE_FETCH_ATTEMPTS) {
+          const cachedProfile = loadCachedProfile();
+          if (cachedProfile && cachedProfile.id === userId) {
+            console.log('⚠️ [AuthContext] Using cached profile after failed fetch attempts');
+            return cachedProfile;
+          }
         }
         
         return null;
       }
 
       console.log('✅ [AuthContext] User profile fetched successfully:', data.name);
+      
+      // Cache the profile for future use
+      cacheUserProfile(data);
+      
       return data;
     } catch (error) {
       console.error('❌ [AuthContext] Error fetching user profile:', error);
       return null;
     }
-  };
+  }, [cacheUserProfile, loadCachedProfile]);
 
   const updateProfile = async (name: string) => {
     if (!user) {
@@ -98,6 +135,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ [AuthContext] Profile updated successfully');
       setUserProfile(data);
+      
+      // Update the cached profile
+      cacheUserProfile(data);
+      
       return { error: null };
     } catch (error) {
       console.error('❌ [AuthContext] Error updating profile:', error);
@@ -105,86 +146,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createUserProfile = async (userId: string, name: string = 'User') => {
-    try {
-      console.log('🔄 [AuthContext] Creating user profile for:', userId);
-      
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .insert([{ id: userId, name }])
-        .select()
-        .single();
-        
-      if (error) {
-        console.error('❌ [AuthContext] Error creating user profile:', error);
-        return null;
-      }
-      
-      console.log('✅ [AuthContext] User profile created successfully');
-      return data;
-    } catch (error) {
-      console.error('❌ [AuthContext] Error creating user profile:', error);
-      return null;
-    }
-  };
-
-  // Function to handle session recovery with better error handling
-  const recoverSession = async () => {
-    try {
-      console.log('🔄 [AuthContext] Attempting to recover session...');
-      
-      // Try to get the current session
-      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('❌ [AuthContext] Error recovering session:', error);
-        
-        // Clear any stale session data
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-        setUserProfile(null);
-        return false;
-      }
-      
-      if (!currentSession) {
-        console.log('⚠️ [AuthContext] No session found during recovery');
-        return false;
-      }
-      
-      console.log('✅ [AuthContext] Session recovered successfully');
-      setSession(currentSession);
-      setUser(currentSession.user);
-      
-      // Fetch user profile
-      if (currentSession.user) {
-        const profile = await fetchUserProfile(currentSession.user.id);
-        
-        // Create profile if it doesn't exist
-        if (!profile) {
-          console.log('🔄 [AuthContext] Creating missing user profile during recovery');
-          const name = currentSession.user.user_metadata?.name || 'User';
-          const newProfile = await createUserProfile(currentSession.user.id, name);
-          setUserProfile(newProfile);
-        } else {
-          setUserProfile(profile);
-        }
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('❌ [AuthContext] Session recovery failed:', error);
-      
-      // Clear any stale session data
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      setUserProfile(null);
-      return false;
-    }
-  };
-
   useEffect(() => {
+    console.log('🔄 [AuthContext] AuthProvider mounted');
+    
     // Reset the auth state ref when component mounts
     authStateRef.current.isActive = true;
     
@@ -192,18 +156,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const getInitialSession = async () => {
       try {
         console.log('🔄 [AuthContext] Getting initial session...');
+        setLoading(true);
         
-        // First try to recover the session
-        const recovered = await recoverSession();
-        
-        if (recovered) {
-          console.log('✅ [AuthContext] Session recovered, initialization complete');
-          initializationCompleteRef.current = true;
-          setLoading(false);
-          return;
+        // Try to load cached profile first for immediate UI display
+        const cachedProfile = loadCachedProfile();
+        if (cachedProfile) {
+          console.log('📋 [AuthContext] Using cached profile while session loads:', cachedProfile.name);
+          setUserProfile(cachedProfile);
         }
         
-        // If recovery failed, try to get a fresh session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -218,6 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(null);
             setUser(null);
             setUserProfile(null);
+            localStorage.removeItem(USER_PROFILE_CACHE_KEY);
           }
         } else {
           console.log('✅ [AuthContext] Initial session retrieved:', !!session);
@@ -233,20 +195,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Fetch user profile if user exists
           if (session?.user) {
-            console.log('🔄 [AuthContext] User found in session, fetching profile');
+            // If we already have a cached profile, keep using it while we fetch the latest
+            if (!userProfile && cachedProfile && cachedProfile.id === session.user.id) {
+              setUserProfile(cachedProfile);
+            }
+            
             const profile = await fetchUserProfile(session.user.id);
             
-            // If profile doesn't exist, create it
-            if (!profile && authStateRef.current.isActive) {
-              console.log('🔄 [AuthContext] Profile not found, creating new profile');
-              const name = session.user.user_metadata?.name || 'User';
-              const newProfile = await createUserProfile(session.user.id, name);
-              
-              if (authStateRef.current.isActive) {
-                setUserProfile(newProfile);
+            // Check again if component is still mounted and auth is active
+            if (authStateRef.current.isActive) {
+              if (profile) {
+                setUserProfile(profile);
+              } else if (cachedProfile && cachedProfile.id === session.user.id) {
+                // If fetch failed but we have a cached profile, keep using it
+                console.log('⚠️ [AuthContext] Using cached profile after failed fetch');
+                setUserProfile(cachedProfile);
               }
-            } else if (authStateRef.current.isActive) {
-              setUserProfile(profile);
             }
           }
         }
@@ -258,11 +222,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(null);
         setUser(null);
         setUserProfile(null);
+        localStorage.removeItem(USER_PROFILE_CACHE_KEY);
       } finally {
         // Only update loading state if component is still mounted and auth is active
         if (authStateRef.current.isActive) {
-          console.log('✅ [AuthContext] Initial auth check complete, setting loading=false');
-          initializationCompleteRef.current = true;
+          console.log('✅ [AuthContext] Initial auth setup complete');
           setLoading(false);
         }
       }
@@ -283,16 +247,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (event === 'SIGNED_OUT') {
-          console.log('🔄 [AuthContext] User signed out, clearing profile');
-          setUserProfile(null);
-          setLoading(false);
-          return;
-        }
 
         if (session?.user) {
-          console.log('🔄 [AuthContext] User authenticated, fetching profile');
+          // Try to use cached profile first for immediate UI update
+          const cachedProfile = loadCachedProfile();
+          if (cachedProfile && cachedProfile.id === session.user.id) {
+            console.log('📋 [AuthContext] Using cached profile during auth change:', cachedProfile.name);
+            setUserProfile(cachedProfile);
+          }
+          
+          // Reset profile fetch attempts counter
+          profileFetchAttempts.current = 0;
+          
           // Fetch user profile
           const profile = await fetchUserProfile(session.user.id);
           
@@ -302,6 +268,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
+          if (profile) {
+            setUserProfile(profile);
+          } else if (cachedProfile && cachedProfile.id === session.user.id) {
+            // If fetch failed but we have a cached profile, keep using it
+            console.log('⚠️ [AuthContext] Keeping cached profile after failed fetch');
+          }
+
           // Create user profile if it doesn't exist
           if (event === 'SIGNED_IN' && !profile) {
             try {
@@ -321,50 +294,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const newProfile = await fetchUserProfile(session.user.id);
                 
                 // Check again if component is still mounted and auth is active
-                if (authStateRef.current.isActive) {
+                if (authStateRef.current.isActive && newProfile) {
                   setUserProfile(newProfile);
+                  cacheUserProfile(newProfile);
                   console.log('✅ [AuthContext] User profile created successfully');
                 }
               }
             } catch (error) {
               console.error('❌ [AuthContext] Error handling user profile:', error);
             }
-          } else {
-            setUserProfile(profile);
           }
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           // Clear user profile when user signs out
           setUserProfile(null);
+          localStorage.removeItem(USER_PROFILE_CACHE_KEY);
+          console.log('🧹 [AuthContext] Cleared user profile cache on sign out');
         }
         
-        // Only update loading state if initialization hasn't completed yet
-        if (!initializationCompleteRef.current && authStateRef.current.isActive) {
-          setLoading(false);
-          initializationCompleteRef.current = true;
-        }
+        // Update loading state
+        setLoading(false);
       }
     );
 
     return () => {
       // Mark auth state as inactive when component unmounts
-      console.log('🧹 [AuthContext] Cleanup: component unmounting');
+      console.log('🔄 [AuthContext] AuthProvider unmounting, cleaning up');
       authStateRef.current.isActive = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile, loadCachedProfile, cacheUserProfile, userProfile]);
 
   const signIn = async (email: string, password: string) => {
     try {
       console.log('🔄 [AuthContext] Signing in user:', email);
-      
-      // First clear any existing session to prevent token conflicts
-      try {
-        console.log('🔄 [AuthContext] Clearing any existing session before sign in');
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.warn('⚠️ [AuthContext] Error during pre-signin cleanup:', signOutError);
-        // Continue with sign in attempt even if signOut fails
-      }
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -376,26 +338,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
-      console.log('✅ [AuthContext] Sign in successful, user:', data.user?.id);
-      
-      // Manually set the session and user to ensure immediate update
-      setSession(data.session);
-      setUser(data.user);
-      
-      // Fetch user profile
-      if (data.user) {
-        const profile = await fetchUserProfile(data.user.id);
-        
-        if (!profile) {
-          // Create profile if it doesn't exist
-          const name = data.user.user_metadata?.name || 'User';
-          const newProfile = await createUserProfile(data.user.id, name);
-          setUserProfile(newProfile);
-        } else {
-          setUserProfile(profile);
-        }
-      }
-      
+      console.log('✅ [AuthContext] Sign in successful');
       return { error: null };
     } catch (error) {
       console.error('❌ [AuthContext] Sign in error:', error);
@@ -439,8 +382,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Mark auth state as inactive to cancel any ongoing operations
       authStateRef.current.isActive = false;
       
-      // Cancel any in-flight requests
-      // This is handled in the hooks by checking isSigningOut
+      // Clear cached profile
+      localStorage.removeItem(USER_PROFILE_CACHE_KEY);
       
       const { error } = await supabase.auth.signOut();
       if (error) {

@@ -17,18 +17,28 @@ import { Button } from '@/components/ui/button';
 import { Grid3X3, List, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+// Create a cache key for view mode preference
+const VIEW_MODE_CACHE_KEY = 'thisisus_view_mode';
+
 const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [memoriesError, setMemoriesError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>('timeline');
+  const [viewMode, setViewMode] = useState<'timeline' | 'grid'>(() => {
+    // Load view mode preference from localStorage
+    try {
+      const savedMode = localStorage.getItem(VIEW_MODE_CACHE_KEY);
+      return savedMode === 'grid' ? 'grid' : 'timeline';
+    } catch (e) {
+      return 'timeline';
+    }
+  });
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const { user, loading: authLoading, isSigningOut } = useAuth();
   const mainRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const loadAttemptRef = useRef(0);
   
   // Use the optimized boards hook
   const { 
@@ -38,6 +48,16 @@ const Index = () => {
     createBoard: createNewBoard,
     retryLoad: retryBoardsLoad 
   } = useBoards();
+  
+  // Save view mode preference when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_CACHE_KEY, viewMode);
+      console.log('💾 [Index] Saved view mode preference:', viewMode);
+    } catch (e) {
+      console.error('❌ [Index] Error saving view mode preference:', e);
+    }
+  }, [viewMode]);
   
   // Optimized memories loading with race condition prevention and abort support
   useEffect(() => {
@@ -55,10 +75,6 @@ const Index = () => {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
     }
-    
-    // Increment load attempt counter
-    loadAttemptRef.current++;
-    const currentAttempt = loadAttemptRef.current;
 
     // If user is signing out, don't load memories
     if (isSigningOut) {
@@ -100,18 +116,35 @@ const Index = () => {
     setMemoriesLoading(true);
     setMemoriesError(null);
 
+    // Try to load from cache first
+    const cacheKey = `thisisus_all_memories_${user.id}`;
+    try {
+      const cachedData = localStorage.getItem(cacheKey);
+      if (cachedData) {
+        const { memories: cachedMemories, timestamp } = JSON.parse(cachedData);
+        
+        // Check if cache is still valid (less than 5 minutes old)
+        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+        if (Date.now() - timestamp < CACHE_TTL) {
+          console.log('📋 [Index] Using cached memories:', cachedMemories.length);
+          setMemories(cachedMemories);
+          setHasInitiallyLoaded(true);
+          setMemoriesLoading(false);
+          
+          // Still fetch fresh data in the background
+          console.log('🔄 [Index] Will fetch fresh data in background');
+        }
+      }
+    } catch (error) {
+      console.error('❌ [Index] Error reading from cache:', error);
+    }
+
     // Add a small delay to prevent rapid state changes
     loadingTimeoutRef.current = setTimeout(async () => {
       try {
         // Check if the request has been aborted or user is signing out
         if (abortControllerRef.current?.signal.aborted || isSigningOut) {
           console.log('🛑 [Index] Request aborted or user signing out, aborting memory load');
-          return;
-        }
-        
-        // Check if this is still the most recent load attempt
-        if (currentAttempt !== loadAttemptRef.current) {
-          console.log('🛑 [Index] Newer load attempt in progress, skipping');
           return;
         }
         
@@ -123,7 +156,6 @@ const Index = () => {
         console.log('🔄 [Index] Access codes:', accessCodes.length);
         
         if (accessCodes.length > 0) {
-          console.log('🔄 [Index] Calling memoriesApi.fetchMemoriesByAccessCodes');
           // Use the optimized parallel loading with abort signal
           const result = await memoriesApi.fetchMemoriesByAccessCodes(
             accessCodes, 
@@ -137,17 +169,22 @@ const Index = () => {
             return;
           }
           
-          // Check if this is still the most recent load attempt
-          if (currentAttempt !== loadAttemptRef.current) {
-            console.log('🛑 [Index] Newer load attempt completed, skipping state update');
-            return;
-          }
-          
           if (result.success && result.data) {
             console.log('✅ [Index] Memories loaded:', result.data.length);
             setMemories(result.data);
             setMemoriesError(null);
             setHasInitiallyLoaded(true);
+            
+            // Cache the results
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({
+                memories: result.data,
+                timestamp: Date.now()
+              }));
+              console.log('💾 [Index] Cached memories for user:', user.id);
+            } catch (error) {
+              console.error('❌ [Index] Error caching memories:', error);
+            }
           } else {
             // Handle aborted operations silently - don't show error to user
             if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
@@ -175,12 +212,6 @@ const Index = () => {
           return;
         }
         
-        // Check if this is still the most recent load attempt
-        if (currentAttempt !== loadAttemptRef.current) {
-          console.log('🛑 [Index] Newer load attempt in progress, skipping error handling');
-          return;
-        }
-        
         const errorMessage = error instanceof Error ? error.message : 'Failed to load memories';
         
         // Handle aborted operations silently - don't show error to user
@@ -198,7 +229,6 @@ const Index = () => {
       } finally {
         // Only update loading state if not aborted and not signing out
         if (!abortControllerRef.current?.signal.aborted && !isSigningOut) {
-          console.log('✅ [Index] Finished loading memories, setting loading=false');
           setMemoriesLoading(false);
         }
       }
@@ -218,7 +248,7 @@ const Index = () => {
         abortControllerRef.current = null;
       }
     };
-  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]); // Add isSigningOut to dependencies
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut, memories.length]); // Add memories.length to dependencies
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;
@@ -230,7 +260,20 @@ const Index = () => {
       const success = await deleteMemory(id, memory.accessCode);
       
       if (success) {
-        setMemories(prev => prev.filter(memory => memory.id !== id));
+        const updatedMemories = memories.filter(memory => memory.id !== id);
+        setMemories(updatedMemories);
+        
+        // Update cache
+        const cacheKey = `thisisus_all_memories_${user.id}`;
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            memories: updatedMemories,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('❌ [Index] Error updating cache after delete:', error);
+        }
+        
         toast({
           title: "Memory deleted",
           description: "Your memory has been deleted successfully",
@@ -249,9 +292,23 @@ const Index = () => {
   };
 
   const handleUpdateMemory = (id: string, updates: Partial<Memory>) => {
-    setMemories(prev => prev.map(memory => 
+    const updatedMemories = memories.map(memory => 
       memory.id === id ? { ...memory, ...updates } : memory
-    ));
+    );
+    setMemories(updatedMemories);
+    
+    // Update cache
+    if (user?.id) {
+      const cacheKey = `thisisus_all_memories_${user.id}`;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          memories: updatedMemories,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('❌ [Index] Error updating cache after memory update:', error);
+      }
+    }
   };
 
   const handleViewDetail = (id: string, accessCode: string) => {
@@ -269,8 +326,6 @@ const Index = () => {
     console.log('🔄 [Index] Retry memories triggered');
     setMemoriesError(null);
     setHasInitiallyLoaded(false);
-    // Increment load attempt counter to force a new load
-    loadAttemptRef.current++;
     // This will trigger the useEffect to reload memories
   };
 
@@ -278,7 +333,6 @@ const Index = () => {
     if (!user?.id) return;
     
     try {
-      console.log('🔄 [Index] Creating default board');
       await createNewBoard('My Memories');
     } catch (error) {
       console.error('❌ Error creating default board:', error);
@@ -423,7 +477,7 @@ const Index = () => {
           ) : (
             // Show a minimal loading state if we're waiting for data
             <div className="flex justify-center items-center h-64">
-              <LoadingSpinner size="md" text="Loading memories..." />
+              <LoadingSpinner size="md" text="Loading..." />
             </div>
           )}
         </main>
