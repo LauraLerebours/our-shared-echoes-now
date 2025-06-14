@@ -38,6 +38,7 @@ export function useMemories(accessCode?: string) {
     const loadMemories = async () => {
       // Cancel any previous in-flight request
       if (abortControllerRef.current) {
+        console.log('🛑 [useMemories] Cancelling previous request');
         abortControllerRef.current.abort();
       }
       
@@ -64,30 +65,19 @@ export function useMemories(accessCode?: string) {
         if (result.success && result.data) {
           setMemories(result.data);
         } else {
-          // Handle aborted operations silently - don't show error to user
-          if (result.error === 'Operation aborted by user' || result.error === 'Request aborted by user') {
-            console.log('🛑 [useMemories] Operation was aborted, clearing error state');
-            setError(null);
-            return;
-          }
-          
           console.error('Error loading memories:', result.error);
           setError(result.error || 'Failed to load memories');
         }
       } catch (error) {
         // Only update state if not aborted and still mounted
         if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
+          console.error('Error loading memories:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           
-          // Handle aborted operations silently - don't show error to user
-          if (errorMessage === 'Operation aborted by user' || errorMessage === 'Request aborted by user') {
-            console.log('🛑 [useMemories] Operation was aborted, clearing error state');
-            setError(null);
-            return;
+          // Don't show abort errors to the user
+          if (errorMessage !== 'Operation aborted by user' && errorMessage !== 'Request aborted') {
+            setError(errorMessage);
           }
-          
-          console.error('Error loading memories:', error);
-          setError(errorMessage);
         }
       } finally {
         // Only update loading state if not aborted and still mounted

@@ -16,7 +16,7 @@ export async function withErrorHandling<T>(
     return { success: true, data: result };
   } catch (error) {
     // Check if this is an AbortError (from fetch abort)
-    if (error instanceof Error && error.name === 'AbortError') {
+    if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request aborted')) {
       console.log(`🛑 [${operationName}] Operation aborted by user`);
       return { success: false, error: 'Operation aborted by user' };
     }
@@ -53,7 +53,7 @@ export async function withRetry<T>(
       return await operation();
     } catch (error) {
       // If the operation was aborted, rethrow immediately
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message === 'Request aborted' || error.message === 'Operation aborted by user')) {
         throw error;
       }
       

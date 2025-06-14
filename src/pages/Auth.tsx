@@ -261,7 +261,7 @@ const Auth = () => {
     <div 
       className="flex min-h-screen items-center justify-center p-4 relative"
       style={{
-        backgroundImage: 'url(/best2.png)',
+        backgroundImage: 'linear-gradient(135deg, rgba(255,165,186,0.3) 0%, rgba(155,135,245,0.3) 100%)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
