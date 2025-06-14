@@ -304,7 +304,7 @@ const Auth = () => {
     <div 
       className="flex min-h-screen items-center justify-center p-4 relative"
       style={{
-        backgroundImage: 'linear-gradient(135deg, rgba(255,165,186,0.3) 0%, rgba(155,135,245,0.3) 100%)',
+        backgroundImage: `url('/best2.png')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -381,6 +381,7 @@ const Auth = () => {
                     onChange={(e) => setSignInEmail(e.target.value)}
                     required
                     disabled={isSigningIn}
+                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -389,6 +390,7 @@ const Auth = () => {
                     onChange={(e) => setSignInPassword(e.target.value)}
                     required
                     disabled={isSigningIn}
+                    autoComplete="current-password"
                   />
                 </div>
                 <Button
@@ -411,6 +413,7 @@ const Auth = () => {
                     onChange={(e) => setSignUpName(e.target.value)}
                     required
                     disabled={isSigningUp}
+                    autoComplete="name"
                   />
                   <Input
                     type="email"
@@ -419,6 +422,7 @@ const Auth = () => {
                     onChange={(e) => setSignUpEmail(e.target.value)}
                     required
                     disabled={isSigningUp}
+                    autoComplete="email"
                   />
                   <Input
                     type="password"
@@ -428,6 +432,7 @@ const Auth = () => {
                     required
                     disabled={isSigningUp}
                     minLength={6}
+                    autoComplete="new-password"
                   />
                 </div>
                 <Button
