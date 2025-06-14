@@ -49,16 +49,9 @@ const Index = () => {
     // Create a new abort controller for this request
     abortControllerRef.current = new AbortController();
     
-    // Clear any existing timeout
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current);
-      loadingTimeoutRef.current = null;
-    }
-
     // If user is signing out, don't load memories
     if (isSigningOut) {
       console.log('🛑 [Index] User is signing out, aborting memory load');
-      setMemoriesLoading(false);
       return;
     }
 
@@ -177,15 +170,30 @@ const Index = () => {
         setMemoriesLoading(false);
       }
     }
-  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut]);
+  }, [user?.id, boards, boardsLoading, hasInitiallyLoaded, isSigningOut, memories.length]);
 
   // Load memories when boards change or user changes
   useEffect(() => {
-    if (user?.id && !isSigningOut) {
+    if (user?.id && !isSigningOut && !boardsLoading) {
       console.log('🔄 [Index] User or boards changed, loading memories');
       loadMemories();
     }
-  }, [user?.id, boards, loadMemories, isSigningOut]);
+    
+    // Cleanup function
+    return () => {
+      // Clear any existing timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
+      // Cancel any in-flight requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [user?.id, boards, boardsLoading, loadMemories, isSigningOut]);
 
   const handleDeleteMemory = async (id: string) => {
     if (!user?.id) return;

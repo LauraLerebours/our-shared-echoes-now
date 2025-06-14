@@ -63,6 +63,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Create or update user profile
+  const createOrUpdateProfile = useCallback(async (userId: string, name: string) => {
+    try {
+      console.log('🔄 Creating/updating user profile for:', userId);
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: userId,
+          name: name || 'User',
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
+
+      if (error) {
+        console.error('❌ Error creating/updating user profile:', error);
+        return null;
+      }
+
+      // Fetch the profile after upsert
+      return await fetchUserProfile(userId);
+    } catch (error) {
+      console.error('❌ Error creating/updating user profile:', error);
+      return null;
+    }
+  }, [fetchUserProfile]);
+
   // Update profile function
   const updateProfile = async (name: string) => {
     if (!user) {
@@ -116,7 +144,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Fetch user profile
           const profile = await fetchUserProfile(currentSession.user.id);
-          setUserProfile(profile);
+          
+          if (profile) {
+            console.log('✅ User profile found:', profile.name);
+            setUserProfile(profile);
+          } else {
+            console.log('⚠️ No user profile found, creating one');
+            // Create profile if it doesn't exist
+            const newProfile = await createOrUpdateProfile(
+              currentSession.user.id, 
+              currentSession.user.user_metadata?.name || 'User'
+            );
+            
+            if (newProfile) {
+              console.log('✅ User profile created:', newProfile.name);
+              setUserProfile(newProfile);
+            }
+          }
         } else {
           console.log('ℹ️ No active session found');
         }
@@ -131,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     initializeAuth();
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, createOrUpdateProfile]);
 
   // Set up auth state change listener after initial load
   useEffect(() => {
@@ -162,33 +206,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Only fetch profile if user changed
           if (newSession.user.id !== userProfile?.id) {
             const profile = await fetchUserProfile(newSession.user.id);
-            setUserProfile(profile);
-          }
-          
-          // Create profile if it doesn't exist and we just signed in
-          if (event === 'SIGNED_IN' && !userProfile) {
-            try {
-              console.log('🔄 Creating user profile for new sign in');
+            
+            if (profile) {
+              setUserProfile(profile);
+            } else if (event === 'SIGNED_IN') {
+              // Create profile if it doesn't exist and we just signed in
+              const newProfile = await createOrUpdateProfile(
+                newSession.user.id,
+                newSession.user.user_metadata?.name || 'User'
+              );
               
-              const { error: upsertError } = await supabase
-                .from('user_profiles')
-                .upsert({
-                  id: newSession.user.id,
-                  name: newSession.user.user_metadata?.name || 'User',
-                }, {
-                  onConflict: 'id'
-                });
-
-              if (upsertError) {
-                console.error('❌ Error creating user profile:', upsertError);
-              } else {
-                // Fetch the newly created profile
-                const newProfile = await fetchUserProfile(newSession.user.id);
+              if (newProfile) {
                 setUserProfile(newProfile);
-                console.log('✅ User profile created successfully');
               }
-            } catch (error) {
-              console.error('❌ Error handling user profile:', error);
             }
           }
         }
@@ -199,7 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🧹 Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [authInitialized, fetchUserProfile, isSigningOut, userProfile?.id]);
+  }, [authInitialized, fetchUserProfile, createOrUpdateProfile, isSigningOut, userProfile?.id]);
 
   const signIn = async (email: string, password: string) => {
     try {

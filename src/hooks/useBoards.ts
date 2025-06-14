@@ -67,6 +67,12 @@ export function useBoards() {
 
   // Optimized load function with better race condition handling and abort support
   const loadBoards = useCallback(async (isRetry = false) => {
+    // Skip if user is signing out
+    if (isSigningOut) {
+      console.log('🛑 [useBoards] User is signing out, aborting board load');
+      return;
+    }
+
     // Cancel any previous in-flight request
     if (abortControllerRef.current) {
       console.log('🛑 [useBoards] Cancelling previous request');
@@ -90,12 +96,6 @@ export function useBoards() {
       return;
     }
     
-    // If user is signing out, don't load boards
-    if (isSigningOut) {
-      console.log('🛑 [useBoards] User is signing out, aborting board load');
-      return;
-    }
-
     // Skip if already loading for the same user (unless it's a retry)
     if (loadingRef.current && currentUserRef.current === user.id && !isRetry) {
       console.log('⏳ [useBoards] Load already in progress for current user');
@@ -212,6 +212,7 @@ export function useBoards() {
 
   useEffect(() => {
     mountedRef.current = true;
+    hasLoadedRef.current = false;
     
     // Don't load boards if user is signing out
     if (!isSigningOut && user?.id) {
