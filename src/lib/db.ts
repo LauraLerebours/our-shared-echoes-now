@@ -60,8 +60,8 @@ export const deleteMemory = async (id: string, accessCode: string) => {
   return result.success;
 };
 
-export const toggleMemoryLike = async (id: string) => {
-  const result = await memoriesApi.toggleMemoryLike(id);
+export const toggleMemoryLike = async (id: string, accessCode: string) => {
+  const result = await memoriesApi.toggleMemoryLike(id, accessCode);
   return result.success ? { likes: result.data?.likes || 0, isLiked: result.data?.isLiked || false } : null;
 };
 
