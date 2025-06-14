@@ -145,12 +145,14 @@ const Auth = () => {
           title: 'Sign in failed',
           description: errorMessage,
         });
+        setIsSigningIn(false);
         return;
       }
 
       console.log('✅ Sign in successful');
       toast({ title: 'Welcome back!' });
-      // Navigation will be handled by the useEffect when user state changes
+      // Explicitly navigate to home page after successful sign in
+      navigate('/');
     } catch (error) {
       console.error('❌ Sign in error:', error);
       toast({
@@ -158,7 +160,6 @@ const Auth = () => {
         title: 'Sign in failed',
         description: 'An unexpected error occurred. Please try again.',
       });
-    } finally {
       setIsSigningIn(false);
     }
   };
@@ -218,6 +219,7 @@ const Auth = () => {
           title: 'Sign up failed',
           description: errorMessage,
         });
+        setIsSigningUp(false);
         return;
       }
 
@@ -233,6 +235,7 @@ const Auth = () => {
         setSignUpPassword('');
         setSignUpName('');
       }
+      setIsSigningUp(false);
     } catch (error) {
       console.error('❌ Sign up error:', error);
       toast({
@@ -240,7 +243,6 @@ const Auth = () => {
         title: 'Sign up failed',
         description: 'An unexpected error occurred. Please try again.',
       });
-    } finally {
       setIsSigningUp(false);
     }
   };
