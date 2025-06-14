@@ -20,7 +20,6 @@ export const boardsApi = {
         }
         
         // Test database connection first
-        console.log('🔄 [boardsApi.fetchBoards] Testing database connection');
         const { error: connectionError } = await supabase
           .from('user_profiles')
           .select('id')
@@ -37,8 +36,22 @@ export const boardsApi = {
           throw new Error('Request aborted');
         }
 
-        // Now fetch boards with comprehensive error handling
-        console.log('🔄 [boardsApi.fetchBoards] Fetching boards from database');
+        // Try using the optimized function first
+        try {
+          const { data: functionData, error: functionError } = await supabase.rpc('get_user_boards_fast', {
+            user_id: userId
+          });
+          
+          if (!functionError) {
+            return functionData || [];
+          }
+          
+          console.warn('⚠️ [boardsApi.fetchBoards] Function call failed, falling back to direct query:', functionError);
+        } catch (err) {
+          console.warn('⚠️ [boardsApi.fetchBoards] Function call exception, falling back to direct query:', err);
+        }
+
+        // Fallback to direct query if function fails
         const { data, error } = await supabase
           .from('boards')
           .select(`
@@ -74,7 +87,6 @@ export const boardsApi = {
           throw new Error(`Failed to fetch boards: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.fetchBoards] Received data from database:', data?.length || 0, 'boards');
         return data || [];
       }, 3, 1000, signal);
       
@@ -92,7 +104,6 @@ export const boardsApi = {
       }
 
       const result = await withRetry(async () => {
-        console.log('🔄 [boardsApi.getBoardById] Fetching board from database');
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -114,7 +125,6 @@ export const boardsApi = {
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.getBoardById] Board found');
         return data;
       }, 3, 1000);
 
@@ -136,7 +146,6 @@ export const boardsApi = {
       console.log('🔄 [boardsApi.getBoardByShareCode] Starting:', shareCode);
       
       const result = await withRetry(async () => {
-        console.log('🔄 [boardsApi.getBoardByShareCode] Fetching board from database');
         const { data, error } = await supabase
           .from('boards')
           .select('*')
@@ -153,7 +162,6 @@ export const boardsApi = {
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.getBoardByShareCode] Query completed');
         return data;
       }, 3, 1000);
 
@@ -187,7 +195,6 @@ export const boardsApi = {
 
       const result = await withRetry(async () => {
         // Create access code first
-        console.log('🔄 [boardsApi.createBoard] Creating access code');
         const { error: accessCodeError } = await supabase
           .from('access_codes')
           .insert([{ code: accessCode, name: sanitizedName }]);
@@ -205,7 +212,6 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Access code created');
 
         // Use the safe function to create board
-        console.log('🔄 [boardsApi.createBoard] Creating board');
         const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
           board_name: sanitizedName,
           owner_user_id: userId,
@@ -235,7 +241,6 @@ export const boardsApi = {
         console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
 
         // Fetch the created board
-        console.log('🔄 [boardsApi.createBoard] Fetching created board');
         const { data: boardData, error: fetchError } = await supabase
           .from('boards')
           .select('*')
@@ -251,7 +256,6 @@ export const boardsApi = {
           throw new Error('Created board not found');
         }
 
-        console.log('✅ [boardsApi.createBoard] Board fetched successfully');
         return boardData;
       }, 3, 1000);
 
@@ -270,7 +274,6 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        console.log('🔄 [boardsApi.renameBoard] Calling rename_board function');
         const { data, error } = await supabase.rpc('rename_board', {
           board_id: boardId,
           new_name: sanitizedName,
@@ -316,7 +319,6 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        console.log('🔄 [boardsApi.addUserToBoard] Calling add_user_to_board_by_share_code function');
         const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
           share_code_param: shareCode.toUpperCase(),
           user_id_param: userId
@@ -365,7 +367,6 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        console.log('🔄 [boardsApi.removeUserFromBoard] Calling remove_board_member function');
         const { data: success, error } = await supabase.rpc('remove_board_member', {
           board_id: boardId,
           user_id: userId

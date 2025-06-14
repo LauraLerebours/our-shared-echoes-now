@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Memory } from '@/lib/types';
 import { memoriesApi } from '@/lib/api/memories';
 import { useAsyncOperation } from './useAsyncOperation';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useMemories(accessCode?: string) {
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -11,12 +12,9 @@ export function useMemories(accessCode?: string) {
   const { isSigningOut } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
-  const hasLoadedRef = useRef(false);
-  const currentAccessCodeRef = useRef<string | null>(null);
 
   const { execute: executeDeleteMemory, loading: deleting } = useAsyncOperation(
     async (memoryId: string, memoryAccessCode: string) => {
-      console.log('🔄 [useMemories] Deleting memory:', memoryId);
       const result = await memoriesApi.deleteMemory(memoryId, memoryAccessCode);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to delete memory');
       setMemories(prev => prev.filter(memory => memory.id !== memoryId));
@@ -27,7 +25,6 @@ export function useMemories(accessCode?: string) {
 
   const { execute: executeCreateMemory, loading: creating } = useAsyncOperation(
     async (memory: Memory) => {
-      console.log('🔄 [useMemories] Creating new memory');
       const result = await memoriesApi.createMemory(memory);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create memory');
       setMemories(prev => [result.data!, ...prev]);
@@ -36,83 +33,102 @@ export function useMemories(accessCode?: string) {
     { successMessage: 'Memory created successfully' }
   );
 
-  const loadMemories = useCallback(async (isRetry = false) => {
-    // Cancel any previous in-flight request
-    if (abortControllerRef.current) {
-      console.log('🛑 [useMemories] Cancelling previous request');
-      abortControllerRef.current.abort();
-    }
+  useEffect(() => {
+    mountedRef.current = true;
     
-    // Create a new abort controller for this request
-    abortControllerRef.current = new AbortController();
-    
-    if (!accessCode || isSigningOut) {
-      console.log('⚠️ [useMemories] No access code or user is signing out, skipping load');
-      setLoading(false);
-      return;
-    }
-
-    // Skip if we've already loaded this access code and not retrying
-    if (hasLoadedRef.current && currentAccessCodeRef.current === accessCode && !isRetry) {
-      console.log('✅ [useMemories] Data already loaded for current access code');
-      return;
-    }
-    
-    try {
-      console.log('🔄 [useMemories] Loading memories for access code:', accessCode);
-      setLoading(true);
-      setError(null);
-      currentAccessCodeRef.current = accessCode;
+    const loadMemories = async () => {
+      // Cancel any previous in-flight request
+      if (abortControllerRef.current) {
+        console.log('🛑 [useMemories] Cancelling previous request');
+        abortControllerRef.current.abort();
+      }
       
-      const result = await memoriesApi.fetchMemories(accessCode, abortControllerRef.current.signal);
+      // Create a new abort controller for this request
+      abortControllerRef.current = new AbortController();
       
-      // Check if request was aborted or component unmounted
-      if (abortControllerRef.current.signal.aborted || !mountedRef.current || isSigningOut) {
-        console.log('🛑 [useMemories] Request aborted or component unmounted, skipping state update');
+      if (!accessCode || isSigningOut) {
+        setLoading(false);
         return;
       }
       
-      if (result.success && result.data) {
-        console.log('✅ [useMemories] Memories loaded successfully:', result.data.length);
-        setMemories(result.data);
-        hasLoadedRef.current = true;
-      } else {
-        console.error('❌ [useMemories] Error loading memories:', result.error);
-        setError(result.error || 'Failed to load memories');
-      }
-    } catch (error) {
-      // Only update state if not aborted and still mounted
-      if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
-        console.error('❌ [useMemories] Error loading memories:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      try {
+        setLoading(true);
+        setError(null);
         
-        // Don't show abort errors to the user
-        if (errorMessage !== 'Operation aborted by user' && errorMessage !== 'Request aborted') {
-          setError(errorMessage);
+        // Try using the optimized function first
+        try {
+          const { data: functionData, error: functionError } = await supabase.rpc('get_memories_by_access_code', {
+            access_code_param: accessCode
+          });
+          
+          if (!functionError && functionData) {
+            // Check if request was aborted or component unmounted
+            if (abortControllerRef.current.signal.aborted || !mountedRef.current || isSigningOut) {
+              console.log('🛑 [useMemories] Request aborted or component unmounted, skipping state update');
+              return;
+            }
+            
+            // Transform the data to match Memory type
+            const transformedMemories: Memory[] = functionData.map((item: any) => ({
+              id: item.id,
+              image: item.media_url,
+              caption: item.caption || undefined,
+              date: new Date(item.event_date),
+              location: item.location || undefined,
+              likes: item.likes,
+              isLiked: item.is_liked || false,
+              isVideo: item.is_video,
+              type: 'memory' as const,
+              accessCode: item.access_code || accessCode,
+              createdBy: item.created_by || undefined
+            }));
+            
+            setMemories(transformedMemories);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+          
+          console.warn('⚠️ [useMemories] Function call failed, falling back to API:', functionError);
+        } catch (err) {
+          console.warn('⚠️ [useMemories] Function call exception, falling back to API:', err);
+        }
+        
+        // Fall back to the regular API call
+        const result = await memoriesApi.fetchMemories(accessCode, abortControllerRef.current.signal);
+        
+        // Check if request was aborted or component unmounted
+        if (abortControllerRef.current.signal.aborted || !mountedRef.current || isSigningOut) {
+          console.log('🛑 [useMemories] Request aborted or component unmounted, skipping state update');
+          return;
+        }
+        
+        if (result.success && result.data) {
+          setMemories(result.data);
+        } else {
+          console.error('Error loading memories:', result.error);
+          setError(result.error || 'Failed to load memories');
+        }
+      } catch (error) {
+        // Only update state if not aborted and still mounted
+        if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
+          console.error('Error loading memories:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          
+          // Don't show abort errors to the user
+          if (errorMessage !== 'Operation aborted by user' && errorMessage !== 'Request aborted') {
+            setError(errorMessage);
+          }
+        }
+      } finally {
+        // Only update loading state if not aborted and still mounted
+        if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
+          setLoading(false);
         }
       }
-    } finally {
-      // Only update loading state if not aborted and still mounted
-      if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
-        console.log('✅ [useMemories] Finished loading memories');
-        setLoading(false);
-      }
-    }
-  }, [accessCode, isSigningOut]);
-  
-  useEffect(() => {
-    mountedRef.current = true;
-    hasLoadedRef.current = false;
+    };
     
-    if (accessCode) {
-      console.log('🔄 [useMemories] Access code changed, loading memories');
-      loadMemories();
-    } else {
-      console.log('⚠️ [useMemories] No access code provided');
-      setMemories([]);
-      setLoading(false);
-      setError(null);
-    }
+    loadMemories();
     
     return () => {
       mountedRef.current = false;
@@ -123,7 +139,7 @@ export function useMemories(accessCode?: string) {
         abortControllerRef.current = null;
       }
     };
-  }, [accessCode, loadMemories]);
+  }, [accessCode, isSigningOut]);
 
   return {
     memories,
@@ -135,9 +151,22 @@ export function useMemories(accessCode?: string) {
     createMemory: executeCreateMemory,
     refreshMemories: () => {
       if (accessCode && !isSigningOut) {
-        console.log('🔄 [useMemories] Manual refresh triggered');
-        hasLoadedRef.current = false;
-        loadMemories(true);
+        // Cancel any previous in-flight request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        
+        // Create a new abort controller for this request
+        abortControllerRef.current = new AbortController();
+        
+        memoriesApi.fetchMemories(accessCode, abortControllerRef.current.signal).then(result => {
+          // Only update state if not aborted and still mounted
+          if (!abortControllerRef.current?.signal.aborted && mountedRef.current && !isSigningOut) {
+            if (result.success && result.data) {
+              setMemories(result.data);
+            }
+          }
+        });
       }
     }
   };
