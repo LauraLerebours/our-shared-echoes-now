@@ -19,6 +19,21 @@ export const boardsApi = {
           throw new Error('Request aborted');
         }
         
+        // Try using the optimized function first
+        try {
+          const { data: functionData, error: functionError } = await supabase.rpc('get_user_boards_fast', {
+            user_id: userId
+          });
+          
+          if (!functionError) {
+            return functionData || [];
+          }
+          
+          console.warn('⚠️ [boardsApi.fetchBoards] Function call failed, falling back to direct query:', functionError);
+        } catch (err) {
+          console.warn('⚠️ [boardsApi.fetchBoards] Function call exception, falling back to direct query:', err);
+        }
+
         // Test database connection first
         const { error: connectionError } = await supabase
           .from('user_profiles')
@@ -34,21 +49,6 @@ export const boardsApi = {
         // Check if the request has been aborted after connection test
         if (signal?.aborted) {
           throw new Error('Request aborted');
-        }
-
-        // Try using the optimized function first
-        try {
-          const { data: functionData, error: functionError } = await supabase.rpc('get_user_boards_fast', {
-            user_id: userId
-          });
-          
-          if (!functionError) {
-            return functionData || [];
-          }
-          
-          console.warn('⚠️ [boardsApi.fetchBoards] Function call failed, falling back to direct query:', functionError);
-        } catch (err) {
-          console.warn('⚠️ [boardsApi.fetchBoards] Function call exception, falling back to direct query:', err);
         }
 
         // Fallback to direct query if function fails
@@ -338,7 +338,7 @@ export const boardsApi = {
           throw new Error(`Failed to join board: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.addUserToBoard] Success');
+        console.log('✅ [boardsApi.addUserToBoard] Success:', data);
         return data as { success: boolean; message: string; board_id?: string };
       }, 3, 1000);
     }, 'addUserToBoard');
@@ -367,7 +367,7 @@ export const boardsApi = {
 
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        const { data: success, error } = await supabase.rpc('remove_board_member', {
+        const { data, error } = await supabase.rpc('remove_board_member', {
           board_id: boardId,
           user_id: userId
         });
@@ -386,8 +386,8 @@ export const boardsApi = {
           throw new Error(`Failed to remove user: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.removeUserFromBoard] Success');
-        return success;
+        console.log('✅ [boardsApi.removeUserFromBoard] Success:', data);
+        return data;
       }, 3, 1000);
     }, 'removeUserFromBoard');
 
@@ -395,6 +395,15 @@ export const boardsApi = {
       return { success: false, message: result.error || 'Failed to remove user from board' };
     }
 
+    // Check if the result is a JSON object with success property
+    if (typeof result.data === 'object' && result.data !== null && 'success' in result.data) {
+      return {
+        success: result.data.success,
+        message: result.data.message || 'Successfully processed board membership'
+      };
+    }
+
+    // For backward compatibility with boolean return type
     return {
       success: !!result.data,
       message: result.data ? 'Successfully removed from board' : 'You are not a member of this board'

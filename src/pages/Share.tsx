@@ -100,7 +100,7 @@ const Share = () => {
       if (result.success) {
         toast({
           title: 'Success!',
-          description: result.message,
+          description: result.message || 'You have successfully joined the board.',
         });
         setJoinCode('');
         
@@ -112,17 +112,17 @@ const Share = () => {
         navigate('/boards');
       } else {
         toast({
-          title: 'Error',
-          description: result.message,
           variant: 'destructive',
+          title: 'Could not join board',
+          description: result.message || 'Failed to join board. Please check the share code and try again.',
         });
       }
     } catch (error) {
       console.error('Error joining board:', error);
       toast({
+        variant: 'destructive',
         title: 'Error',
         description: 'Failed to join board. Please try again.',
-        variant: 'destructive',
       });
     } finally {
       setIsJoining(false);
