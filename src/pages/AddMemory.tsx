@@ -14,7 +14,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
@@ -30,7 +30,8 @@ const AddMemory = () => {
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   const [uploading, setUploading] = useState(false);
   const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
-  const { user } = useAuth();
+  const [selectedBoard, setSelectedBoard] = useState<{id: string, name: string} | null>(null);
+  const { user, userProfile } = useAuth();
   
   useEffect(() => {
     const initializeBoard = async () => {
@@ -46,6 +47,7 @@ const AddMemory = () => {
           const board = boards.find(b => b.id === boardId);
           if (board) {
             setSelectedAccessCode(board.access_code);
+            setSelectedBoard({id: board.id, name: board.name});
             return;
           }
         }
@@ -53,11 +55,13 @@ const AddMemory = () => {
         // If no specific board or board not found, use first available board or create new one
         if (boards.length > 0) {
           setSelectedAccessCode(boards[0].access_code);
+          setSelectedBoard({id: boards[0].id, name: boards[0].name});
         } else {
           // Create a default board if none exist
           const newBoard = await createBoard('My Memories', user.id);
           if (newBoard) {
             setSelectedAccessCode(newBoard.access_code);
+            setSelectedBoard({id: newBoard.id, name: newBoard.name});
           } else {
             throw new Error('Failed to create default board');
           }
@@ -126,6 +130,41 @@ const AddMemory = () => {
     }
   };
 
+  const sendNotification = async (memoryId: string, boardId: string, caption: string) => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hhcoeuedfeoudgxtttgn.supabase.co';
+      const apiUrl = `${supabaseUrl}/functions/v1/send-memory-notification`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          memory_id: memoryId,
+          board_id: boardId,
+          creator_name: userProfile?.name || 'A user',
+          memory_caption: caption,
+          board_name: selectedBoard?.name || 'Shared Board'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to send notification:', errorText);
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log('Notification sent:', result);
+      return true;
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -147,7 +186,7 @@ const AddMemory = () => {
       return;
     }
 
-    if (!selectedAccessCode) {
+    if (!selectedAccessCode || !selectedBoard) {
       toast({
         title: "Error",
         description: "No board selected",
@@ -160,8 +199,9 @@ const AddMemory = () => {
     
     try {
       // Create a new memory object
+      const memoryId = uuidv4();
       const newMemory: Memory = {
-        id: uuidv4(),
+        id: memoryId,
         image: previewMedia,
         caption,
         date,
@@ -186,6 +226,19 @@ const AddMemory = () => {
         title: "Memory saved",
         description: "Your memory has been added successfully",
       });
+      
+      // Send notification to board members
+      sendNotification(memoryId, selectedBoard.id, caption)
+        .then(success => {
+          if (success) {
+            console.log('Notification sent to board members');
+          } else {
+            console.warn('Failed to send notification to board members');
+          }
+        })
+        .catch(error => {
+          console.error('Error sending notification:', error);
+        });
       
       // Navigate back to the home page
       navigate('/');

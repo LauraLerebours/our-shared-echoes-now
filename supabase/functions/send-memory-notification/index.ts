@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,15 +62,25 @@ serve(async (req) => {
       )
     }
 
+    // Get user profiles for all members to get their emails
+    const { data: userProfiles, error: profilesError } = await supabaseClient
+      .from('user_profiles')
+      .select('id')
+      .in('id', memberIds)
+
+    if (profilesError) {
+      throw new Error(`Failed to fetch user profiles: ${profilesError.message}`)
+    }
+
     // Get email addresses for all members
-    const { data: users, error: usersError } = await supabaseClient.auth.admin.listUsers()
+    const { data: authUsers, error: usersError } = await supabaseClient.auth.admin.listUsers()
 
     if (usersError) {
       throw new Error(`Failed to fetch users: ${usersError.message}`)
     }
 
     // Filter users to only include board members
-    const memberEmails = users.users
+    const memberEmails = authUsers.users
       .filter(user => memberIds.includes(user.id))
       .map(user => user.email)
       .filter(email => email) // Remove any undefined emails
@@ -85,7 +95,7 @@ serve(async (req) => {
     // Send emails to all members
     const emailPromises = memberEmails.map(async (email) => {
       try {
-        // Using Resend with custom domain
+        // Using Resend API for email sending
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
