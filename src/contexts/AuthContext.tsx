@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -97,39 +97,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signOut = useCallback(async () => {
-    try {
-      console.log('🔄 Signing out user');
-      setIsSigningOut(true);
-      
-      // Mark auth state as inactive to cancel any ongoing operations
-      authStateRef.current.isActive = false;
-      
-      // Clear user profile state immediately
-      setUserProfile(null);
-      setUser(null);
-      setSession(null);
-      
-      // Cancel any in-flight requests
-      // This is handled in the hooks by checking isSigningOut
-      
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('❌ Sign out error:', error);
-      }
-      
-      console.log('✅ Sign out successful');
-    } catch (error) {
-      console.error('❌ Sign out error:', error);
-    } finally {
-      setIsSigningOut(false);
-      
-      // Reset auth state to active after signout completes
-      // This is important for when the user signs in again
-      authStateRef.current.isActive = true;
-    }
-  }, []);
-
   useEffect(() => {
     // Reset the auth state ref when component mounts
     authStateRef.current.isActive = true;
@@ -148,8 +115,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (error.message?.includes('Invalid Refresh Token') || 
               error.message?.includes('Refresh Token Not Found')) {
             console.log('⚠️ Invalid refresh token detected, clearing session...');
-            // Call signOut immediately and synchronously to clear states
-            await signOut();
+            // Clear any stale session data
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setUserProfile(null);
           }
         } else {
           console.log('✅ Initial session retrieved:', !!session);
@@ -177,7 +147,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('❌ Error getting initial session:', error);
         
         // Handle any other authentication errors by clearing session
-        await signOut();
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.error('❌ Error during signOut cleanup:', signOutError);
+        }
+        
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
       } finally {
         // Only update loading state if component is still mounted and auth is active
         if (authStateRef.current.isActive) {
@@ -255,11 +233,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authStateRef.current.isActive = false;
       subscription.unsubscribe();
     };
-  }, [signOut]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
       console.log('🔄 Signing in user:', email);
+      
+      // Clear any existing session first to prevent token conflicts
+      await supabase.auth.signOut();
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -272,6 +253,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('✅ Sign in successful');
+      
+      // Explicitly set the user and session
+      setUser(data.user);
+      setSession(data.session);
+      
+      // Fetch user profile
+      if (data.user) {
+        const profile = await fetchUserProfile(data.user.id);
+        setUserProfile(profile);
+      }
+      
       return { error: null };
     } catch (error) {
       console.error('❌ Sign in error:', error);
@@ -304,6 +296,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('❌ Sign up error:', error);
       return { error: error as AuthError, user: null };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      console.log('🔄 Signing out user');
+      setIsSigningOut(true);
+      
+      // Mark auth state as inactive to cancel any ongoing operations
+      authStateRef.current.isActive = false;
+      
+      // Cancel any in-flight requests
+      // This is handled in the hooks by checking isSigningOut
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('❌ Sign out error:', error);
+      }
+      
+      // Clear user profile state
+      setUserProfile(null);
+      setUser(null);
+      setSession(null);
+      
+      console.log('✅ Sign out successful');
+    } catch (error) {
+      console.error('❌ Sign out error:', error);
+    } finally {
+      setIsSigningOut(false);
+      
+      // Reset auth state to active after signout completes
+      // This is important for when the user signs in again
+      authStateRef.current.isActive = true;
     }
   };
 

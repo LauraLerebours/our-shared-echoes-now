@@ -120,6 +120,14 @@ const Auth = () => {
     setShowEmailNotConfirmed(false);
 
     try {
+      // First, try to sign out to clear any existing session
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.warn('Warning during pre-signin cleanup:', signOutError);
+        // Continue with sign in attempt even if signOut fails
+      }
+      
       const { error } = await signIn(signInEmail, signInPassword);
 
       if (error) {
@@ -145,14 +153,14 @@ const Auth = () => {
           title: 'Sign in failed',
           description: errorMessage,
         });
-        setIsSigningIn(false);
         return;
       }
 
       console.log('✅ Sign in successful');
       toast({ title: 'Welcome back!' });
-      // Explicitly navigate to home page after successful sign in
-      navigate('/');
+      
+      // Explicitly navigate to home page after successful login
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('❌ Sign in error:', error);
       toast({
@@ -160,6 +168,7 @@ const Auth = () => {
         title: 'Sign in failed',
         description: 'An unexpected error occurred. Please try again.',
       });
+    } finally {
       setIsSigningIn(false);
     }
   };
@@ -219,7 +228,6 @@ const Auth = () => {
           title: 'Sign up failed',
           description: errorMessage,
         });
-        setIsSigningUp(false);
         return;
       }
 
@@ -235,7 +243,6 @@ const Auth = () => {
         setSignUpPassword('');
         setSignUpName('');
       }
-      setIsSigningUp(false);
     } catch (error) {
       console.error('❌ Sign up error:', error);
       toast({
@@ -243,6 +250,7 @@ const Auth = () => {
         title: 'Sign up failed',
         description: 'An unexpected error occurred. Please try again.',
       });
+    } finally {
       setIsSigningUp(false);
     }
   };
