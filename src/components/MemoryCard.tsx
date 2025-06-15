@@ -144,9 +144,18 @@ const MemoryCard = ({
     setIsLiking(true);
     
     try {
+      // Optimistically update UI first
+      const newIsLiked = !currentIsLiked;
+      const newLikes = newIsLiked ? currentLikes + 1 : currentLikes - 1;
+      
+      setCurrentIsLiked(newIsLiked);
+      setCurrentLikes(newLikes);
+      
+      // Call API to update the like status
       const result = await toggleMemoryLike(id, accessCode);
       
       if (result && result.success) {
+        // Update with actual server values
         setCurrentLikes(result.likes);
         setCurrentIsLiked(result.isLiked);
         onLike(id, result.likes, result.isLiked);
@@ -156,6 +165,10 @@ const MemoryCard = ({
           description: result.isLiked ? "You liked this memory" : "You removed your like",
         });
       } else {
+        // Revert to original values if API call fails
+        setCurrentIsLiked(isLiked);
+        setCurrentLikes(likes);
+        
         toast({
           title: "Error",
           description: "Failed to update like. Please try again.",
@@ -164,6 +177,10 @@ const MemoryCard = ({
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+      // Revert to original values
+      setCurrentIsLiked(isLiked);
+      setCurrentLikes(likes);
+      
       toast({
         title: "Error",
         description: "Failed to update like. Please try again.",

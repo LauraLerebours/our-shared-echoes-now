@@ -509,24 +509,37 @@ export const memoriesApi = {
           newIsLiked 
         });
         
-        const { data, error } = await supabase
-          .from('memories')
-          .update({ 
-            likes: newLikes,
-            is_liked: newIsLiked
-          })
-          .eq('id', id)
-          .eq('access_code', accessCode)
-          .select()
-          .single();
+        // Use a direct RPC call to update the likes to avoid RLS issues
+        const { data, error } = await supabase.rpc('toggle_memory_like', {
+          memory_id: id,
+          memory_access_code: accessCode
+        });
         
         if (error) {
           console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
-          throw new Error(error.message);
+          
+          // Fall back to direct update if RPC fails
+          console.log('🔄 [memoriesApi.toggleMemoryLike] RPC failed, falling back to direct update');
+          const { data: updateData, error: updateError } = await supabase
+            .from('memories')
+            .update({ 
+              likes: newLikes,
+              is_liked: newIsLiked
+            })
+            .eq('id', id)
+            .eq('access_code', accessCode)
+            .select()
+            .single();
+            
+          if (updateError) {
+            throw new Error(updateError.message);
+          }
+          
+          return { likes: updateData.likes, isLiked: updateData.is_liked };
         }
         
-        console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully');
-        return { likes: data.likes, isLiked: data.is_liked };
+        console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully via RPC');
+        return data || { likes: newLikes, isLiked: newIsLiked };
       }, 3, 1000);
       
       console.log('✅ [memoriesApi.toggleMemoryLike] Success');

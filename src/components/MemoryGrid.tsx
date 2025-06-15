@@ -130,22 +130,43 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
   const handleLike = async (memory: Memory) => {
     if (likingMemories.has(memory.id)) return;
 
+    // Optimistically update UI
+    const newIsLiked = !memory.isLiked;
+    const newLikes = newIsLiked ? memory.likes + 1 : memory.likes - 1;
+    
+    if (onUpdateMemory) {
+      onUpdateMemory(memory.id, {
+        likes: newLikes,
+        isLiked: newIsLiked
+      });
+    }
+
     setLikingMemories(prev => new Set(prev).add(memory.id));
     
     try {
       const result = await toggleMemoryLike(memory.id, memory.accessCode);
       
-      if (result && result.success && onUpdateMemory) {
-        onUpdateMemory(memory.id, {
-          likes: result.likes,
-          isLiked: result.isLiked
-        });
+      if (result && result.success) {
+        if (onUpdateMemory) {
+          onUpdateMemory(memory.id, {
+            likes: result.likes,
+            isLiked: result.isLiked
+          });
+        }
         
         toast({
           title: result.isLiked ? "Liked!" : "Unliked",
           description: result.isLiked ? "You liked this memory" : "You removed your like",
         });
       } else {
+        // Revert to original values if API call fails
+        if (onUpdateMemory) {
+          onUpdateMemory(memory.id, {
+            likes: memory.likes,
+            isLiked: memory.isLiked
+          });
+        }
+        
         toast({
           title: "Error",
           description: "Failed to update like. Please try again.",
@@ -154,6 +175,14 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+      // Revert to original values
+      if (onUpdateMemory) {
+        onUpdateMemory(memory.id, {
+          likes: memory.likes,
+          isLiked: memory.isLiked
+        });
+      }
+      
       toast({
         title: "Error",
         description: "Failed to update like. Please try again.",

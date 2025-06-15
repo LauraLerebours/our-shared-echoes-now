@@ -337,21 +337,22 @@ const Auth = () => {
 
       if (user) {
         console.log('✅ Sign up successful');
-        setEmailSent(true);
+        // Since email confirmation is disabled, we can directly sign in the user
         toast({
           title: 'Account created',
-          description: 'Please check your email to verify your account. After verification, return here to sign in.',
+          description: 'Your account has been created successfully. You are now signed in.',
         });
+        
         // Clear the form
         setSignUpEmail('');
         setSignUpPassword('');
         setSignUpName('');
         
-        // Switch to sign-in tab
-        setActiveTab('sign-in');
-        
         // Clear auth state from localStorage
         localStorage.removeItem('thisisus_auth_state');
+        
+        // Navigate to home page
+        navigate('/');
       }
     } catch (error) {
       console.error('❌ Sign up error:', error);

@@ -257,6 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔄 Signing up user:', email);
       
+      // Disable email confirmation for development
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -264,7 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             name: name,
           },
-          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
+          // Comment out emailRedirectTo to disable email confirmation
+          // emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         },
       });
 
@@ -274,6 +276,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('✅ Sign up successful');
+      
+      // If email confirmation is disabled, create user profile immediately
+      if (data.user) {
+        await createOrUpdateProfile(data.user.id, name);
+      }
+      
       return { error: null, user: data.user };
     } catch (error) {
       console.error('❌ Sign up error:', error);
