@@ -69,5 +69,11 @@ export const toggleMemoryLike = async (id: string, accessCode: string) => {
   } : null;
 };
 
+// New function to update memory details
+export const updateMemoryDetails = async (id: string, accessCode: string, updates: { caption?: string; location?: string; date?: Date }) => {
+  const result = await memoriesApi.updateMemoryDetails(id, accessCode, updates);
+  return result.success ? result.data : null;
+};
+
 // Keep backward compatibility
 export const deleteBoard = removeUserFromBoard;

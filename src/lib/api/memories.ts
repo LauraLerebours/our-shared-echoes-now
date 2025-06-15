@@ -480,47 +480,54 @@ export const memoriesApi = {
       
       console.log('🔄 [memoriesApi.toggleMemoryLike] Fetching current memory state');
       const result = await withRetry(async () => {
-        // First get the current memory
-        const { data: currentMemory, error: fetchError } = await supabase
-          .from('memories')
-          .select('*')
-          .eq('id', id)
-          .eq('access_code', accessCode)
-          .single();
-        
-        if (fetchError) {
-          console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
+        // Try using the RPC function first
+        try {
+          console.log('🔄 [memoriesApi.toggleMemoryLike] Using RPC function');
+          const { data, error } = await supabase.rpc('toggle_memory_like', {
+            memory_access_code: accessCode,
+            memory_id: id
+          });
           
-          if (fetchError.message?.includes('relation') && fetchError.message?.includes('does not exist')) {
-            throw new Error('Database tables are missing. Please run database migrations.');
+          if (error) {
+            console.error('❌ [memoriesApi.toggleMemoryLike] RPC error:', error);
+            throw error;
           }
           
-          throw new Error(fetchError.message);
-        }
-        
-        // Toggle the like
-        const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
-        const newIsLiked = !currentMemory.is_liked;
-        
-        console.log('🔄 [memoriesApi.toggleMemoryLike] Updating like state:', { 
-          oldLikes: currentMemory.likes, 
-          newLikes, 
-          oldIsLiked: currentMemory.is_liked, 
-          newIsLiked 
-        });
-        
-        // Use a direct RPC call to update the likes to avoid RLS issues
-        const { data, error } = await supabase.rpc('toggle_memory_like', {
-          memory_access_code: accessCode,
-          memory_id: id
-        });
-        
-        if (error) {
-          console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
+          console.log('✅ [memoriesApi.toggleMemoryLike] RPC successful:', data);
+          return data;
+        } catch (rpcError) {
+          console.warn('⚠️ [memoriesApi.toggleMemoryLike] RPC failed, falling back to direct update:', rpcError);
           
-          // Fall back to direct update if RPC fails
-          console.log('🔄 [memoriesApi.toggleMemoryLike] RPC failed, falling back to direct update');
-          const { data: updateData, error: updateError } = await supabase
+          // First get the current memory
+          const { data: currentMemory, error: fetchError } = await supabase
+            .from('memories')
+            .select('*')
+            .eq('id', id)
+            .eq('access_code', accessCode)
+            .single();
+          
+          if (fetchError) {
+            console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
+            
+            if (fetchError.message?.includes('relation') && fetchError.message?.includes('does not exist')) {
+              throw new Error('Database tables are missing. Please run database migrations.');
+            }
+            
+            throw new Error(fetchError.message);
+          }
+          
+          // Toggle the like
+          const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
+          const newIsLiked = !currentMemory.is_liked;
+          
+          console.log('🔄 [memoriesApi.toggleMemoryLike] Updating like state:', { 
+            oldLikes: currentMemory.likes, 
+            newLikes, 
+            oldIsLiked: currentMemory.is_liked, 
+            newIsLiked 
+          });
+          
+          const { data, error } = await supabase
             .from('memories')
             .update({ 
               likes: newLikes,
@@ -530,16 +537,15 @@ export const memoriesApi = {
             .eq('access_code', accessCode)
             .select()
             .single();
-            
-          if (updateError) {
-            throw new Error(updateError.message);
+          
+          if (error) {
+            console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
+            throw new Error(error.message);
           }
           
-          return { likes: updateData.likes, isLiked: updateData.is_liked };
+          console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully');
+          return { likes: data.likes, isLiked: data.is_liked };
         }
-        
-        console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully via RPC');
-        return data || { likes: newLikes, isLiked: newIsLiked };
       }, 3, 1000);
       
       console.log('✅ [memoriesApi.toggleMemoryLike] Success');
@@ -547,6 +553,101 @@ export const memoriesApi = {
     } catch (error) {
       console.error('❌ [memoriesApi.toggleMemoryLike] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle memory like' };
+    }
+  },
+
+  async updateMemoryDetails(
+    id: string, 
+    accessCode: string, 
+    updates: { caption?: string; location?: string; date?: Date }
+  ): Promise<ApiResponse<Memory>> {
+    try {
+      console.log('🔄 [memoriesApi.updateMemoryDetails] Starting for ID:', id);
+      
+      // Try using the RPC function first
+      try {
+        console.log('🔄 [memoriesApi.updateMemoryDetails] Using RPC function');
+        const { data, error } = await supabase.rpc('update_memory_details', {
+          memory_id: id,
+          memory_caption: updates.caption,
+          memory_location: updates.location,
+          memory_date: updates.date ? updates.date.toISOString() : null
+        });
+        
+        if (error) {
+          console.error('❌ [memoriesApi.updateMemoryDetails] RPC error:', error);
+          throw error;
+        }
+        
+        console.log('✅ [memoriesApi.updateMemoryDetails] RPC successful:', data);
+        
+        // Fetch the updated memory to return
+        const { data: updatedMemory, error: fetchError } = await supabase
+          .from('memories')
+          .select('*')
+          .eq('id', id)
+          .single();
+          
+        if (fetchError) {
+          throw fetchError;
+        }
+        
+        const memory: Memory = {
+          id: updatedMemory.id,
+          image: updatedMemory.media_url,
+          caption: updatedMemory.caption || undefined,
+          date: new Date(updatedMemory.event_date),
+          location: updatedMemory.location || undefined,
+          likes: updatedMemory.likes,
+          isLiked: updatedMemory.is_liked || false,
+          isVideo: updatedMemory.is_video,
+          type: 'memory' as const,
+          accessCode: updatedMemory.access_code || '',
+          createdBy: updatedMemory.created_by || undefined
+        };
+        
+        return { success: true, data: memory };
+      } catch (rpcError) {
+        console.warn('⚠️ [memoriesApi.updateMemoryDetails] RPC failed, falling back to direct update:', rpcError);
+        
+        // Fall back to direct update
+        const dbUpdates: any = {};
+        if (updates.caption !== undefined) dbUpdates.caption = updates.caption;
+        if (updates.location !== undefined) dbUpdates.location = updates.location;
+        if (updates.date !== undefined) dbUpdates.event_date = updates.date.toISOString();
+        
+        const { data, error } = await supabase
+          .from('memories')
+          .update(dbUpdates)
+          .eq('id', id)
+          .eq('access_code', accessCode)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('❌ [memoriesApi.updateMemoryDetails] Update error:', error);
+          throw new Error(error.message);
+        }
+        
+        const memory: Memory = {
+          id: data.id,
+          image: data.media_url,
+          caption: data.caption || undefined,
+          date: new Date(data.event_date),
+          location: data.location || undefined,
+          likes: data.likes,
+          isLiked: data.is_liked || false,
+          isVideo: data.is_video,
+          type: 'memory' as const,
+          accessCode: data.access_code || '',
+          createdBy: data.created_by || undefined
+        };
+        
+        return { success: true, data: memory };
+      }
+    } catch (error) {
+      console.error('❌ [memoriesApi.updateMemoryDetails] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to update memory details' };
     }
   }
 };
