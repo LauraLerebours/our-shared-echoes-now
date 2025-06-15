@@ -31,7 +31,25 @@ const isPageRefresh = window.performance &&
                      ((window.performance.navigation && window.performance.navigation.type === 1) || 
                       document.referrer.includes(window.location.host));
 
-// Custom fetch function to handle logout session_not_found errors
+// Helper function to clear Supabase auth tokens from localStorage
+const clearSupabaseAuthTokens = () => {
+  try {
+    // Extract project ref from URL for token key construction
+    const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0];
+    if (projectRef) {
+      const authTokenKey = `sb-${projectRef}-auth-token`;
+      const pkceCodeVerifierKey = `sb-${projectRef}-auth-pkce-code-verifier`;
+      
+      console.log('🧹 Clearing invalid Supabase auth tokens from localStorage');
+      localStorage.removeItem(authTokenKey);
+      localStorage.removeItem(pkceCodeVerifierKey);
+    }
+  } catch (error) {
+    console.warn('⚠️ Error clearing Supabase auth tokens:', error);
+  }
+};
+
+// Custom fetch function to handle logout session_not_found errors and refresh token errors
 const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
   const response = await fetch(url, options);
   
@@ -57,6 +75,38 @@ const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promi
     } catch (parseError) {
       // If we can't parse the response, let the original response through
       console.warn('⚠️ [Supabase] Error parsing response:', parseError);
+    }
+  }
+  
+  // Check if this is a token refresh request that failed with refresh_token_not_found
+  if (typeof url === 'string' && url.includes('/auth/v1/token') && response.status === 400) {
+    try {
+      // Clone the response to avoid consuming the original stream
+      const clonedResponse = response.clone();
+      const responseText = await clonedResponse.text();
+      const errorData = JSON.parse(responseText);
+      
+      if (errorData.code === 'refresh_token_not_found') {
+        console.log('🔄 [Supabase] Invalid refresh token detected, clearing auth tokens and forcing re-authentication');
+        
+        // Clear the invalid tokens from localStorage
+        clearSupabaseAuthTokens();
+        
+        // Return a 401 Unauthorized response to trigger SIGNED_OUT event
+        return new Response(JSON.stringify({ 
+          error: 'invalid_refresh_token',
+          message: 'Refresh token not found, please sign in again' 
+        }), {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+    } catch (parseError) {
+      // If we can't parse the response, let the original response through
+      console.warn('⚠️ [Supabase] Error parsing token refresh response:', parseError);
     }
   }
   
