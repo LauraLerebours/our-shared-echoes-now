@@ -511,8 +511,8 @@ export const memoriesApi = {
         
         // Use a direct RPC call to update the likes to avoid RLS issues
         const { data, error } = await supabase.rpc('toggle_memory_like', {
-          memory_id: id,
-          memory_access_code: accessCode
+          memory_access_code: accessCode,
+          memory_id: id
         });
         
         if (error) {
