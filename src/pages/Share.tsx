@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, Copy, Share2, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchBoards, addUserToBoard } from '@/lib/db';
+import { fetchBoards, addUserToBoard, getBoardByShareCode } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -95,11 +95,25 @@ const Share = () => {
 
     setIsJoining(true);
     try {
+      // First, get the board name using the share code
+      const boardData = await getBoardByShareCode(joinCode.trim().toUpperCase());
+      
+      if (!boardData) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid share code',
+          description: 'This share code doesn\'t exist or has expired.',
+        });
+        setIsJoining(false);
+        return;
+      }
+
       const result = await addUserToBoard(joinCode.trim().toUpperCase(), user.id);
       
       if (result.success) {
+        // Show welcome message with board name
         toast({
-          title: 'Success!',
+          title: `Welcome to "${boardData.name}"! 🎉`,
           description: result.message || 'You have successfully joined the board.',
         });
         setJoinCode('');
