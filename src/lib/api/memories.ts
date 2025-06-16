@@ -39,7 +39,7 @@ export const memoriesApi = {
 
         console.log('🔄 [memoriesApi.fetchMemories] Fetching memories from database');
         const { data, error } = await supabase
-          .from('memories')
+          .from('memories_with_likes')
           .select('*')
           .eq('access_code', accessCode)
           .order('event_date', { ascending: false })
@@ -74,18 +74,31 @@ export const memoriesApi = {
       }
       
       // Transform database records to Memory type
-      const memories: Memory[] = result.map(record => ({
-        id: record.id,
-        image: record.media_url,
-        caption: record.caption || undefined,
-        date: new Date(record.event_date),
-        location: record.location || undefined,
-        likes: record.likes,
-        isLiked: record.is_liked || false,
-        isVideo: record.is_video,
-        type: 'memory' as const,
-        accessCode: record.access_code || accessCode,
-        createdBy: record.created_by || undefined
+      const memories: Memory[] = await Promise.all(result.map(async (record) => {
+        // Get current user's like status for this memory
+        let isLiked = false;
+        try {
+          const { data: likeStatus } = await supabase.rpc('get_memory_like_status', {
+            memory_id_param: record.id
+          });
+          isLiked = likeStatus?.isLiked || false;
+        } catch (error) {
+          console.warn('Could not get like status for memory:', record.id, error);
+        }
+
+        return {
+          id: record.id,
+          image: record.media_url,
+          caption: record.caption || undefined,
+          date: new Date(record.event_date),
+          location: record.location || undefined,
+          likes: record.total_likes || 0,
+          isLiked: isLiked,
+          isVideo: record.is_video,
+          type: 'memory' as const,
+          accessCode: record.access_code || accessCode,
+          createdBy: record.created_by || undefined
+        };
       }));
       
       console.log('✅ [memoriesApi.fetchMemories] Success:', memories.length);
@@ -164,7 +177,7 @@ export const memoriesApi = {
             
             console.log(`🔄 [Chunk ${index + 1}] Fetching memories from database`);
             const { data, error } = await supabase
-              .from('memories')
+              .from('memories_with_likes')
               .select('*')
               .in('access_code', chunk)
               .order('event_date', { ascending: false })
@@ -220,18 +233,31 @@ export const memoriesApi = {
       console.log('✅ [memoriesApi.fetchMemoriesByAccessCodes] Combined data:', allData.length, 'memories');
       
       // Transform database records to Memory type
-      const memories: Memory[] = allData.map(record => ({
-        id: record.id,
-        image: record.media_url,
-        caption: record.caption || undefined,
-        date: new Date(record.event_date),
-        location: record.location || undefined,
-        likes: record.likes,
-        isLiked: record.is_liked || false,
-        isVideo: record.is_video,
-        type: 'memory' as const,
-        accessCode: record.access_code || '',
-        createdBy: record.created_by || undefined
+      const memories: Memory[] = await Promise.all(allData.map(async (record) => {
+        // Get current user's like status for this memory
+        let isLiked = false;
+        try {
+          const { data: likeStatus } = await supabase.rpc('get_memory_like_status', {
+            memory_id_param: record.id
+          });
+          isLiked = likeStatus?.isLiked || false;
+        } catch (error) {
+          console.warn('Could not get like status for memory:', record.id, error);
+        }
+
+        return {
+          id: record.id,
+          image: record.media_url,
+          caption: record.caption || undefined,
+          date: new Date(record.event_date),
+          location: record.location || undefined,
+          likes: record.total_likes || 0,
+          isLiked: isLiked,
+          isVideo: record.is_video,
+          type: 'memory' as const,
+          accessCode: record.access_code || '',
+          createdBy: record.created_by || undefined
+        };
       }));
       
       // Sort by date (most recent first) and apply final limit
@@ -260,7 +286,7 @@ export const memoriesApi = {
       const result = await withRetry(async () => {
         console.log('🔄 [memoriesApi.getMemory] Fetching memory from database');
         const { data, error } = await supabase
-          .from('memories')
+          .from('memories_with_likes')
           .select('*')
           .eq('id', id)
           .single();
@@ -283,14 +309,25 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // Get current user's like status for this memory
+      let isLiked = false;
+      try {
+        const { data: likeStatus } = await supabase.rpc('get_memory_like_status', {
+          memory_id_param: result.id
+        });
+        isLiked = likeStatus?.isLiked || false;
+      } catch (error) {
+        console.warn('Could not get like status for memory:', result.id, error);
+      }
+
       const memory: Memory = {
         id: result.id,
         image: result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
-        likes: result.likes,
-        isLiked: result.is_liked || false,
+        likes: result.total_likes || 0,
+        isLiked: isLiked,
         isVideo: result.is_video,
         type: 'memory' as const,
         accessCode: result.access_code || '',
@@ -315,8 +352,6 @@ export const memoriesApi = {
         caption: memory.caption,
         event_date: memory.date.toISOString(),
         location: memory.location,
-        likes: memory.likes,
-        is_liked: memory.isLiked,
         is_video: memory.isVideo || false,
         access_code: memory.accessCode,
         created_by: memory.createdBy
@@ -350,8 +385,8 @@ export const memoriesApi = {
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
-        likes: result.likes,
-        isLiked: result.is_liked || false,
+        likes: 0, // New memories start with 0 likes
+        isLiked: false,
         isVideo: result.is_video,
         type: 'memory' as const,
         accessCode: result.access_code || '',
@@ -375,8 +410,6 @@ export const memoriesApi = {
       if (updates.caption !== undefined) dbUpdates.caption = updates.caption;
       if (updates.date !== undefined) dbUpdates.event_date = updates.date.toISOString();
       if (updates.location !== undefined) dbUpdates.location = updates.location;
-      if (updates.likes !== undefined) dbUpdates.likes = updates.likes;
-      if (updates.isLiked !== undefined) dbUpdates.is_liked = updates.isLiked;
       if (updates.isVideo !== undefined) dbUpdates.is_video = updates.isVideo;
       
       console.log('🔄 [memoriesApi.updateMemory] Updating memory in database');
@@ -402,14 +435,27 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // Get current like count and status
+      let likes = 0;
+      let isLiked = false;
+      try {
+        const { data: likeStatus } = await supabase.rpc('get_memory_like_status', {
+          memory_id_param: result.id
+        });
+        likes = likeStatus?.likes || 0;
+        isLiked = likeStatus?.isLiked || false;
+      } catch (error) {
+        console.warn('Could not get like status for memory:', result.id, error);
+      }
+
       const updatedMemory: Memory = {
         id: result.id,
         image: result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
-        likes: result.likes,
-        isLiked: result.is_liked || false,
+        likes: likes,
+        isLiked: isLiked,
         isVideo: result.is_video,
         type: 'memory' as const,
         accessCode: result.access_code || '',
@@ -458,8 +504,8 @@ export const memoriesApi = {
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
-        likes: result.likes,
-        isLiked: result.is_liked || false,
+        likes: 0, // Deleted memories have no likes
+        isLiked: false,
         isVideo: result.is_video,
         type: 'memory' as const,
         accessCode: result.access_code || '',
@@ -478,78 +524,23 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
-      console.log('🔄 [memoriesApi.toggleMemoryLike] Fetching current memory state');
+      console.log('🔄 [memoriesApi.toggleMemoryLike] Using new like system');
       const result = await withRetry(async () => {
-        // Try using the RPC function first
-        try {
-          console.log('🔄 [memoriesApi.toggleMemoryLike] Using RPC function');
-          const { data, error } = await supabase.rpc('toggle_memory_like', {
-            memory_access_code: accessCode,
-            memory_id: id
-          });
-          
-          if (error) {
-            console.error('❌ [memoriesApi.toggleMemoryLike] RPC error:', error);
-            throw error;
-          }
-          
-          console.log('✅ [memoriesApi.toggleMemoryLike] RPC successful:', data);
-          return data;
-        } catch (rpcError) {
-          console.warn('⚠️ [memoriesApi.toggleMemoryLike] RPC failed, falling back to direct update:', rpcError);
-          
-          // First get the current memory
-          const { data: currentMemory, error: fetchError } = await supabase
-            .from('memories')
-            .select('*')
-            .eq('id', id)
-            .eq('access_code', accessCode)
-            .single();
-          
-          if (fetchError) {
-            console.error('❌ [memoriesApi.toggleMemoryLike] Fetch error:', fetchError);
-            
-            if (fetchError.message?.includes('relation') && fetchError.message?.includes('does not exist')) {
-              throw new Error('Database tables are missing. Please run database migrations.');
-            }
-            
-            throw new Error(fetchError.message);
-          }
-          
-          // Toggle the like
-          const newLikes = currentMemory.is_liked ? currentMemory.likes - 1 : currentMemory.likes + 1;
-          const newIsLiked = !currentMemory.is_liked;
-          
-          console.log('🔄 [memoriesApi.toggleMemoryLike] Updating like state:', { 
-            oldLikes: currentMemory.likes, 
-            newLikes, 
-            oldIsLiked: currentMemory.is_liked, 
-            newIsLiked 
-          });
-          
-          const { data, error } = await supabase
-            .from('memories')
-            .update({ 
-              likes: newLikes,
-              is_liked: newIsLiked
-            })
-            .eq('id', id)
-            .eq('access_code', accessCode)
-            .select()
-            .single();
-          
-          if (error) {
-            console.error('❌ [memoriesApi.toggleMemoryLike] Update error:', error);
-            throw new Error(error.message);
-          }
-          
-          console.log('✅ [memoriesApi.toggleMemoryLike] Like state updated successfully');
-          return { likes: data.likes, isLiked: data.is_liked };
+        const { data, error } = await supabase.rpc('toggle_memory_like_v2', {
+          memory_id_param: id
+        });
+        
+        if (error) {
+          console.error('❌ [memoriesApi.toggleMemoryLike] RPC error:', error);
+          throw new Error(error.message);
         }
+        
+        console.log('✅ [memoriesApi.toggleMemoryLike] RPC successful:', data);
+        return data;
       }, 3, 1000);
       
       console.log('✅ [memoriesApi.toggleMemoryLike] Success');
-      return { success: true, data: result };
+      return { success: true, data: { likes: result.likes, isLiked: result.isLiked } };
     } catch (error) {
       console.error('❌ [memoriesApi.toggleMemoryLike] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to toggle memory like' };
@@ -564,87 +555,53 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.updateMemoryDetails] Starting for ID:', id);
       
-      // Try using the RPC function first
-      try {
-        console.log('🔄 [memoriesApi.updateMemoryDetails] Using RPC function');
-        const { data, error } = await supabase.rpc('update_memory_details', {
-          memory_id: id,
-          memory_caption: updates.caption,
-          memory_location: updates.location,
-          memory_date: updates.date ? updates.date.toISOString() : null
-        });
-        
-        if (error) {
-          console.error('❌ [memoriesApi.updateMemoryDetails] RPC error:', error);
-          throw error;
-        }
-        
-        console.log('✅ [memoriesApi.updateMemoryDetails] RPC successful:', data);
-        
-        // Fetch the updated memory to return
-        const { data: updatedMemory, error: fetchError } = await supabase
-          .from('memories')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (fetchError) {
-          throw fetchError;
-        }
-        
-        const memory: Memory = {
-          id: updatedMemory.id,
-          image: updatedMemory.media_url,
-          caption: updatedMemory.caption || undefined,
-          date: new Date(updatedMemory.event_date),
-          location: updatedMemory.location || undefined,
-          likes: updatedMemory.likes,
-          isLiked: updatedMemory.is_liked || false,
-          isVideo: updatedMemory.is_video,
-          type: 'memory' as const,
-          accessCode: updatedMemory.access_code || '',
-          createdBy: updatedMemory.created_by || undefined
-        };
-        
-        return { success: true, data: memory };
-      } catch (rpcError) {
-        console.warn('⚠️ [memoriesApi.updateMemoryDetails] RPC failed, falling back to direct update:', rpcError);
-        
-        // Fall back to direct update
-        const dbUpdates: any = {};
-        if (updates.caption !== undefined) dbUpdates.caption = updates.caption;
-        if (updates.location !== undefined) dbUpdates.location = updates.location;
-        if (updates.date !== undefined) dbUpdates.event_date = updates.date.toISOString();
-        
-        const { data, error } = await supabase
-          .from('memories')
-          .update(dbUpdates)
-          .eq('id', id)
-          .eq('access_code', accessCode)
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('❌ [memoriesApi.updateMemoryDetails] Update error:', error);
-          throw new Error(error.message);
-        }
-        
-        const memory: Memory = {
-          id: data.id,
-          image: data.media_url,
-          caption: data.caption || undefined,
-          date: new Date(data.event_date),
-          location: data.location || undefined,
-          likes: data.likes,
-          isLiked: data.is_liked || false,
-          isVideo: data.is_video,
-          type: 'memory' as const,
-          accessCode: data.access_code || '',
-          createdBy: data.created_by || undefined
-        };
-        
-        return { success: true, data: memory };
+      // Fall back to direct update
+      const dbUpdates: any = {};
+      if (updates.caption !== undefined) dbUpdates.caption = updates.caption;
+      if (updates.location !== undefined) dbUpdates.location = updates.location;
+      if (updates.date !== undefined) dbUpdates.event_date = updates.date.toISOString();
+      
+      const { data, error } = await supabase
+        .from('memories')
+        .update(dbUpdates)
+        .eq('id', id)
+        .eq('access_code', accessCode)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ [memoriesApi.updateMemoryDetails] Update error:', error);
+        throw new Error(error.message);
       }
+      
+      // Get current like count and status
+      let likes = 0;
+      let isLiked = false;
+      try {
+        const { data: likeStatus } = await supabase.rpc('get_memory_like_status', {
+          memory_id_param: data.id
+        });
+        likes = likeStatus?.likes || 0;
+        isLiked = likeStatus?.isLiked || false;
+      } catch (error) {
+        console.warn('Could not get like status for memory:', data.id, error);
+      }
+
+      const memory: Memory = {
+        id: data.id,
+        image: data.media_url,
+        caption: data.caption || undefined,
+        date: new Date(data.event_date),
+        location: data.location || undefined,
+        likes: likes,
+        isLiked: isLiked,
+        isVideo: data.is_video,
+        type: 'memory' as const,
+        accessCode: data.access_code || '',
+        createdBy: data.created_by || undefined
+      };
+      
+      return { success: true, data: memory };
     } catch (error) {
       console.error('❌ [memoriesApi.updateMemoryDetails] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to update memory details' };
