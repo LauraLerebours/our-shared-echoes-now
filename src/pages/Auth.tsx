@@ -38,10 +38,6 @@ const Auth = () => {
   const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
   const [activeTab, setActiveTab] = useState<string>('sign-in');
-  const [resetEmail, setResetEmail] = useState('');
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [showResetForm, setShowResetForm] = useState(false);
-  const [resetPasswordSent, setResetPasswordSent] = useState(false);
   const [animationVisible, setAnimationVisible] = useState(true);
 
   // Try to restore form state from localStorage
@@ -94,23 +90,6 @@ const Auth = () => {
       navigate('/auth', { replace: true });
     }
     
-    // Handle password reset success
-    if (type === 'recovery') {
-      console.log('✅ Password reset link clicked');
-      // Redirect to the reset password page with the access token
-      const accessToken = searchParams.get('access_token');
-      if (accessToken) {
-        navigate(`/reset-password?access_token=${accessToken}`, { replace: true });
-      } else {
-        toast({
-          title: 'Password Reset',
-          description: 'Please check your email for a link to reset your password.',
-        });
-        // Clear the URL parameters
-        navigate('/auth', { replace: true });
-      }
-    }
-    
     if (error) {
       console.error('❌ Auth error from URL:', error, errorDescription);
       toast({
@@ -160,51 +139,6 @@ const Auth = () => {
       });
     } finally {
       setIsResendingEmail(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!resetEmail.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Email required',
-        description: 'Please enter your email address.',
-      });
-      return;
-    }
-
-    setIsResettingPassword(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth?type=recovery`,
-      });
-
-      if (error) {
-        console.error('❌ Password reset request failed:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Password reset failed',
-          description: error.message,
-        });
-      } else {
-        console.log('✅ Password reset email sent');
-        setResetPasswordSent(true);
-        toast({
-          title: 'Password reset email sent',
-          description: 'Please check your email for a link to reset your password.',
-        });
-      }
-    } catch (error) {
-      console.error('❌ Password reset error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Password reset failed',
-        description: 'An unexpected error occurred. Please try again.',
-      });
-    } finally {
-      setIsResettingPassword(false);
     }
   };
 
@@ -463,21 +397,6 @@ const Auth = () => {
           </motion.div>
         )}
 
-        {resetPasswordSent && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert>
-              <AlertDescription>
-                We've sent a password reset link to your email address.
-                Please check your inbox (and spam folder) and follow the instructions to reset your password.
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-
         {showEmailNotConfirmed && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -512,161 +431,98 @@ const Auth = () => {
           </motion.div>
         )}
 
-        {showResetForm ? (
-          <motion.div 
-            className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
+        <motion.div 
+          className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Tabs 
+            defaultValue="sign-in" 
+            value={activeTab} 
+            onValueChange={setActiveTab} 
+            className="w-full"
           >
-            <h2 className="text-xl font-semibold mb-4">Reset Password</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  required
-                  disabled={isResettingPassword}
-                  autoComplete="email"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sign-in">
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    required
+                    disabled={isSigningIn}
+                    autoComplete="email"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    required
+                    disabled={isSigningIn}
+                    autoComplete="current-password"
+                  />
+                </div>
                 <Button
                   type="submit"
                   className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                  disabled={isResettingPassword || !resetEmail.trim()}
+                  disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
                 >
-                  {isResettingPassword ? 'Sending...' : 'Send Reset Link'}
+                  {isSigningIn ? 'Signing In...' : 'Sign In'}
                 </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="sign-up">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Your Name"
+                    value={signUpName}
+                    onChange={(e) => setSignUpName(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                    autoComplete="name"
+                  />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={signUpEmail}
+                    onChange={(e) => setSignUpEmail(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                    autoComplete="email"
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Password (min 6 characters)"
+                    value={signUpPassword}
+                    onChange={(e) => setSignUpPassword(e.target.value)}
+                    required
+                    disabled={isSigningUp}
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                </div>
                 <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setShowResetForm(false);
-                    setResetEmail('');
-                    setResetPasswordSent(false);
-                    setAnimationVisible(true);
-                  }}
+                  type="submit"
+                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                  disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
                 >
-                  Back to Sign In
+                  {isSigningUp ? 'Signing Up...' : 'Sign Up'}
                 </Button>
-              </div>
-            </form>
-          </motion.div>
-        ) : (
-          <motion.div 
-            className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Tabs 
-              defaultValue="sign-in" 
-              value={activeTab} 
-              onValueChange={setActiveTab} 
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-                <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="sign-in">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={signInEmail}
-                      onChange={(e) => setSignInEmail(e.target.value)}
-                      required
-                      disabled={isSigningIn}
-                      autoComplete="email"
-                    />
-                    <Input
-                      type="password"
-                      placeholder="Password"
-                      value={signInPassword}
-                      onChange={(e) => setSignInPassword(e.target.value)}
-                      required
-                      disabled={isSigningIn}
-                      autoComplete="current-password"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                    disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
-                  >
-                    {isSigningIn ? 'Signing In...' : 'Sign In'}
-                  </Button>
-                  <div className="text-center">
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="text-sm text-memory-purple"
-                      onClick={() => {
-                        setShowResetForm(true);
-                        setResetEmail(signInEmail);
-                        setAnimationVisible(false);
-                      }}
-                    >
-                      Forgot your password?
-                    </Button>
-                  </div>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="sign-up">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      placeholder="Your Name"
-                      value={signUpName}
-                      onChange={(e) => setSignUpName(e.target.value)}
-                      required
-                      disabled={isSigningUp}
-                      autoComplete="name"
-                    />
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={signUpEmail}
-                      onChange={(e) => setSignUpEmail(e.target.value)}
-                      required
-                      disabled={isSigningUp}
-                      autoComplete="email"
-                    />
-                    <Input
-                      type="password"
-                      placeholder="Password (min 6 characters)"
-                      value={signUpPassword}
-                      onChange={(e) => setSignUpPassword(e.target.value)}
-                      required
-                      disabled={isSigningUp}
-                      minLength={6}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                    disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
-                  >
-                    {isSigningUp ? 'Signing Up...' : 'Sign Up'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </motion.div>
-        )}
+              </form>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
       </motion.div>
     </div>
   );

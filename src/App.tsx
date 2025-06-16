@@ -15,7 +15,6 @@ import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
 import Welcome from "./pages/Welcome";
-import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,7 +72,6 @@ const App = () => {
               <Routes>
                 <Route path="/welcome" element={<Welcome />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/shared/:code" element={<SharedMemories />} />
                 <Route 
                   path="/" 
