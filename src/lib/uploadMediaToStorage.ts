@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { checkContentAppropriate, performBasicContentCheck } from './contentModeration';
 
 export async function uploadMediaToStorage(file: File, userId: string): Promise<string> {
   try {
@@ -16,6 +17,12 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
 
     if (!supportedTypes.includes(file.type)) {
       throw new Error(`File type ${file.type} is not supported. Supported types: ${supportedTypes.join(', ')}`);
+    }
+
+    // Perform basic content check first
+    const basicCheckResult = performBasicContentCheck(file);
+    if (!basicCheckResult.success || !basicCheckResult.isAppropriate) {
+      throw new Error(basicCheckResult.error || 'Content failed basic validation checks');
     }
 
     // Generate a unique filename
@@ -74,7 +81,29 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       throw new Error('Upload completed but could not generate public URL');
     }
 
-    console.log('Upload successful:', {
+    // Now perform content moderation on the uploaded file
+    const isVideo = file.type.startsWith('video/');
+    const moderationResult = await checkContentAppropriate(urlData.publicUrl, isVideo);
+
+    if (!moderationResult.success || !moderationResult.isAppropriate) {
+      // If content is inappropriate, delete the uploaded file
+      const { error: deleteError } = await supabase.storage
+        .from('memories')
+        .remove([data.path]);
+        
+      if (deleteError) {
+        console.error('Failed to delete inappropriate content:', deleteError);
+      }
+      
+      // Throw error with moderation details
+      throw new Error(
+        moderationResult.error || 
+        'This content appears to contain inappropriate material and cannot be uploaded. ' +
+        'Please ensure your content follows community guidelines.'
+      );
+    }
+
+    console.log('Upload successful and content moderation passed:', {
       path: data.path,
       url: urlData.publicUrl
     });

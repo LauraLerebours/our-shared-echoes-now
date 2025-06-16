@@ -649,5 +649,35 @@ export const memoriesApi = {
       console.error('❌ [memoriesApi.updateMemoryDetails] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to update memory details' };
     }
+  },
+  
+  async recordModerationResult(
+    mediaUrl: string,
+    isAppropriate: boolean,
+    moderationResults: any,
+    isVideo: boolean = false
+  ): Promise<ApiResponse<{ id: string }>> {
+    try {
+      console.log('🔄 [memoriesApi.recordModerationResult] Starting');
+      
+      // Call the RPC function to record moderation result
+      const { data, error } = await supabase.rpc('record_moderation_result', {
+        media_url: mediaUrl,
+        is_appropriate: isAppropriate,
+        moderation_results: moderationResults,
+        is_video: isVideo
+      });
+      
+      if (error) {
+        console.error('❌ [memoriesApi.recordModerationResult] Error:', error);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('✅ [memoriesApi.recordModerationResult] Success:', data);
+      return { success: true, data: { id: data } };
+    } catch (error) {
+      console.error('❌ [memoriesApi.recordModerationResult] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to record moderation result' };
+    }
   }
 };

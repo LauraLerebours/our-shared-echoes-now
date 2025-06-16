@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, AlertTriangle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 import { extractPhotoMetadata } from '@/lib/extractMetadata';
+import ContentModerationAlert from '@/components/ContentModerationAlert';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ const AddMemory = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   const [selectedBoard, setSelectedBoard] = useState<{id: string, name: string} | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { user, userProfile } = useAuth();
   
   useEffect(() => {
@@ -84,15 +86,8 @@ const AddMemory = () => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select a file smaller than 10MB",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    // Clear any previous errors
+    setUploadError(null);
     setUploading(true);
     
     try {
@@ -129,6 +124,7 @@ const AddMemory = () => {
         }
       }
 
+      // Upload and moderate the file
       const publicUrl = await uploadMediaToStorage(file, user.id);
 
       if (publicUrl) {
@@ -154,9 +150,13 @@ const AddMemory = () => {
       }
     } catch (error) {
       console.error("Upload error:", error);
+      
+      // Set the error message for display
+      setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload");
+      
       toast({
         title: "Upload failed",
-        description: "An error occurred during upload. Please try again.",
+        description: error instanceof Error ? error.message : "An error occurred during upload. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -325,13 +325,20 @@ const AddMemory = () => {
             </TabsList>
           </Tabs>
           
+          {uploadError && (
+            <ContentModerationAlert error={uploadError} />
+          )}
+          
           <div className={cn(
             "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
             previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
           )}>
             {uploading ? (
               <div className="flex flex-col items-center justify-center h-[200px]">
-                <p>Uploading...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple"></div>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Uploading and checking content...
+                </p>
               </div>
             ) : previewMedia ? (
               <div className="relative w-full">
@@ -353,7 +360,10 @@ const AddMemory = () => {
                   size="sm"
                   variant="secondary"
                   className="absolute bottom-4 right-4"
-                  onClick={() => setPreviewMedia(null)}
+                  onClick={() => {
+                    setPreviewMedia(null);
+                    setUploadError(null);
+                  }}
                 >
                   Change
                 </Button>
