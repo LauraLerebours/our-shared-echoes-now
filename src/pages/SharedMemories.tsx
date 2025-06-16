@@ -63,7 +63,18 @@ const SharedMemories = () => {
   }, [code]);
 
   const handleJoinBoard = async () => {
-    if (!code || !user) return;
+    if (!code || !user) {
+      if (!user) {
+        toast({
+          title: 'Sign in required',
+          description: 'Please sign in to join this board.',
+          variant: 'destructive',
+        });
+        navigate('/auth');
+        return;
+      }
+      return;
+    }
 
     setIsJoining(true);
     try {

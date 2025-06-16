@@ -114,23 +114,23 @@ export const boardsApi = {
       console.log('🔄 [boardsApi.getBoardByShareCode] Starting:', shareCode);
       
       const result = await withRetry(async () => {
-        const { data, error } = await supabase
-          .from('boards')
-          .select('*')
-          .eq('share_code', shareCode.toUpperCase())
-          .maybeSingle();
+        // Use the database function for consistency
+        const { data, error } = await supabase.rpc('get_board_by_share_code', {
+          share_code_param: shareCode.toUpperCase()
+        });
 
         if (error) {
           console.error('❌ [boardsApi.getBoardByShareCode] Error:', error);
-          
-          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-            throw new Error('Database tables are missing. Please run database migrations.');
-          }
-          
           throw new Error(`Failed to fetch board: ${error.message}`);
         }
 
-        return data;
+        // Parse the JSON response from the function
+        if (!data || !data.success) {
+          console.log('❌ [boardsApi.getBoardByShareCode] Board not found');
+          return null;
+        }
+
+        return data.data;
       }, 3, 1000);
 
       if (!result) {
@@ -285,56 +285,20 @@ export const boardsApi = {
 
     console.log('🔄 [boardsApi.addUserToBoard] Starting:', { shareCode, userId });
 
-    // First check if the board exists
-    const boardResult = await this.getBoardByShareCode(shareCode);
-    if (!boardResult.success || !boardResult.data) {
-      return { success: false, message: 'Board not found with this share code' };
-    }
-
-    const board = boardResult.data;
-
-    // Check if user is already a member
-    if (board.member_ids && board.member_ids.includes(userId)) {
-      return { 
-        success: true, 
-        message: `You're already a member of "${board.name}"`,
-        board: board
-      };
-    }
-
-    // Check if user is the owner
-    if (board.owner_id === userId) {
-      return { 
-        success: true, 
-        message: `You're the owner of "${board.name}"`,
-        board: board
-      };
-    }
-
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        // Add user to the board's member_ids array
-        const currentMemberIds = board.member_ids || [];
-        const newMemberIds = [...currentMemberIds, userId];
-
-        const { data, error } = await supabase
-          .from('boards')
-          .update({ member_ids: newMemberIds })
-          .eq('id', board.id)
-          .select()
-          .single();
+        // Use the safe database function
+        const { data, error } = await supabase.rpc('add_user_to_board_safe', {
+          share_code_param: shareCode.toUpperCase(),
+          user_id_param: userId
+        });
 
         if (error) {
           console.error('❌ [boardsApi.addUserToBoard] Error:', error);
-          
-          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-            throw new Error('Database tables are missing. Please run database migrations.');
-          }
-          
           throw new Error(`Failed to join board: ${error.message}`);
         }
 
-        console.log('✅ [boardsApi.addUserToBoard] Success:', data);
+        console.log('✅ [boardsApi.addUserToBoard] Function result:', data);
         return data;
       }, 3, 1000);
     }, 'addUserToBoard');
@@ -343,10 +307,33 @@ export const boardsApi = {
       return { success: false, message: result.error || 'Failed to join board' };
     }
 
+    // Parse the result from the database function
+    const functionResult = result.data;
+    
+    if (!functionResult.success) {
+      return { 
+        success: false, 
+        message: functionResult.message || 'Failed to join board' 
+      };
+    }
+
+    // If successful, get the board data
+    let board: Board | undefined;
+    if (functionResult.board_id) {
+      try {
+        const boardResult = await this.getBoardById(functionResult.board_id, userId);
+        if (boardResult.success && boardResult.data) {
+          board = boardResult.data;
+        }
+      } catch (error) {
+        console.warn('Could not fetch board details after joining:', error);
+      }
+    }
+
     return {
       success: true,
-      message: `Successfully joined "${board.name}"!`,
-      board: result.data as Board
+      message: functionResult.message,
+      board: board
     };
   },
 

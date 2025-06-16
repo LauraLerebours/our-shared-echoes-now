@@ -94,11 +94,22 @@ const Share = () => {
       return;
     }
 
+    // Validate share code format
+    const cleanCode = joinCode.trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(cleanCode)) {
+      toast({
+        title: 'Invalid Format',
+        description: 'Share code must be 6 characters long (letters and numbers only).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsJoining(true);
     try {
-      console.log('🔄 [Share] Attempting to join board with code:', joinCode.trim().toUpperCase());
+      console.log('🔄 [Share] Attempting to join board with code:', cleanCode);
       
-      const result = await boardsApi.addUserToBoard(joinCode.trim().toUpperCase(), user.id);
+      const result = await boardsApi.addUserToBoard(cleanCode, user.id);
       
       if (result.success) {
         // Show welcome message with board name
@@ -216,7 +227,15 @@ const Share = () => {
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={6}
                 autoComplete="off"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && joinCode.trim() && !isJoining) {
+                    handleJoinBoard();
+                  }
+                }}
               />
+              <p className="text-xs text-muted-foreground">
+                Share codes are 6 characters long (letters and numbers)
+              </p>
             </div>
 
             <Button 
