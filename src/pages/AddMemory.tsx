@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +20,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 import { extractPhotoMetadata } from '@/lib/extractMetadata';
-import ContentModerationAlert from '@/components/ContentModerationAlert';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -124,7 +123,7 @@ const AddMemory = () => {
         }
       }
 
-      // Upload and moderate the file
+      // Upload the file
       const publicUrl = await uploadMediaToStorage(file, user.id);
 
       if (publicUrl) {
@@ -326,7 +325,12 @@ const AddMemory = () => {
           </Tabs>
           
           {uploadError && (
-            <ContentModerationAlert error={uploadError} />
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center">
+                <div className="text-red-600 font-medium">Upload Error</div>
+              </div>
+              <div className="text-red-600 text-sm mt-1">{uploadError}</div>
+            </div>
           )}
           
           <div className={cn(
@@ -337,7 +341,7 @@ const AddMemory = () => {
               <div className="flex flex-col items-center justify-center h-[200px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple"></div>
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Uploading and checking content...
+                  Uploading...
                 </p>
               </div>
             ) : previewMedia ? (
