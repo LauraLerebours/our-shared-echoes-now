@@ -222,7 +222,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
 
   return (
     <TooltipProvider>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 pb-20">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 safari-bottom-safe">
         {sortedMemories.map((memory) => {
           // Regular memory card in grid
           return (

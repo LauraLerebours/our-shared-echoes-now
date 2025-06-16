@@ -106,3 +106,36 @@
     -webkit-line-clamp: 4;
   }
 }
+
+/* Safari mobile bottom spacing for search bar */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific styles */
+  .ios-bottom-spacing {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  
+  /* Additional spacing for pages with content that might be hidden by Safari's search bar */
+  .safari-bottom-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 60px);
+  }
+  
+  /* For fixed footers, ensure they account for Safari's UI */
+  .safari-footer-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Fallback for non-Safari browsers */
+@supports not (-webkit-touch-callout: none) {
+  .ios-bottom-spacing {
+    padding-bottom: 20px;
+  }
+  
+  .safari-bottom-safe {
+    padding-bottom: 80px;
+  }
+  
+  .safari-footer-safe {
+    bottom: 0px;
+  }
+}

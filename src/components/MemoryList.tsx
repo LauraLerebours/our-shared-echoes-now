@@ -56,7 +56,7 @@ const MemoryList: React.FC<MemoryListProps> = ({ memories, onDeleteMemory, onUpd
   });
 
   return (
-    <div className="px-4 pt-4 pb-20">
+    <div className="px-4 pt-4 safari-bottom-safe">
       {sortedMemories.map((memory) => (
         <MemoryCard
           key={memory.id}

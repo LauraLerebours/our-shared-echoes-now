@@ -9,8 +9,8 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
   return (
-    <footer className="fixed bottom-0 left-0 right-0 bg-white border-t py-2 z-10">
-      <div className="flex justify-around items-center">
+    <footer className="fixed safari-footer-safe left-0 right-0 bg-white border-t py-2 z-10">
+      <div className="flex justify-around items-center ios-bottom-spacing">
         <Link 
           to="/" 
           className={cn(
