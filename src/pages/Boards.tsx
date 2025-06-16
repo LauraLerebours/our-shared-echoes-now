@@ -53,6 +53,7 @@ const Boards = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [boardsWithPreviews, setBoardsWithPreviews] = useState<BoardWithPreviews[]>([]);
   const [loadingPreviews, setLoadingPreviews] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const navigate = useNavigate();
   const mainRef = useRef<HTMLElement>(null);
   const { isSigningOut } = useAuth();
@@ -124,6 +125,7 @@ const Boards = () => {
     const result = await createBoard(newBoardName.trim());
     if (result) {
       setNewBoardName('');
+      setCreateDialogOpen(false); // Close the dialog after successful creation
     }
   };
 
@@ -288,7 +290,7 @@ const Boards = () => {
                   </Button>
                 )}
                 
-                <Dialog>
+                <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-memory-purple hover:bg-memory-purple/90">
                       <Plus className="h-4 w-4 mr-2" />
@@ -308,9 +310,24 @@ const Boards = () => {
                         value={newBoardName}
                         onChange={(e) => setNewBoardName(e.target.value)}
                         autoComplete="off"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newBoardName.trim() && !creating) {
+                            handleCreateBoard();
+                          }
+                        }}
                       />
                     </div>
                     <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCreateDialogOpen(false);
+                          setNewBoardName('');
+                        }}
+                        disabled={creating}
+                      >
+                        Cancel
+                      </Button>
                       <Button
                         onClick={handleCreateBoard}
                         disabled={creating || !newBoardName.trim()}
@@ -384,7 +401,7 @@ const Boards = () => {
                 </div>
                 <h2 className="text-xl font-semibold mb-2">No Boards Yet</h2>
                 <p className="text-muted-foreground mb-6">Create your first board to start organizing your memories.</p>
-                <Dialog>
+                <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-memory-purple hover:bg-memory-purple/90">
                       <Plus className="h-4 w-4 mr-2" />
@@ -404,9 +421,24 @@ const Boards = () => {
                         value={newBoardName}
                         onChange={(e) => setNewBoardName(e.target.value)}
                         autoComplete="off"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newBoardName.trim() && !creating) {
+                            handleCreateBoard();
+                          }
+                        }}
                       />
                     </div>
                     <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCreateDialogOpen(false);
+                          setNewBoardName('');
+                        }}
+                        disabled={creating}
+                      >
+                        Cancel
+                      </Button>
                       <Button
                         onClick={handleCreateBoard}
                         disabled={creating || !newBoardName.trim()}
