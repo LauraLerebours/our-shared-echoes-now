@@ -19,39 +19,7 @@ export const boardsApi = {
           throw new Error('Request aborted');
         }
         
-        // Try using the optimized function first
-        try {
-          const { data: functionData, error: functionError } = await supabase.rpc('get_user_boards_fast', {
-            user_id: userId
-          });
-          
-          if (!functionError) {
-            return functionData || [];
-          }
-          
-          console.warn('⚠️ [boardsApi.fetchBoards] Function call failed, falling back to direct query:', functionError);
-        } catch (err) {
-          console.warn('⚠️ [boardsApi.fetchBoards] Function call exception, falling back to direct query:', err);
-        }
-
-        // Test database connection first
-        const { error: connectionError } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-        if (connectionError) {
-          console.error('❌ [boardsApi.fetchBoards] Connection test failed:', connectionError);
-          throw new Error(`Database connection failed: ${connectionError.message}`);
-        }
-
-        // Check if the request has been aborted after connection test
-        if (signal?.aborted) {
-          throw new Error('Request aborted');
-        }
-
-        // Fallback to direct query if function fails
+        // Direct query approach
         const { data, error } = await supabase
           .from('boards')
           .select(`
@@ -317,19 +285,47 @@ export const boardsApi = {
 
     console.log('🔄 [boardsApi.addUserToBoard] Starting:', { shareCode, userId });
 
+    // First check if the board exists
+    const boardResult = await this.getBoardByShareCode(shareCode);
+    if (!boardResult.success || !boardResult.data) {
+      return { success: false, message: 'Board not found with this share code' };
+    }
+
+    const board = boardResult.data;
+
+    // Check if user is already a member
+    if (board.member_ids && board.member_ids.includes(userId)) {
+      return { 
+        success: true, 
+        message: `You're already a member of "${board.name}"`,
+        board: board
+      };
+    }
+
+    // Check if user is the owner
+    if (board.owner_id === userId) {
+      return { 
+        success: true, 
+        message: `You're the owner of "${board.name}"`,
+        board: board
+      };
+    }
+
     const result = await withErrorHandling(async () => {
       return await withRetry(async () => {
-        const { data, error } = await supabase.rpc('add_user_to_board_by_share_code', {
-          share_code_param: shareCode.toUpperCase(),
-          user_id_param: userId
-        });
+        // Add user to the board's member_ids array
+        const currentMemberIds = board.member_ids || [];
+        const newMemberIds = [...currentMemberIds, userId];
+
+        const { data, error } = await supabase
+          .from('boards')
+          .update({ member_ids: newMemberIds })
+          .eq('id', board.id)
+          .select()
+          .single();
 
         if (error) {
           console.error('❌ [boardsApi.addUserToBoard] Error:', error);
-          
-          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
-            throw new Error('Database function not available. Please check your database setup.');
-          }
           
           if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
             throw new Error('Database tables are missing. Please run database migrations.');
@@ -339,7 +335,7 @@ export const boardsApi = {
         }
 
         console.log('✅ [boardsApi.addUserToBoard] Success:', data);
-        return data as { success: boolean; message: string; board_id?: string };
+        return data;
       }, 3, 1000);
     }, 'addUserToBoard');
 
@@ -347,19 +343,11 @@ export const boardsApi = {
       return { success: false, message: result.error || 'Failed to join board' };
     }
 
-    const response: BoardOperationResponse = {
-      success: result.data!.success,
-      message: result.data!.message
+    return {
+      success: true,
+      message: `Successfully joined "${board.name}"!`,
+      board: result.data as Board
     };
-
-    if (result.data!.success && result.data!.board_id) {
-      const boardResult = await this.getBoardByShareCode(shareCode);
-      if (boardResult.success && boardResult.data) {
-        response.board = boardResult.data;
-      }
-    }
-
-    return response;
   },
 
   async removeUserFromBoard(boardId: string, userId: string): Promise<BoardOperationResponse> {

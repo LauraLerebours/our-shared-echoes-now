@@ -6,7 +6,8 @@ import ScrollToBottom from '@/components/ScrollToBottom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Memory } from '@/components/MemoryList';
-import { getBoardByShareCode, fetchMemories, Board, addUserToBoard } from '@/lib/db';
+import { fetchMemories, Board } from '@/lib/db';
+import { boardsApi } from '@/lib/api/boards';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,9 +30,9 @@ const SharedMemories = () => {
 
       try {
         // Get the board by share code
-        const sharedBoard = await getBoardByShareCode(code);
+        const boardResult = await boardsApi.getBoardByShareCode(code);
         
-        if (!sharedBoard) {
+        if (!boardResult.success || !boardResult.data) {
           toast({
             title: 'Invalid share code',
             description: 'This share code doesn\'t exist or has expired.',
@@ -41,10 +42,10 @@ const SharedMemories = () => {
           return;
         }
         
-        setBoard(sharedBoard);
+        setBoard(boardResult.data);
         
         // Get memories using the board's access code
-        const sharedMemories = await fetchMemories(sharedBoard.access_code);
+        const sharedMemories = await fetchMemories(boardResult.data.access_code);
         setMemories(sharedMemories);
       } catch (error) {
         console.error('Error loading shared memories:', error);
@@ -66,13 +67,15 @@ const SharedMemories = () => {
 
     setIsJoining(true);
     try {
-      // Pass both the share code and user ID as required by the function
-      const result = await addUserToBoard(code, user.id);
+      console.log('🔄 [SharedMemories] Attempting to join board with code:', code);
+      
+      const result = await boardsApi.addUserToBoard(code, user.id);
       
       if (result.success) {
+        const boardName = result.board?.name || board?.name || 'the board';
         toast({
-          title: 'Success!',
-          description: result.message,
+          title: `Welcome to "${boardName}"! 🎉`,
+          description: result.message || 'You have successfully joined the board.',
         });
         
         // Navigate to the user's boards page to see the newly added board
@@ -80,7 +83,7 @@ const SharedMemories = () => {
       } else {
         toast({
           title: 'Error',
-          description: result.message,
+          description: result.message || 'Failed to join board. Please try again.',
           variant: 'destructive',
         });
       }
