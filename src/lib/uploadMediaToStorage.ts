@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { checkContentAppropriate, performBasicContentCheck } from './contentModeration';
 
 export async function uploadMediaToStorage(file: File, userId: string): Promise<string> {
   try {
@@ -19,10 +18,10 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       throw new Error(`File type ${file.type} is not supported. Supported types: ${supportedTypes.join(', ')}`);
     }
 
-    // Perform basic content check first
-    const basicCheckResult = performBasicContentCheck(file);
-    if (!basicCheckResult.success || !basicCheckResult.isAppropriate) {
-      throw new Error(basicCheckResult.error || 'Content failed basic validation checks');
+    // Basic file size check (max 10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('File size exceeds the maximum allowed (10MB)');
     }
 
     // Generate a unique filename
@@ -81,29 +80,7 @@ export async function uploadMediaToStorage(file: File, userId: string): Promise<
       throw new Error('Upload completed but could not generate public URL');
     }
 
-    // Now perform content moderation on the uploaded file
-    const isVideo = file.type.startsWith('video/');
-    const moderationResult = await checkContentAppropriate(urlData.publicUrl, isVideo);
-
-    if (!moderationResult.success || !moderationResult.isAppropriate) {
-      // If content is inappropriate, delete the uploaded file
-      const { error: deleteError } = await supabase.storage
-        .from('memories')
-        .remove([data.path]);
-        
-      if (deleteError) {
-        console.error('Failed to delete inappropriate content:', deleteError);
-      }
-      
-      // Throw error with moderation details
-      throw new Error(
-        moderationResult.error || 
-        'This content appears to contain inappropriate material and cannot be uploaded. ' +
-        'Please ensure your content follows community guidelines.'
-      );
-    }
-
-    console.log('Upload successful and content moderation passed:', {
+    console.log('Upload successful:', {
       path: data.path,
       url: urlData.publicUrl
     });
