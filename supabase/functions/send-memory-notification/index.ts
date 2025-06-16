@@ -147,7 +147,7 @@ serve(async (req) => {
                   ` : ''}
                   
                   <div style="text-align: center; margin: 32px 0;">
-                    <a href="https://thisisus.space/memory/${memory_id}" 
+                    <a href="https://thisisus.space" 
                        style="display: inline-block; background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3); transition: all 0.2s ease;">
                       View Memory
                     </a>
