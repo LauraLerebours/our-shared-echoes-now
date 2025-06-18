@@ -16,6 +16,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; user: User | null }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (name: string) => Promise<{ error: Error | null }>;
   isSigningOut: boolean;
@@ -64,15 +65,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Create or update user profile
-  const createOrUpdateProfile = useCallback(async (userId: string, name: string) => {
+  const createOrUpdateProfile = useCallback(async (userId: string, name: string, userMetadata?: any) => {
     try {
       console.log('🔄 Creating/updating user profile for:', userId);
+      
+      // Extract name from Google metadata if available
+      let profileName = name;
+      if (userMetadata) {
+        profileName = userMetadata.full_name || userMetadata.name || name || 'User';
+      }
       
       const { data, error } = await supabase
         .from('user_profiles')
         .upsert({
           id: userId,
-          name: name || 'User',
+          name: profileName,
         }, {
           onConflict: 'id',
           ignoreDuplicates: false
@@ -153,7 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Create profile if it doesn't exist
             const newProfile = await createOrUpdateProfile(
               currentSession.user.id, 
-              currentSession.user.user_metadata?.name || 'User'
+              currentSession.user.user_metadata?.name || 
+              currentSession.user.user_metadata?.full_name || 
+              'User',
+              currentSession.user.user_metadata
             );
             
             if (newProfile) {
@@ -213,7 +223,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Create profile if it doesn't exist and we just signed in
               const newProfile = await createOrUpdateProfile(
                 newSession.user.id,
-                newSession.user.user_metadata?.name || 'User'
+                newSession.user.user_metadata?.name || 
+                newSession.user.user_metadata?.full_name || 
+                'User',
+                newSession.user.user_metadata
               );
               
               if (newProfile) {
@@ -289,6 +302,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      console.log('🔄 Signing in with Google');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth?type=google`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('❌ Google sign in error:', error);
+        return { error };
+      }
+
+      console.log('✅ Google sign in initiated');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Google sign in error:', error);
+      return { error: error as AuthError };
+    }
+  };
+
   const signOut = async () => {
     try {
       console.log('🔄 Signing out user');
@@ -348,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     updateProfile,
     isSigningOut,
