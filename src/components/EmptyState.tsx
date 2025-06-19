@@ -11,7 +11,7 @@ const EmptyState = () => {
       </div>
       <h2 className="text-xl font-semibold mb-2">No memories yet</h2>
       <p className="text-muted-foreground mb-6 max-w-xs">
-        Start capturing your special moments together and build your shared story.
+        Start capturing your special moments together and build your shared story. Add photos, videos, or notes!
       </p>
       <Button asChild className="bg-gradient-to-r from-memory-pink to-memory-purple hover:opacity-90">
         <Link to="/add">

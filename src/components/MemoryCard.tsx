@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Trash2, Video, User } from 'lucide-react';
+import { Heart, Trash2, Video, User, FileText } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -23,14 +23,15 @@ import {
 
 export interface MemoryCardProps {
   id: string;
-  image: string;
+  image?: string; // Optional for notes
   caption?: string;
   date: Date;
   location?: string;
   likes: number;
   isLiked: boolean;
   isVideo?: boolean;
-  type?: 'memory';
+  type?: 'memory' | 'note';
+  memoryType?: 'photo' | 'video' | 'note';
   onLike: (id: string, newLikes: number, newIsLiked: boolean) => void;
   onViewDetail: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -53,6 +54,7 @@ const MemoryCard = ({
   isLiked,
   isVideo,
   type = 'memory',
+  memoryType,
   onLike,
   onViewDetail,
   onDelete,
@@ -69,6 +71,9 @@ const MemoryCard = ({
   const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
+
+  // Determine if this is a note
+  const isNote = type === 'note' || memoryType === 'note';
 
   useEffect(() => {
     // Check if current user can delete this memory
@@ -145,7 +150,7 @@ const MemoryCard = ({
 
   // Handle video loading and playback
   useEffect(() => {
-    if (isVideo && videoRef.current) {
+    if (isVideo && videoRef.current && image) {
       const video = videoRef.current;
       
       const handleLoadedData = () => {
@@ -174,7 +179,7 @@ const MemoryCard = ({
         video.removeEventListener('error', handleError);
       };
     }
-  }, [isVideo, image]); // Added image to dependency array
+  }, [isVideo, image]);
 
   const handleLike = async () => {
     if (isLiking) return; // Prevent double-clicking
@@ -262,7 +267,20 @@ const MemoryCard = ({
   return (
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
-        {isVideo ? (
+        {isNote ? (
+          // Note display - no media, just a text preview
+          <div className="w-full aspect-[4/3] bg-gradient-to-br from-memory-lightpurple to-memory-peach p-6 flex flex-col justify-center items-center relative">
+            <FileText className="h-12 w-12 text-memory-purple mb-4" />
+            <div className="text-center">
+              <p className="text-memory-purple font-medium text-lg mb-2">Note</p>
+              {caption && (
+                <p className="text-gray-700 text-sm line-clamp-4 max-w-xs">
+                  {caption}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : isVideo && image ? (
           <div className="relative">
             <video 
               ref={videoRef}
@@ -288,13 +306,19 @@ const MemoryCard = ({
               </div>
             )}
           </div>
-        ) : (
+        ) : image ? (
           <img 
             src={image} 
             alt={caption || "Memory"} 
             className="w-full aspect-[4/3] object-cover" 
           />
+        ) : (
+          // Fallback for memories without images
+          <div className="w-full aspect-[4/3] bg-gray-200 flex items-center justify-center">
+            <FileText className="h-12 w-12 text-gray-400" />
+          </div>
         )}
+        
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
           <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}

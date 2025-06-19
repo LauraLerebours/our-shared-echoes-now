@@ -86,16 +86,21 @@ export const memoriesApi = {
           console.warn('Could not get like status for memory:', record.id, error);
         }
 
+        // Determine memory type and set appropriate fields
+        const memoryType = record.memory_type || (record.is_video ? 'video' : 'photo');
+        const isNote = memoryType === 'note';
+
         return {
           id: record.id,
-          image: record.media_url,
+          image: isNote ? undefined : record.media_url,
           caption: record.caption || undefined,
           date: new Date(record.event_date),
           location: record.location || undefined,
           likes: record.total_likes || 0,
           isLiked: isLiked,
-          isVideo: record.is_video,
-          type: 'memory' as const,
+          isVideo: memoryType === 'video',
+          type: isNote ? 'note' : 'memory',
+          memoryType: memoryType,
           accessCode: record.access_code || accessCode,
           createdBy: record.created_by || undefined
         };
@@ -245,16 +250,21 @@ export const memoriesApi = {
           console.warn('Could not get like status for memory:', record.id, error);
         }
 
+        // Determine memory type and set appropriate fields
+        const memoryType = record.memory_type || (record.is_video ? 'video' : 'photo');
+        const isNote = memoryType === 'note';
+
         return {
           id: record.id,
-          image: record.media_url,
+          image: isNote ? undefined : record.media_url,
           caption: record.caption || undefined,
           date: new Date(record.event_date),
           location: record.location || undefined,
           likes: record.total_likes || 0,
           isLiked: isLiked,
-          isVideo: record.is_video,
-          type: 'memory' as const,
+          isVideo: memoryType === 'video',
+          type: isNote ? 'note' : 'memory',
+          memoryType: memoryType,
           accessCode: record.access_code || '',
           createdBy: record.created_by || undefined
         };
@@ -320,16 +330,21 @@ export const memoriesApi = {
         console.warn('Could not get like status for memory:', result.id, error);
       }
 
+      // Determine memory type and set appropriate fields
+      const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
+      const isNote = memoryType === 'note';
+
       const memory: Memory = {
         id: result.id,
-        image: result.media_url,
+        image: isNote ? undefined : result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
         likes: result.total_likes || 0,
         isLiked: isLiked,
-        isVideo: result.is_video,
-        type: 'memory' as const,
+        isVideo: memoryType === 'video',
+        type: isNote ? 'note' : 'memory',
+        memoryType: memoryType,
         accessCode: result.access_code || '',
         createdBy: result.created_by || undefined
       };
@@ -348,11 +363,12 @@ export const memoriesApi = {
       
       const dbRecord = {
         id: memory.id,
-        media_url: memory.image,
+        media_url: memory.image || null,
         caption: memory.caption,
         event_date: memory.date.toISOString(),
         location: memory.location,
         is_video: memory.isVideo || false,
+        memory_type: memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo')),
         access_code: memory.accessCode,
         created_by: memory.createdBy
       };
@@ -379,16 +395,21 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // Determine memory type and set appropriate fields
+      const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
+      const isNote = memoryType === 'note';
+
       const createdMemory: Memory = {
         id: result.id,
-        image: result.media_url,
+        image: isNote ? undefined : result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
         likes: 0, // New memories start with 0 likes
         isLiked: false,
-        isVideo: result.is_video,
-        type: 'memory' as const,
+        isVideo: memoryType === 'video',
+        type: isNote ? 'note' : 'memory',
+        memoryType: memoryType,
         accessCode: result.access_code || '',
         createdBy: result.created_by || undefined
       };
@@ -411,6 +432,7 @@ export const memoriesApi = {
       if (updates.date !== undefined) dbUpdates.event_date = updates.date.toISOString();
       if (updates.location !== undefined) dbUpdates.location = updates.location;
       if (updates.isVideo !== undefined) dbUpdates.is_video = updates.isVideo;
+      if (updates.memoryType !== undefined) dbUpdates.memory_type = updates.memoryType;
       
       console.log('🔄 [memoriesApi.updateMemory] Updating memory in database');
       const result = await withRetry(async () => {
@@ -448,16 +470,21 @@ export const memoriesApi = {
         console.warn('Could not get like status for memory:', result.id, error);
       }
 
+      // Determine memory type and set appropriate fields
+      const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
+      const isNote = memoryType === 'note';
+
       const updatedMemory: Memory = {
         id: result.id,
-        image: result.media_url,
+        image: isNote ? undefined : result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
         likes: likes,
         isLiked: isLiked,
-        isVideo: result.is_video,
-        type: 'memory' as const,
+        isVideo: memoryType === 'video',
+        type: isNote ? 'note' : 'memory',
+        memoryType: memoryType,
         accessCode: result.access_code || '',
         createdBy: result.created_by || undefined
       };
@@ -498,16 +525,21 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // Determine memory type and set appropriate fields
+      const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
+      const isNote = memoryType === 'note';
+
       const deletedMemory: Memory = {
         id: result.id,
-        image: result.media_url,
+        image: isNote ? undefined : result.media_url,
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
         likes: 0, // Deleted memories have no likes
         isLiked: false,
-        isVideo: result.is_video,
-        type: 'memory' as const,
+        isVideo: memoryType === 'video',
+        type: isNote ? 'note' : 'memory',
+        memoryType: memoryType,
         accessCode: result.access_code || '',
         createdBy: result.created_by || undefined
       };
@@ -587,16 +619,21 @@ export const memoriesApi = {
         console.warn('Could not get like status for memory:', data.id, error);
       }
 
+      // Determine memory type and set appropriate fields
+      const memoryType = data.memory_type || (data.is_video ? 'video' : 'photo');
+      const isNote = memoryType === 'note';
+
       const memory: Memory = {
         id: data.id,
-        image: data.media_url,
+        image: isNote ? undefined : data.media_url,
         caption: data.caption || undefined,
         date: new Date(data.event_date),
         location: data.location || undefined,
         likes: likes,
         isLiked: isLiked,
-        isVideo: data.is_video,
-        type: 'memory' as const,
+        isVideo: memoryType === 'video',
+        type: isNote ? 'note' : 'memory',
+        memoryType: memoryType,
         accessCode: data.access_code || '',
         createdBy: data.created_by || undefined
       };

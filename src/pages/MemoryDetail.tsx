@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -246,6 +246,8 @@ const MemoryDetail = () => {
       </div>
     );
   }
+
+  const isNote = memory.type === 'note' || memory.memoryType === 'note';
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -304,35 +306,54 @@ const MemoryDetail = () => {
       </header>
       
       <main className="flex-1">
-        <div className="relative">
-          {memory.isVideo ? (
-            <video 
-              src={memory.image} 
-              className="w-full aspect-square object-cover" 
-              controls
-            />
-          ) : (
-            <img 
-              src={memory.image} 
-              alt={memory.caption || "Memory"} 
-              className="w-full aspect-square object-cover" 
-            />
-          )}
-        </div>
+        {isNote ? (
+          // Note display - no media, just a styled text container
+          <div className="w-full aspect-square bg-gradient-to-br from-memory-lightpurple to-memory-peach p-8 flex flex-col justify-center items-center relative">
+            <FileText className="h-16 w-16 text-memory-purple mb-6" />
+            <div className="text-center max-w-md">
+              <p className="text-memory-purple font-medium text-xl mb-4">Note</p>
+              {memory.caption && (
+                <p className="text-gray-700 text-lg leading-relaxed">
+                  {memory.caption}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            {memory.isVideo && memory.image ? (
+              <video 
+                src={memory.image} 
+                className="w-full aspect-square object-cover" 
+                controls
+              />
+            ) : memory.image ? (
+              <img 
+                src={memory.image} 
+                alt={memory.caption || "Memory"} 
+                className="w-full aspect-square object-cover" 
+              />
+            ) : (
+              <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
+                <FileText className="h-16 w-16 text-gray-400" />
+              </div>
+            )}
+          </div>
+        )}
         
         {isEditing ? (
           <div className="p-4 space-y-4">
             <div className="space-y-2">
               <label htmlFor="caption" className="block text-sm font-medium text-muted-foreground">
-                Caption
+                {isNote ? 'Note Content' : 'Caption'}
               </label>
               <Textarea
                 id="caption"
                 value={editCaption}
                 onChange={(e) => setEditCaption(e.target.value)}
-                placeholder="Write something about this memory..."
+                placeholder={isNote ? "Write your note..." : "Write something about this memory..."}
                 className="resize-none"
-                rows={3}
+                rows={isNote ? 6 : 3}
               />
             </div>
             

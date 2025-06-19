@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Heart, Video, User } from 'lucide-react';
+import { Heart, Video, User, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -88,6 +88,22 @@ const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
           <Video className="h-6 w-6 text-gray-400" />
         </div>
       )}
+    </div>
+  );
+};
+
+const NotePreview: React.FC<{ caption?: string }> = ({ caption }) => {
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-memory-lightpurple to-memory-peach p-3 flex flex-col justify-center items-center relative">
+      <FileText className="h-8 w-8 text-memory-purple mb-2" />
+      <div className="text-center">
+        <p className="text-memory-purple font-medium text-sm mb-1">Note</p>
+        {caption && (
+          <p className="text-gray-700 text-xs line-clamp-3 max-w-full">
+            {caption}
+          </p>
+        )}
+      </div>
     </div>
   );
 };
@@ -224,7 +240,8 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
     <TooltipProvider>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 safari-bottom-safe">
         {sortedMemories.map((memory) => {
-          // Regular memory card in grid
+          const isNote = memory.type === 'note' || memory.memoryType === 'note';
+          
           return (
             <Tooltip key={memory.id}>
               <TooltipTrigger asChild>
@@ -233,14 +250,20 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                   onClick={() => onViewDetail(memory.id, memory.accessCode)}
                 >
                   <div className="relative h-full">
-                    {memory.isVideo ? (
+                    {isNote ? (
+                      <NotePreview caption={memory.caption} />
+                    ) : memory.isVideo && memory.image ? (
                       <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
-                    ) : (
+                    ) : memory.image ? (
                       <img 
                         src={memory.image} 
                         alt={memory.caption || "Memory"} 
                         className="w-full h-full object-cover" 
                       />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-gray-400" />
+                      </div>
                     )}
                     
                     {/* Overlay with info */}

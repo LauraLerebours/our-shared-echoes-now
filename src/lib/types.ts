@@ -1,14 +1,15 @@
 // Centralized type definitions
 export interface Memory {
   id: string;
-  image: string;
+  image?: string; // Optional for notes
   caption?: string;
   date: Date;
   location?: string;
   likes: number;
   isLiked: boolean;
   isVideo?: boolean;
-  type: 'memory';
+  type: 'memory' | 'note';
+  memoryType?: 'photo' | 'video' | 'note'; // Database memory_type field
   accessCode: string;
   createdBy?: string;
 }
