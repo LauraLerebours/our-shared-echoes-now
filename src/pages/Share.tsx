@@ -149,7 +149,7 @@ const Share = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 pt-16">
         <div className="max-w-md mx-auto space-y-6">
           <div className="text-center">
             <h1 className="text-2xl font-bold">Share & Collaborate</h1>

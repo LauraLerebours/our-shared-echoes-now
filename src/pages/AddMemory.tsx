@@ -384,7 +384,7 @@ const AddMemory = () => {
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+      <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/">
             <ArrowLeft className="h-5 w-5" />
@@ -403,7 +403,7 @@ const AddMemory = () => {
         </Button>
       </header>
       
-      <main className="flex-1 p-4">
+      <main className="flex-1 p-4 pt-16">
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note')}>
             <TabsList className="grid w-full grid-cols-3">

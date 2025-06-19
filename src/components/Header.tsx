@@ -50,7 +50,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+    <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
       <div className="flex items-center gap-3">
         <UserProfileDialog>
           <Button variant="ghost" className="p-0 h-auto">

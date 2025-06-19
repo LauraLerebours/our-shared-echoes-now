@@ -111,7 +111,7 @@ const BoardView = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+        <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
           <Button variant="ghost" size="sm" onClick={() => navigate('/boards')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -121,7 +121,7 @@ const BoardView = () => {
           <div className="w-8"></div>
         </header>
         
-        <main className="flex-1 flex items-center justify-center p-4">
+        <main className="flex-1 flex items-center justify-center p-4 pt-16">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Board</h2>
             <p className="text-gray-600 mb-6">{error}</p>
@@ -139,7 +139,7 @@ const BoardView = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+      <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
         <Button variant="ghost" size="sm" onClick={() => navigate('/boards')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -155,7 +155,7 @@ const BoardView = () => {
         </Button>
       </header>
       
-      <main ref={mainRef} className="flex-1 relative">
+      <main ref={mainRef} className="flex-1 relative pt-16">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner size="md" text="Loading board content..." />

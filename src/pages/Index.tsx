@@ -310,7 +310,7 @@ const Index = () => {
       <ErrorBoundary>
         <div className="min-h-screen bg-background flex flex-col">
           <Header />
-          <main className="flex-1 flex items-center justify-center">
+          <main className="flex-1 flex items-center justify-center pt-16">
             <div className="text-center max-w-md mx-auto p-6">
               <h2 className="text-xl font-semibold text-red-600 mb-4">Unable to Load Memories</h2>
               <p className="text-gray-600 mb-6">{memoriesError}</p>
@@ -336,7 +336,7 @@ const Index = () => {
         
         {/* View Mode Toggle - only show if we have memories or are not loading */}
         {memories.length > 0 && !memoriesLoading && (
-          <div className="flex justify-center items-center py-3 px-4 border-b bg-white sticky top-16 z-10">
+          <div className="flex justify-center items-center py-3 px-4 border-b bg-white sticky top-16 z-40">
             <div className="flex bg-muted rounded-lg p-1">
               <Button
                 variant={viewMode === 'timeline' ? 'default' : 'ghost'}
@@ -360,7 +360,7 @@ const Index = () => {
           </div>
         )}
         
-        <main ref={mainRef} className="flex-1 relative">
+        <main ref={mainRef} className="flex-1 relative pt-16">
           {/* Show loading only if we're in the initial loading phase or explicitly loading memories */}
           {(boardsLoading && !hasInitiallyLoaded) || (memoriesLoading && !hasInitiallyLoaded) ? (
             <div className="flex justify-center items-center h-64">

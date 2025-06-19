@@ -118,7 +118,7 @@ const SharedMemories = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+      <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -140,7 +140,7 @@ const SharedMemories = () => {
         )}
       </header>
       
-      <main ref={mainRef} className="flex-1 relative">
+      <main ref={mainRef} className="flex-1 relative pt-16">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <p>Loading shared memories...</p>

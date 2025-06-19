@@ -256,7 +256,7 @@ const MemoryDetail = () => {
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white z-10">
+      <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -310,7 +310,7 @@ const MemoryDetail = () => {
         </div>
       </header>
       
-      <main className="flex-1">
+      <main className="flex-1 pt-16">
         {isNote ? (
           // Note display as simple text content
           <div className="p-6">

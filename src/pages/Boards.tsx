@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { fetchMemories } from '@/lib/db';
+import { fetchMemories, Board } from '@/lib/db';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Memory } from '@/components/MemoryList';
@@ -401,7 +401,7 @@ const Boards = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center pt-16">
           <LoadingSpinner size="lg" text="Loading your boards..." />
         </main>
         <Footer activeTab="boards" />
@@ -414,7 +414,7 @@ const Boards = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
         
-        <main ref={mainRef} className="flex-1 p-4 relative">
+        <main ref={mainRef} className="flex-1 p-4 relative pt-16">
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">Boards</h1>
