@@ -268,16 +268,26 @@ const MemoryCard = ({
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
         {isNote ? (
-          // Note display - no media, just a text preview
-          <div className="w-full aspect-[4/3] bg-gradient-to-br from-memory-lightpurple to-memory-peach p-6 flex flex-col justify-center items-center relative">
-            <FileText className="h-12 w-12 text-memory-purple mb-4" />
-            <div className="text-center">
-              <p className="text-memory-purple font-medium text-lg mb-2">Note</p>
-              {caption && (
-                <p className="text-gray-700 text-sm line-clamp-4 max-w-xs">
-                  {caption}
-                </p>
-              )}
+          // Note display as a speech bubble
+          <div className="w-full aspect-[4/3] bg-gradient-to-br from-blue-50 to-purple-50 p-6 flex items-center justify-center relative">
+            {/* Speech bubble */}
+            <div className="relative bg-white rounded-3xl p-6 shadow-lg max-w-[280px] min-h-[120px] flex items-center justify-center">
+              {/* Bubble tail */}
+              <div className="absolute bottom-[-8px] left-8 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white"></div>
+              
+              {/* Note content */}
+              <div className="text-center">
+                {caption ? (
+                  <p className="text-gray-800 text-sm leading-relaxed line-clamp-4">
+                    {caption}
+                  </p>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <FileText className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-gray-400 text-sm">Empty note</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : isVideo && image ? (
@@ -336,7 +346,7 @@ const MemoryCard = ({
       </div>
       
       <CardContent className="py-3 px-4" onClick={() => onViewDetail(id)}>
-        {caption && (
+        {caption && !isNote && (
           <p className="text-foreground/80">{caption}</p>
         )}
       </CardContent>

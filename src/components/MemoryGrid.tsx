@@ -94,15 +94,25 @@ const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
 
 const NotePreview: React.FC<{ caption?: string }> = ({ caption }) => {
   return (
-    <div className="w-full h-full bg-gradient-to-br from-memory-lightpurple to-memory-peach p-3 flex flex-col justify-center items-center relative">
-      <FileText className="h-8 w-8 text-memory-purple mb-2" />
-      <div className="text-center">
-        <p className="text-memory-purple font-medium text-sm mb-1">Note</p>
-        {caption && (
-          <p className="text-gray-700 text-xs line-clamp-3 max-w-full">
-            {caption}
-          </p>
-        )}
+    <div className="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 p-2 flex items-center justify-center relative">
+      {/* Mini speech bubble for grid view */}
+      <div className="relative bg-white rounded-2xl p-3 shadow-md max-w-full min-h-[60px] flex items-center justify-center">
+        {/* Bubble tail */}
+        <div className="absolute bottom-[-4px] left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+        
+        {/* Note content */}
+        <div className="text-center">
+          {caption ? (
+            <p className="text-gray-800 text-xs leading-tight line-clamp-3">
+              {caption}
+            </p>
+          ) : (
+            <div className="flex flex-col items-center">
+              <FileText className="h-4 w-4 text-gray-400 mb-1" />
+              <p className="text-gray-400 text-xs">Note</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

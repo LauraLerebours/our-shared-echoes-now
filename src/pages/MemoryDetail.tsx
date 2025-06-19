@@ -307,16 +307,26 @@ const MemoryDetail = () => {
       
       <main className="flex-1">
         {isNote ? (
-          // Note display - no media, just a styled text container
-          <div className="w-full aspect-square bg-gradient-to-br from-memory-lightpurple to-memory-peach p-8 flex flex-col justify-center items-center relative">
-            <FileText className="h-16 w-16 text-memory-purple mb-6" />
-            <div className="text-center max-w-md">
-              <p className="text-memory-purple font-medium text-xl mb-4">Note</p>
-              {memory.caption && (
-                <p className="text-gray-700 text-lg leading-relaxed">
-                  {memory.caption}
-                </p>
-              )}
+          // Note display as a large speech bubble
+          <div className="w-full aspect-square bg-gradient-to-br from-blue-50 to-purple-50 p-8 flex items-center justify-center relative">
+            {/* Large speech bubble */}
+            <div className="relative bg-white rounded-3xl p-8 shadow-xl max-w-md min-h-[200px] flex items-center justify-center">
+              {/* Bubble tail */}
+              <div className="absolute bottom-[-12px] left-12 w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-t-[16px] border-t-white"></div>
+              
+              {/* Note content */}
+              <div className="text-center">
+                {memory.caption ? (
+                  <p className="text-gray-800 text-lg leading-relaxed">
+                    {memory.caption}
+                  </p>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <FileText className="h-12 w-12 text-gray-400 mb-4" />
+                    <p className="text-gray-400 text-lg">Empty note</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -425,7 +435,8 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {memory.caption && (
+            {/* Only show caption for non-notes since notes display caption in the bubble */}
+            {memory.caption && !isNote && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}
             
