@@ -285,9 +285,9 @@ const MemoryDetail = () => {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+                  <AlertDialogTitle>Delete {isNote ? 'Note' : 'Memory'}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete this memory? This action cannot be undone.
+                    Are you sure you want to delete this {isNote ? 'note' : 'memory'}? This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -307,26 +307,21 @@ const MemoryDetail = () => {
       
       <main className="flex-1">
         {isNote ? (
-          // Note display as a large speech bubble
-          <div className="w-full aspect-square bg-gradient-to-br from-blue-50 to-purple-50 p-8 flex items-center justify-center relative">
-            {/* Large speech bubble */}
-            <div className="relative bg-white rounded-3xl p-8 shadow-xl max-w-md min-h-[200px] flex items-center justify-center">
-              {/* Bubble tail */}
-              <div className="absolute bottom-[-12px] left-12 w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-t-[16px] border-t-white"></div>
-              
-              {/* Note content */}
-              <div className="text-center">
-                {memory.caption ? (
-                  <p className="text-gray-800 text-lg leading-relaxed">
+          // Note display as simple text content
+          <div className="p-6">
+            <div className="max-w-2xl mx-auto">
+              {memory.caption ? (
+                <div className="prose prose-lg max-w-none">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">
                     {memory.caption}
                   </p>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <FileText className="h-12 w-12 text-gray-400 mb-4" />
-                    <p className="text-gray-400 text-lg">Empty note</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <FileText className="h-16 w-16 mb-4" />
+                  <p className="text-lg">Empty note</p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -363,7 +358,7 @@ const MemoryDetail = () => {
                 onChange={(e) => setEditCaption(e.target.value)}
                 placeholder={isNote ? "Write your note..." : "Write something about this memory..."}
                 className="resize-none"
-                rows={isNote ? 6 : 3}
+                rows={isNote ? 8 : 3}
               />
             </div>
             
@@ -435,7 +430,7 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {/* Only show caption for non-notes since notes display caption in the bubble */}
+            {/* Only show caption for non-notes since notes display caption as main content */}
             {memory.caption && !isNote && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}

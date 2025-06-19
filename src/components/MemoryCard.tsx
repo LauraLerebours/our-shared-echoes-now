@@ -263,34 +263,128 @@ const MemoryCard = ({
     return creatorProfile?.name || 'Unknown User';
   };
 
+  // For notes, render as a simple text post
+  if (isNote) {
+    return (
+      <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
+        <div className="p-6" onClick={() => onViewDetail(id)}>
+          {/* Header with user info and date */}
+          <div className="flex items-center gap-3 mb-4">
+            {createdBy && (
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
+                  {getCreatorInitials()}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{getCreatorName()}</span>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(date), 'MMM d, yyyy')}
+                </span>
+              </div>
+              {location && (
+                <p className="text-xs text-muted-foreground">{location}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Note content */}
+          <div className="mb-4">
+            {caption ? (
+              <p className="text-foreground leading-relaxed">{caption}</p>
+            ) : (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <FileText className="h-8 w-8 mr-2" />
+                <span>Empty note</span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <CardFooter className="px-6 py-3 flex justify-between border-t">
+          <div className="flex items-center">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="p-0 h-auto" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLike();
+              }}
+              disabled={isLiking}
+            >
+              <Heart className={cn(
+                "h-5 w-5 mr-1", 
+                currentIsLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+              )} />
+              <span className={cn(
+                "text-sm", 
+                currentIsLiked ? "text-memory-pink" : "text-muted-foreground"
+              )}>{currentLikes}</span>
+            </Button>
+          </div>
+          
+          {onDelete && (
+            canDelete ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="p-1 h-auto text-destructive hover:bg-destructive/10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this note? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(id);
+                      }}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="p-1 h-auto text-muted-foreground cursor-not-allowed opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(e);
+                }}
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            )
+          )}
+        </CardFooter>
+      </Card>
+    );
+  }
+
   // Regular memory card formatting
   return (
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
-        {isNote ? (
-          // Note display as a speech bubble
-          <div className="w-full aspect-[4/3] bg-gradient-to-br from-blue-50 to-purple-50 p-6 flex items-center justify-center relative">
-            {/* Speech bubble */}
-            <div className="relative bg-white rounded-3xl p-6 shadow-lg max-w-[280px] min-h-[120px] flex items-center justify-center">
-              {/* Bubble tail */}
-              <div className="absolute bottom-[-8px] left-8 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white"></div>
-              
-              {/* Note content */}
-              <div className="text-center">
-                {caption ? (
-                  <p className="text-gray-800 text-sm leading-relaxed line-clamp-4">
-                    {caption}
-                  </p>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <FileText className="h-8 w-8 text-gray-400 mb-2" />
-                    <p className="text-gray-400 text-sm">Empty note</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : isVideo && image ? (
+        {isVideo && image ? (
           <div className="relative">
             <video 
               ref={videoRef}

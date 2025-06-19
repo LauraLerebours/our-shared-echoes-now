@@ -92,27 +92,27 @@ const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
   );
 };
 
-const NotePreview: React.FC<{ caption?: string }> = ({ caption }) => {
+const NotePreview: React.FC<{ caption?: string; creatorName?: string; date: Date }> = ({ caption, creatorName, date }) => {
   return (
-    <div className="w-full h-full bg-gradient-to-br from-blue-50 to-purple-50 p-2 flex items-center justify-center relative">
-      {/* Mini speech bubble for grid view */}
-      <div className="relative bg-white rounded-2xl p-3 shadow-md max-w-full min-h-[60px] flex items-center justify-center">
-        {/* Bubble tail */}
-        <div className="absolute bottom-[-4px] left-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
-        
-        {/* Note content */}
-        <div className="text-center">
-          {caption ? (
-            <p className="text-gray-800 text-xs leading-tight line-clamp-3">
-              {caption}
-            </p>
-          ) : (
-            <div className="flex flex-col items-center">
-              <FileText className="h-4 w-4 text-gray-400 mb-1" />
-              <p className="text-gray-400 text-xs">Note</p>
-            </div>
-          )}
-        </div>
+    <div className="w-full h-full bg-white p-3 flex flex-col justify-between">
+      {/* Note content */}
+      <div className="flex-1 flex items-center justify-center">
+        {caption ? (
+          <p className="text-gray-800 text-xs leading-tight line-clamp-4 text-center">
+            {caption}
+          </p>
+        ) : (
+          <div className="flex flex-col items-center text-gray-400">
+            <FileText className="h-6 w-6 mb-1" />
+            <p className="text-xs">Empty note</p>
+          </div>
+        )}
+      </div>
+      
+      {/* Footer with creator and date */}
+      <div className="text-xs text-gray-500 text-center mt-2 pt-2 border-t border-gray-100">
+        <div>{creatorName || 'Unknown'}</div>
+        <div>{format(date, 'MMM d')}</div>
       </div>
     </div>
   );
@@ -261,7 +261,11 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                 >
                   <div className="relative h-full">
                     {isNote ? (
-                      <NotePreview caption={memory.caption} />
+                      <NotePreview 
+                        caption={memory.caption} 
+                        creatorName={getCreatorName(memory)}
+                        date={memory.date}
+                      />
                     ) : memory.isVideo && memory.image ? (
                       <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
                     ) : memory.image ? (
@@ -276,44 +280,71 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                       </div>
                     )}
                     
-                    {/* Overlay with info */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            {memory.createdBy && (
-                              <Avatar className="h-4 w-4">
-                                <AvatarFallback className="bg-white/20 text-white text-xs">
-                                  {getCreatorInitials(memory)}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                            <span className="text-white text-xs">
-                              {format(new Date(memory.date), 'MMM d')}
-                            </span>
+                    {/* Overlay with info - only show for non-notes */}
+                    {!isNote && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute bottom-0 left-0 right-0 p-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              {memory.createdBy && (
+                                <Avatar className="h-4 w-4">
+                                  <AvatarFallback className="bg-white/20 text-white text-xs">
+                                    {getCreatorInitials(memory)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              <span className="text-white text-xs">
+                                {format(new Date(memory.date), 'MMM d')}
+                              </span>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="p-0 h-auto" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLike(memory);
+                              }}
+                              disabled={likingMemories.has(memory.id)}
+                            >
+                              <Heart className={cn(
+                                "h-3 w-3 mr-1", 
+                                memory.isLiked ? "fill-memory-pink text-memory-pink" : "text-white"
+                              )} />
+                              <span className={cn(
+                                "text-xs", 
+                                memory.isLiked ? "text-memory-pink" : "text-white"
+                              )}>{memory.likes}</span>
+                            </Button>
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="p-0 h-auto" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleLike(memory);
-                            }}
-                            disabled={likingMemories.has(memory.id)}
-                          >
-                            <Heart className={cn(
-                              "h-3 w-3 mr-1", 
-                              memory.isLiked ? "fill-memory-pink text-memory-pink" : "text-white"
-                            )} />
-                            <span className={cn(
-                              "text-xs", 
-                              memory.isLiked ? "text-memory-pink" : "text-white"
-                            )}>{memory.likes}</span>
-                          </Button>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Like button for notes - positioned differently */}
+                    {isNote && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="p-1 h-auto bg-white/90 hover:bg-white rounded-full" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLike(memory);
+                          }}
+                          disabled={likingMemories.has(memory.id)}
+                        >
+                          <Heart className={cn(
+                            "h-3 w-3 mr-1", 
+                            memory.isLiked ? "fill-memory-pink text-memory-pink" : "text-gray-600"
+                          )} />
+                          <span className={cn(
+                            "text-xs", 
+                            memory.isLiked ? "text-memory-pink" : "text-gray-600"
+                          )}>{memory.likes}</span>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </TooltipTrigger>
