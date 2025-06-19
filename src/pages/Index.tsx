@@ -14,7 +14,7 @@ import { memoriesApi } from '@/lib/api/memories';
 import { useBoards } from '@/hooks/useBoards';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Grid3X3, List, RefreshCw, Plus } from 'lucide-react';
+import { Grid3X3, List, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
@@ -357,16 +357,6 @@ const Index = () => {
                 Grid
               </Button>
             </div>
-            
-            {/* Add Memory Button */}
-            <Button 
-              size="sm" 
-              onClick={() => navigate('/add')}
-              className="bg-memory-purple hover:bg-memory-purple/90"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Memory
-            </Button>
           </div>
         )}
         
