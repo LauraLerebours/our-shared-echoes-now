@@ -467,7 +467,7 @@ const Boards = () => {
                         }}
                       />
                       
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-center space-x-2">
                         <Switch
                           id="public-board"
                           checked={isPublicBoard}
@@ -615,7 +615,7 @@ const Boards = () => {
                             }}
                           />
                           
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-center space-x-2">
                             <Switch
                               id="public-board-empty"
                               checked={isPublicBoard}
