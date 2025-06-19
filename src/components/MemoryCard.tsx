@@ -122,13 +122,12 @@ const MemoryCard = ({
         setCreatorProfile(data);
         setProfileFetchAttempts(0); // Reset attempts on success
       } catch (error) {
-        console.error('Error fetching creator profile:', error);
-        
         // Handle AbortError (timeout) and other network errors
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             console.warn('Profile fetch timed out for user:', createdBy);
           } else if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+            console.error('Error fetching creator profile:', error);
             // Retry on network errors with exponential backoff
             setProfileFetchAttempts(prev => prev + 1);
             if (profileFetchAttempts < 3) {
@@ -136,6 +135,8 @@ const MemoryCard = ({
                 fetchCreatorProfile();
               }, 2000 * (profileFetchAttempts + 1));
             }
+          } else {
+            console.error('Error fetching creator profile:', error);
           }
         }
       }
