@@ -28,9 +28,10 @@ const ResetPassword = () => {
   // Get the access token from URL
   const accessToken = searchParams.get('access_token');
   const refreshToken = searchParams.get('refresh_token');
+  const type = searchParams.get('type');
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken && !type) {
       toast({
         variant: 'destructive',
         title: 'Invalid reset link',
@@ -38,7 +39,7 @@ const ResetPassword = () => {
       });
       navigate('/auth', { replace: true });
     }
-  }, [accessToken, navigate]);
+  }, [accessToken, type, navigate]);
 
   // Check password strength
   useEffect(() => {

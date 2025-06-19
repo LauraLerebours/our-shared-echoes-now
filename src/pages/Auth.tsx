@@ -105,17 +105,6 @@ const Auth = () => {
       // Clear the URL parameters and redirect to home
       navigate('/', { replace: true });
     }
-
-    // Handle password reset success
-    if (type === 'recovery') {
-      console.log('✅ Password reset link accessed');
-      toast({
-        title: 'Password reset',
-        description: 'You can now set a new password.',
-      });
-      // Redirect to reset password page
-      navigate('/reset-password', { replace: true });
-    }
     
     if (error) {
       console.error('❌ Auth error from URL:', error, errorDescription);
