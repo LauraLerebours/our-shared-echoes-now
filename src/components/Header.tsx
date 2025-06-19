@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import UserProfileDialog from './UserProfileDialog';
@@ -93,11 +93,8 @@ const Header = () => {
         </h1>
       </div>
       
-      <Button variant="ghost" size="icon" asChild className="text-memory-purple hover:text-memory-pink hover:bg-memory-lightpurple">
-        <Link to="/add">
-          <Plus className="h-5 w-5" />
-        </Link>
-      </Button>
+      {/* Removed the Plus button that was here */}
+      <div className="w-10 h-10"></div> {/* Empty div to maintain layout balance */}
     </header>
   );
 };
