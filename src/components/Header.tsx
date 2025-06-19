@@ -70,31 +70,30 @@ const Header = () => {
             </Button>
           </UserProfileDialog>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleLogout}
-          className="text-muted-foreground hover:text-destructive"
-          title="Logout"
-          disabled={isSigningOut}
-        >
-          {isSigningOut ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            <LogOut className="h-4 w-4" />
-          )}
-        </Button>
       </div>
       
-      {/* App Title - No logo reference */}
-      <div className="flex items-center gap-2">
+      {/* App Title - Centered */}
+      <div className="absolute left-1/2 transform -translate-x-1/2">
         <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
           This Is Us
         </h1>
       </div>
       
-      {/* Removed the Plus button that was here */}
-      <div className="w-10 h-10"></div> {/* Empty div to maintain layout balance */}
+      {/* Logout button in the corner */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleLogout}
+        className="text-muted-foreground hover:text-destructive"
+        title="Logout"
+        disabled={isSigningOut}
+      >
+        {isSigningOut ? (
+          <LoadingSpinner size="sm" />
+        ) : (
+          <LogOut className="h-4 w-4" />
+        )}
+      </Button>
     </header>
   );
 };
