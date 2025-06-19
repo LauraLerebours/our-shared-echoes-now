@@ -336,7 +336,7 @@ const Index = () => {
         
         {/* View Mode Toggle - only show if we have memories or are not loading */}
         {memories.length > 0 && !memoriesLoading && (
-          <div className="flex justify-between items-center py-3 px-4 border-b bg-white sticky top-16 z-10">
+          <div className="flex justify-center items-center py-3 px-4 border-b bg-white sticky top-16 z-10">
             <div className="flex bg-muted rounded-lg p-1">
               <Button
                 variant={viewMode === 'timeline' ? 'default' : 'ghost'}
