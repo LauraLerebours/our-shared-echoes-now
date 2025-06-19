@@ -66,11 +66,22 @@ const VideoPreview: React.FC<{ src: string; alt: string; showFull: boolean }> = 
 
   return (
     <div className="relative w-full h-full">
+      {/* Blurred background for full view */}
+      {showFull && (
+        <div className="absolute inset-0 z-0">
+          <video 
+            src={src}
+            className="w-full h-full object-cover scale-110 blur-md"
+            muted
+          />
+          <div className="absolute inset-0 bg-black/30"></div>
+        </div>
+      )}
       <video 
         ref={videoRef}
         src={src}
         className={cn(
-          "w-full h-full", 
+          "w-full h-full relative z-10", 
           showFull ? "object-contain" : "object-cover"
         )}
         muted
@@ -82,13 +93,13 @@ const VideoPreview: React.FC<{ src: string; alt: string; showFull: boolean }> = 
       />
       {/* Video icon overlay - shows initially and fades out */}
       {showVideoIcon && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000 z-20">
           <Video className="h-6 w-6 text-white opacity-80" />
         </div>
       )}
       {/* Fallback for when video fails to load */}
       {!isVideoLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-200 z-20">
           <Video className="h-6 w-6 text-gray-400" />
         </div>
       )}
@@ -288,12 +299,23 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                         showFull={showFullImage}
                       />
                     ) : memory.image ? (
-                      <div className="w-full h-full bg-gray-100">
+                      <div className="relative w-full h-full">
+                        {/* Blurred background for full view */}
+                        {showFullImage && (
+                          <div className="absolute inset-0 z-0">
+                            <img 
+                              src={memory.image} 
+                              alt="" 
+                              className="w-full h-full object-cover scale-110 blur-md"
+                            />
+                            <div className="absolute inset-0 bg-black/30"></div>
+                          </div>
+                        )}
                         <img 
                           src={memory.image} 
                           alt={memory.caption || "Memory"} 
                           className={cn(
-                            "w-full h-full", 
+                            "w-full h-full relative z-10", 
                             showFullImage ? "object-contain" : "object-cover"
                           )} 
                         />
@@ -306,7 +328,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                     
                     {/* Overlay with info - only show for non-notes */}
                     {!isNote && (
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-20">
                         <div className="absolute bottom-0 left-0 right-0 p-2">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1">
@@ -354,7 +376,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity z-30"
                         onClick={(e) => toggleAspectRatio(memory.id, e)}
                         title={showFullImage ? "Show cropped view" : "Show full view"}
                       >

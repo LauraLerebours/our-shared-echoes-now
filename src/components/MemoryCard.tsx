@@ -396,13 +396,24 @@ const MemoryCard = ({
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
         {isVideo && image ? (
-          <div className="relative">
+          <div className="relative aspect-[4/3] overflow-hidden">
+            {/* Blurred background for full view */}
+            {showFullImage && (
+              <div className="absolute inset-0 z-0">
+                <video 
+                  src={image}
+                  className="w-full h-full object-cover scale-110 blur-md"
+                  muted
+                />
+                <div className="absolute inset-0 bg-black/30"></div>
+              </div>
+            )}
             <video 
               ref={videoRef}
               src={image}
               className={cn(
-                "w-full", 
-                showFullImage ? "object-contain" : "aspect-[4/3] object-cover"
+                "w-full h-full relative z-10",
+                showFullImage ? "object-contain" : "object-cover"
               )}
               muted
               loop
@@ -413,13 +424,13 @@ const MemoryCard = ({
             />
             {/* Video icon overlay - shows initially and fades out */}
             {showVideoIcon && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-1000 z-20">
                 <Video className="h-12 w-12 text-white opacity-80" />
               </div>
             )}
             {/* Fallback for when video fails to load */}
             {!isVideoLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-200 z-20">
                 <Video className="h-12 w-12 text-gray-400" />
               </div>
             )}
@@ -427,7 +438,7 @@ const MemoryCard = ({
             <Button
               variant="secondary"
               size="icon"
-              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0"
+              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0 z-30"
               onClick={toggleAspectRatio}
               title={showFullImage ? "Show cropped video" : "Show full video"}
             >
@@ -439,20 +450,31 @@ const MemoryCard = ({
             </Button>
           </div>
         ) : image ? (
-          <div className="relative">
+          <div className="relative aspect-[4/3] overflow-hidden">
+            {/* Blurred background for full view */}
+            {showFullImage && (
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src={image} 
+                  alt="" 
+                  className="w-full h-full object-cover scale-110 blur-md"
+                />
+                <div className="absolute inset-0 bg-black/30"></div>
+              </div>
+            )}
             <img 
               src={image} 
               alt={caption || "Memory"} 
               className={cn(
-                "w-full", 
-                showFullImage ? "object-contain" : "aspect-[4/3] object-cover"
+                "w-full h-full relative z-10",
+                showFullImage ? "object-contain" : "object-cover"
               )} 
             />
             {/* Toggle aspect ratio button */}
             <Button
               variant="secondary"
               size="icon"
-              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0"
+              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0 z-20"
               onClick={toggleAspectRatio}
               title={showFullImage ? "Show cropped image" : "Show full image"}
             >
@@ -470,7 +492,7 @@ const MemoryCard = ({
           </div>
         )}
         
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 z-20">
           <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}
           {createdBy && (

@@ -332,12 +332,23 @@ const MemoryDetail = () => {
         ) : (
           <div className="relative">
             {memory.isVideo && memory.image ? (
-              <div className="flex justify-center bg-black">
+              <div className="bg-black relative aspect-square">
+                {/* Blurred background for full view */}
+                {showFullImage && (
+                  <div className="absolute inset-0 z-0">
+                    <video 
+                      src={memory.image} 
+                      className="w-full h-full object-cover scale-110 blur-md"
+                      muted
+                    />
+                    <div className="absolute inset-0 bg-black/30"></div>
+                  </div>
+                )}
                 <video 
                   src={memory.image} 
                   className={cn(
-                    "max-w-full max-h-[80vh]",
-                    showFullImage ? "object-contain" : "object-cover w-full"
+                    "w-full h-full relative z-10",
+                    showFullImage ? "object-contain" : "object-cover"
                   )}
                   controls
                 />
@@ -345,7 +356,7 @@ const MemoryDetail = () => {
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0"
+                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0 z-20"
                   onClick={toggleAspectRatio}
                   title={showFullImage ? "Show cropped video" : "Show full video"}
                 >
@@ -357,20 +368,31 @@ const MemoryDetail = () => {
                 </Button>
               </div>
             ) : memory.image ? (
-              <div className="flex justify-center bg-black relative">
+              <div className="bg-black relative aspect-square">
+                {/* Blurred background for full view */}
+                {showFullImage && (
+                  <div className="absolute inset-0 z-0">
+                    <img 
+                      src={memory.image} 
+                      alt="" 
+                      className="w-full h-full object-cover scale-110 blur-md"
+                    />
+                    <div className="absolute inset-0 bg-black/30"></div>
+                  </div>
+                )}
                 <img 
                   src={memory.image} 
                   alt={memory.caption || "Memory"} 
                   className={cn(
-                    "max-w-full max-h-[80vh]",
-                    showFullImage ? "object-contain" : "object-cover w-full"
+                    "w-full h-full relative z-10",
+                    showFullImage ? "object-contain" : "object-cover"
                   )}
                 />
                 {/* Toggle aspect ratio button */}
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0"
+                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0 z-20"
                   onClick={toggleAspectRatio}
                   title={showFullImage ? "Show cropped image" : "Show full image"}
                 >
@@ -473,7 +495,7 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {memory.caption && !isNote && (
+            {memory.caption && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}
             
