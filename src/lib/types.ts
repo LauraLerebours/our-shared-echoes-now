@@ -21,6 +21,7 @@ export interface Board {
   owner_id?: string;
   share_code: string;
   member_ids?: string[];
+  is_public?: boolean;
 }
 
 export interface UserProfile {

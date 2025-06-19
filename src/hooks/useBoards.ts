@@ -20,9 +20,9 @@ export function useBoards() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const { execute: executeCreateBoard, loading: creating } = useAsyncOperation(
-    async (name: string) => {
+    async (name: string, isPublic: boolean = false) => {
       if (!user?.id) throw new Error('User not authenticated');
-      const result = await boardsApi.createBoard(name, user.id);
+      const result = await boardsApi.createBoard(name, isPublic, user.id);
       if (!result.success || !result.data) throw new Error(result.error || 'Failed to create board');
       if (mountedRef.current) {
         setBoards(prev => [...prev, result.data!]);

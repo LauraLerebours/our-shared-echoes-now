@@ -30,7 +30,8 @@ export const boardsApi = {
             access_code,
             share_code,
             created_at,
-            updated_at
+            updated_at,
+            is_public
           `)
           .or(`owner_id.eq.${userId},member_ids.cs.{${userId}}`)
           .order('created_at', { ascending: false })
@@ -143,14 +144,14 @@ export const boardsApi = {
     }, 'getBoardByShareCode');
   },
 
-  async createBoard(name: string, userId: string) {
+  async createBoard(name: string, isPublic: boolean = false, userId: string) {
     const sanitizedName = sanitizeInput(name);
     if (!sanitizedName) {
       return { success: false, error: 'Invalid board name' };
     }
 
     return withErrorHandling(async () => {
-      console.log('🔄 [boardsApi.createBoard] Starting:', { name: sanitizedName, userId });
+      console.log('🔄 [boardsApi.createBoard] Starting:', { name: sanitizedName, userId, isPublic });
       
       if (!userId) {
         throw new Error('User ID is required');
@@ -179,51 +180,35 @@ export const boardsApi = {
 
         console.log('✅ [boardsApi.createBoard] Access code created');
 
-        // Use the safe function to create board
-        const { data: boardId, error } = await supabase.rpc('create_board_with_owner', {
-          board_name: sanitizedName,
-          owner_user_id: userId,
-          access_code_param: accessCode,
-          share_code_param: shareCode
-        });
+        // Insert the board with is_public flag
+        const { data: boardData, error: boardError } = await supabase
+          .from('boards')
+          .insert([{
+            name: sanitizedName,
+            owner_id: userId,
+            access_code: accessCode,
+            share_code: shareCode,
+            member_ids: [userId],
+            is_public: isPublic
+          }])
+          .select()
+          .single();
 
-        if (error) {
-          console.error('❌ [boardsApi.createBoard] Board creation error:', error);
+        if (boardError) {
+          console.error('❌ [boardsApi.createBoard] Board creation error:', boardError);
           
-          // Handle function not found error
-          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
-            throw new Error('Database function not available. Please check your database setup.');
-          }
-          
-          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+          if (boardError.message?.includes('relation') && boardError.message?.includes('does not exist')) {
             throw new Error('Database tables are missing. Please run database migrations.');
           }
           
-          throw new Error(`Failed to create board: ${error.message}`);
-        }
-
-        if (!boardId) {
-          throw new Error('Board creation function returned no ID');
-        }
-
-        console.log('✅ [boardsApi.createBoard] Board created with ID:', boardId);
-
-        // Fetch the created board
-        const { data: boardData, error: fetchError } = await supabase
-          .from('boards')
-          .select('*')
-          .eq('id', boardId)
-          .single();
-
-        if (fetchError) {
-          console.error('❌ [boardsApi.createBoard] Fetch error:', fetchError);
-          throw new Error(`Failed to fetch created board: ${fetchError.message}`);
+          throw new Error(`Failed to create board: ${boardError.message}`);
         }
 
         if (!boardData) {
-          throw new Error('Created board not found');
+          throw new Error('Board creation returned no data');
         }
 
+        console.log('✅ [boardsApi.createBoard] Board created with ID:', boardData.id);
         return boardData;
       }, 3, 1000);
 
