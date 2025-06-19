@@ -14,7 +14,7 @@ import { memoriesApi } from '@/lib/api/memories';
 import { useBoards } from '@/hooks/useBoards';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Grid3X3, List, RefreshCw } from 'lucide-react';
+import { Grid3X3, List, RefreshCw, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
@@ -336,7 +336,7 @@ const Index = () => {
         
         {/* View Mode Toggle - only show if we have memories or are not loading */}
         {memories.length > 0 && !memoriesLoading && (
-          <div className="flex justify-center py-3 border-b bg-white sticky top-16 z-10">
+          <div className="flex justify-between items-center py-3 px-4 border-b bg-white sticky top-16 z-10">
             <div className="flex bg-muted rounded-lg p-1">
               <Button
                 variant={viewMode === 'timeline' ? 'default' : 'ghost'}
@@ -357,6 +357,16 @@ const Index = () => {
                 Grid
               </Button>
             </div>
+            
+            {/* Add Memory Button */}
+            <Button 
+              size="sm" 
+              onClick={() => navigate('/add')}
+              className="bg-memory-purple hover:bg-memory-purple/90"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Memory
+            </Button>
           </div>
         )}
         

@@ -15,6 +15,7 @@ import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
 import Welcome from "./pages/Welcome";
+import TutorialOverlay from "./components/TutorialOverlay";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <TutorialOverlay />
               <Routes>
                 <Route path="/welcome" element={<Welcome />} />
                 <Route path="/auth" element={<Auth />} />
