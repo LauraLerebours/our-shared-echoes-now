@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageCircle, Reply, Edit2, Trash2, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +29,7 @@ interface Comment {
   updated_at: string;
   user_profiles?: {
     name: string;
+    profile_picture_url?: string;
   };
   replies?: Comment[];
 }
@@ -47,7 +48,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
   const [editContent, setEditContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
 
   // Load comments for this memory
   useEffect(() => {
@@ -62,7 +63,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
         .from('comments')
         .select(`
           *,
-          user_profiles(name)
+          user_profiles(name, profile_picture_url)
         `)
         .eq('memory_id', memoryId)
         .order('created_at', { ascending: true });
@@ -245,6 +246,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
       .slice(0, 2);
   };
 
+  const getCurrentUserInitials = () => {
+    if (userProfile?.name) {
+      return getInitials(userProfile.name);
+    }
+    return user?.email?.charAt(0).toUpperCase() || 'U';
+  };
+
   const renderComment = (comment: Comment, isReply = false) => {
     const isOwner = user?.id === comment.user_id;
     const isEditing = editingComment === comment.id;
@@ -253,6 +261,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
       <div key={comment.id} className={`${isReply ? 'ml-8 mt-3' : 'mb-4'}`}>
         <div className="flex gap-3">
           <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarImage 
+              src={comment.user_profiles?.profile_picture_url} 
+              alt={comment.user_profiles?.name || 'Profile'} 
+            />
             <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
               {getInitials(comment.user_profiles?.name || 'User')}
             </AvatarFallback>
@@ -432,8 +444,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
         <div className="mb-6">
           <div className="flex gap-3">
             <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarImage 
+                src={userProfile?.profile_picture_url} 
+                alt={userProfile?.name || 'Profile'} 
+              />
               <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
-                {getInitials(user.email?.split('@')[0] || 'You')}
+                {getCurrentUserInitials()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-2">

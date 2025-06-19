@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Users, Crown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 interface BoardMember {
   id: string;
   name: string;
+  profile_picture_url?: string;
   isOwner: boolean;
 }
 
@@ -56,7 +57,7 @@ const BoardMembersDialog: React.FC<BoardMembersDialogProps> = ({
       // Get user profiles for all members
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, name')
+        .select('id, name, profile_picture_url')
         .in('id', boardData.member_ids);
 
       if (profilesError) throw profilesError;
@@ -65,6 +66,7 @@ const BoardMembersDialog: React.FC<BoardMembersDialogProps> = ({
       const membersWithOwnership = profilesData.map(profile => ({
         id: profile.id,
         name: profile.name,
+        profile_picture_url: profile.profile_picture_url,
         isOwner: profile.id === boardData.owner_id
       }));
 
@@ -132,6 +134,10 @@ const BoardMembersDialog: React.FC<BoardMembersDialogProps> = ({
             members.map((member) => (
               <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
                 <Avatar className="h-10 w-10">
+                  <AvatarImage 
+                    src={member.profile_picture_url} 
+                    alt={member.name} 
+                  />
                   <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                     {getInitials(member.name)}
                   </AvatarFallback>

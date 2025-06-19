@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -55,6 +55,10 @@ const Header = () => {
         <UserProfileDialog>
           <Button variant="ghost" className="p-0 h-auto">
             <Avatar className="h-9 w-9 border-2 border-memory-purple">
+              <AvatarImage 
+                src={userProfile?.profile_picture_url} 
+                alt={userProfile?.name || 'Profile'} 
+              />
               <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                 {getInitials()}
               </AvatarFallback>

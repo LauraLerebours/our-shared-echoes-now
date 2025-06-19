@@ -28,6 +28,7 @@ export interface Board {
 export interface UserProfile {
   id: string;
   name: string;
+  profile_picture_url?: string; // Add profile picture URL
   created_at?: string;
   updated_at?: string;
 }
@@ -42,6 +43,7 @@ export interface Comment {
   updated_at: string;
   user_profiles?: {
     name: string;
+    profile_picture_url?: string; // Add profile picture to comments
   };
   replies?: Comment[];
 }

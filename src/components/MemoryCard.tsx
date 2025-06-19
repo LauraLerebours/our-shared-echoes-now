@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Trash2, Video, User, FileText } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +42,7 @@ export interface MemoryCardProps {
 interface UserProfile {
   id: string;
   name: string;
+  profile_picture_url?: string;
 }
 
 const MemoryCard = ({
@@ -97,7 +98,7 @@ const MemoryCard = ({
 
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('id, name')
+          .select('id, name, profile_picture_url')
           .eq('id', createdBy)
           .abortSignal(controller.signal)
           .single();
@@ -272,6 +273,10 @@ const MemoryCard = ({
           <div className="flex items-center gap-3 mb-4">
             {createdBy && (
               <Avatar className="h-8 w-8">
+                <AvatarImage 
+                  src={creatorProfile?.profile_picture_url} 
+                  alt={creatorProfile?.name || 'Profile'} 
+                />
                 <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                   {getCreatorInitials()}
                 </AvatarFallback>
@@ -429,6 +434,10 @@ const MemoryCard = ({
           {createdBy && (
             <div className="flex items-center gap-2 mt-1">
               <Avatar className="h-5 w-5">
+                <AvatarImage 
+                  src={creatorProfile?.profile_picture_url} 
+                  alt={creatorProfile?.name || 'Profile'} 
+                />
                 <AvatarFallback className="bg-white/20 text-white text-xs">
                   {getCreatorInitials()}
                 </AvatarFallback>

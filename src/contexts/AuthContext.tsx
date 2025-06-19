@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadProfilePicture, deleteProfilePicture } from '@/lib/uploadProfilePicture';
 
 interface UserProfile {
   id: string;
   name: string;
+  profile_picture_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -19,6 +21,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (name: string) => Promise<{ error: Error | null }>;
+  updateProfilePicture: (file: File) => Promise<{ error: Error | null }>;
+  removeProfilePicture: () => Promise<{ error: Error | null }>;
   isSigningOut: boolean;
 }
 
@@ -124,6 +128,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null };
     } catch (error) {
       console.error('❌ Error updating profile:', error);
+      return { error: error as Error };
+    }
+  };
+
+  // Update profile picture function
+  const updateProfilePicture = async (file: File) => {
+    if (!user) {
+      return { error: new Error('No user logged in') };
+    }
+
+    try {
+      console.log('🔄 Updating profile picture');
+      
+      // Upload the new profile picture
+      const profilePictureUrl = await uploadProfilePicture(file, user.id);
+      
+      // Update the user profile with the new picture URL
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ profile_picture_url: profilePictureUrl })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error updating profile picture in database:', error);
+        return { error: new Error(error.message) };
+      }
+
+      console.log('✅ Profile picture updated successfully');
+      setUserProfile(data);
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Error updating profile picture:', error);
+      return { error: error as Error };
+    }
+  };
+
+  // Remove profile picture function
+  const removeProfilePicture = async () => {
+    if (!user) {
+      return { error: new Error('No user logged in') };
+    }
+
+    try {
+      console.log('🔄 Removing profile picture');
+      
+      // Delete the profile picture from storage
+      await deleteProfilePicture(user.id);
+      
+      // Update the user profile to remove the picture URL
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ profile_picture_url: null })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error removing profile picture from database:', error);
+        return { error: new Error(error.message) };
+      }
+
+      console.log('✅ Profile picture removed successfully');
+      setUserProfile(data);
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Error removing profile picture:', error);
       return { error: error as Error };
     }
   };
@@ -392,6 +464,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     signOut,
     updateProfile,
+    updateProfilePicture,
+    removeProfilePicture,
     isSigningOut,
   };
 
