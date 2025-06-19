@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Memory } from '@/components/MemoryList';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 import { extractPhotoMetadata } from '@/lib/extractMetadata';
+import { ContentModerator, ModerationRateLimit } from '@/lib/contentModeration';
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -33,6 +38,9 @@ const AddMemory = () => {
   const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   const [selectedBoard, setSelectedBoard] = useState<{id: string, name: string} | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [moderating, setModerating] = useState(false);
+  const [moderationError, setModerationError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { user, userProfile } = useAuth();
   
   useEffect(() => {
@@ -87,9 +95,42 @@ const AddMemory = () => {
 
     // Clear any previous errors
     setUploadError(null);
+    setModerationError(null);
     setUploading(true);
     
     try {
+      // Check rate limiting
+      if (!ModerationRateLimit.canMakeRequest(user.id)) {
+        throw new Error('Too many moderation requests. Please wait a moment before trying again.');
+      }
+
+      // Record the moderation request
+      ModerationRateLimit.recordRequest(user.id);
+
+      // Moderate the file content
+      setModerating(true);
+      const moderationResult = await ContentModerator.moderateMemory(
+        caption, 
+        file, 
+        memoryType
+      );
+
+      if (!moderationResult.success) {
+        throw new Error(moderationResult.error || 'Content moderation failed');
+      }
+
+      if (!moderationResult.result?.isAppropriate) {
+        setModerationError(
+          moderationResult.result?.reason || 
+          'This content was flagged by our moderation system and cannot be uploaded.'
+        );
+        setModerating(false);
+        setUploading(false);
+        return;
+      }
+
+      setModerating(false);
+
       // Extract metadata from the file
       if (file.type.startsWith('image/')) {
         const metadata = await extractPhotoMetadata(file);
@@ -122,6 +163,9 @@ const AddMemory = () => {
           });
         }
       }
+
+      // Store the file for later upload
+      setSelectedFile(file);
 
       // Upload the file
       const publicUrl = await uploadMediaToStorage(file, user.id);
@@ -160,6 +204,7 @@ const AddMemory = () => {
       });
     } finally {
       setUploading(false);
+      setModerating(false);
     }
   };
 
@@ -228,10 +273,56 @@ const AddMemory = () => {
       });
       return;
     }
+
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create memories",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check rate limiting
+    if (!ModerationRateLimit.canMakeRequest(user.id)) {
+      toast({
+        title: "Rate Limited",
+        description: "Too many requests. Please wait a moment before trying again.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setUploading(true);
+    setModerationError(null);
     
     try {
+      // Record the moderation request
+      ModerationRateLimit.recordRequest(user.id);
+
+      // Moderate the content before saving
+      setModerating(true);
+      const moderationResult = await ContentModerator.moderateMemory(
+        caption,
+        selectedFile || undefined,
+        memoryType
+      );
+
+      setModerating(false);
+
+      if (!moderationResult.success) {
+        throw new Error(moderationResult.error || 'Content moderation failed');
+      }
+
+      if (!moderationResult.result?.isAppropriate) {
+        setModerationError(
+          moderationResult.result?.reason || 
+          'This content was flagged by our moderation system and cannot be saved.'
+        );
+        setUploading(false);
+        return;
+      }
+
       // Create a new memory object
       const memoryId = uuidv4();
       const newMemory: Memory = {
@@ -287,6 +378,7 @@ const AddMemory = () => {
       });
     } finally {
       setUploading(false);
+      setModerating(false);
     }
   };
   
@@ -304,10 +396,10 @@ const AddMemory = () => {
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!caption.trim() || uploading || !selectedAccessCode || (memoryType !== 'note' && !previewMedia)}
+          disabled={!caption.trim() || uploading || moderating || !selectedAccessCode || (memoryType !== 'note' && !previewMedia)}
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
-          {uploading ? 'Saving...' : 'Save'}
+          {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
         </Button>
       </header>
       
@@ -329,6 +421,25 @@ const AddMemory = () => {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          {/* Content Moderation Info */}
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              All content is automatically checked for appropriateness before being saved. 
+              Please ensure your content follows community guidelines.
+            </AlertDescription>
+          </Alert>
+
+          {/* Moderation Error Display */}
+          {moderationError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Content Blocked:</strong> {moderationError}
+              </AlertDescription>
+            </Alert>
+          )}
           
           {uploadError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -345,11 +456,11 @@ const AddMemory = () => {
               "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
               previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
             )}>
-              {uploading ? (
+              {uploading || moderating ? (
                 <div className="flex flex-col items-center justify-center h-[200px]">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple"></div>
                   <p className="mt-4 text-sm text-muted-foreground">
-                    Uploading...
+                    {moderating ? 'Checking content...' : 'Uploading...'}
                   </p>
                 </div>
               ) : previewMedia ? (
@@ -375,6 +486,8 @@ const AddMemory = () => {
                     onClick={() => {
                       setPreviewMedia(null);
                       setUploadError(null);
+                      setModerationError(null);
+                      setSelectedFile(null);
                     }}
                   >
                     Change
@@ -394,14 +507,14 @@ const AddMemory = () => {
                   <div className="relative inline-block">
                     <button
                       type="button"
-                      disabled={uploading}
+                      disabled={uploading || moderating}
                       onClick={() => document.getElementById('file-input')?.click()}
                       className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {uploading ? (
+                      {uploading || moderating ? (
                         <span className="flex items-center">
                           <span className="animate-spin mr-2">⏳</span>
-                          Uploading...
+                          {moderating ? 'Checking...' : 'Uploading...'}
                         </span>
                       ) : (
                         <>
@@ -416,7 +529,7 @@ const AddMemory = () => {
                       accept={memoryType === 'video' ? 'video/*' : 'image/*'}
                       className="absolute inset-0 opacity-0 pointer-events-none"
                       onChange={handleFileChange}
-                      disabled={uploading}
+                      disabled={uploading || moderating}
                       autoComplete="off"
                     />
                   </div>
@@ -451,7 +564,11 @@ const AddMemory = () => {
                 rows={memoryType === 'note' ? 6 : 3}
                 required
                 autoComplete="off"
+                maxLength={5000}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                {caption.length}/5000 characters
+              </p>
             </div>
             
             <div>
@@ -493,6 +610,7 @@ const AddMemory = () => {
                   onChange={(e) => setLocation(e.target.value)}
                   className="pl-10"
                   autoComplete="off"
+                  maxLength={200}
                 />
               </div>
             </div>

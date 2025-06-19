@@ -42,6 +42,7 @@ export const memoriesApi = {
           .from('memories_with_likes')
           .select('*')
           .eq('access_code', accessCode)
+          .eq('moderation_status', 'approved') // Only fetch approved content
           .order('event_date', { ascending: false })
           .limit(100);
         
@@ -185,6 +186,7 @@ export const memoriesApi = {
               .from('memories_with_likes')
               .select('*')
               .in('access_code', chunk)
+              .eq('moderation_status', 'approved') // Only fetch approved content
               .order('event_date', { ascending: false })
               .limit(Math.ceil(limit / chunks.length));
             
@@ -299,6 +301,7 @@ export const memoriesApi = {
           .from('memories_with_likes')
           .select('*')
           .eq('id', id)
+          .eq('moderation_status', 'approved') // Only fetch approved content
           .single();
         
         if (error) {
@@ -370,7 +373,9 @@ export const memoriesApi = {
         is_video: memory.isVideo || false,
         memory_type: memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo')),
         access_code: memory.accessCode,
-        created_by: memory.createdBy
+        created_by: memory.createdBy,
+        moderation_status: 'approved', // Set as approved since we moderate on client-side
+        moderation_score: 1.0 // High confidence since it passed client-side moderation
       };
       
       console.log('🔄 [memoriesApi.createMemory] Inserting memory into database');
@@ -440,6 +445,7 @@ export const memoriesApi = {
           .from('memories')
           .update(dbUpdates)
           .eq('id', id)
+          .eq('moderation_status', 'approved') // Only update approved content
           .select()
           .single();
         
@@ -598,6 +604,7 @@ export const memoriesApi = {
         .update(dbUpdates)
         .eq('id', id)
         .eq('access_code', accessCode)
+        .eq('moderation_status', 'approved') // Only update approved content
         .select()
         .single();
       
