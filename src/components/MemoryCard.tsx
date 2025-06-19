@@ -400,7 +400,10 @@ const MemoryCard = ({
             <video 
               ref={videoRef}
               src={image}
-              className="w-full object-contain" 
+              className={cn(
+                "w-full", 
+                showFullImage ? "object-contain" : "aspect-[4/3] object-cover"
+              )}
               muted
               loop
               playsInline
@@ -420,6 +423,20 @@ const MemoryCard = ({
                 <Video className="h-12 w-12 text-gray-400" />
               </div>
             )}
+            {/* Toggle aspect ratio button for videos */}
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0"
+              onClick={toggleAspectRatio}
+              title={showFullImage ? "Show cropped video" : "Show full video"}
+            >
+              {showFullImage ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         ) : image ? (
           <div className="relative">

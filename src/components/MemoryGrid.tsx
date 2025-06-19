@@ -27,7 +27,7 @@ interface UserProfile {
   profile_picture_url?: string;
 }
 
-const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
+const VideoPreview: React.FC<{ src: string; alt: string; showFull: boolean }> = ({ src, alt, showFull }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [showVideoIcon, setShowVideoIcon] = useState(true);
@@ -69,7 +69,10 @@ const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
       <video 
         ref={videoRef}
         src={src}
-        className="w-full h-full object-cover" 
+        className={cn(
+          "w-full h-full", 
+          showFull ? "object-contain" : "object-cover"
+        )}
         muted
         loop
         playsInline
@@ -279,7 +282,11 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                         date={memory.date}
                       />
                     ) : memory.isVideo && memory.image ? (
-                      <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
+                      <VideoPreview 
+                        src={memory.image} 
+                        alt={memory.caption || "Memory"} 
+                        showFull={showFullImage}
+                      />
                     ) : memory.image ? (
                       <div className="w-full h-full bg-gray-100">
                         <img 
@@ -290,20 +297,6 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                             showFullImage ? "object-contain" : "object-cover"
                           )} 
                         />
-                        {/* Toggle aspect ratio button */}
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => toggleAspectRatio(memory.id, e)}
-                          title={showFullImage ? "Show cropped image" : "Show full image"}
-                        >
-                          {showFullImage ? (
-                            <Minimize className="h-3 w-3" />
-                          ) : (
-                            <Maximize className="h-3 w-3" />
-                          )}
-                        </Button>
                       </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -354,6 +347,23 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                           </div>
                         </div>
                       </div>
+                    )}
+
+                    {/* Toggle aspect ratio button - for both photos and videos */}
+                    {!isNote && memory.image && (
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => toggleAspectRatio(memory.id, e)}
+                        title={showFullImage ? "Show cropped view" : "Show full view"}
+                      >
+                        {showFullImage ? (
+                          <Minimize className="h-3 w-3" />
+                        ) : (
+                          <Maximize className="h-3 w-3" />
+                        )}
+                      </Button>
                     )}
 
                     {/* Like button for notes - positioned differently */}

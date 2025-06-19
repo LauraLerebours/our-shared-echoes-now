@@ -335,9 +335,26 @@ const MemoryDetail = () => {
               <div className="flex justify-center bg-black">
                 <video 
                   src={memory.image} 
-                  className="max-w-full max-h-[80vh] object-contain" 
+                  className={cn(
+                    "max-w-full max-h-[80vh]",
+                    showFullImage ? "object-contain" : "object-cover w-full"
+                  )}
                   controls
                 />
+                {/* Toggle aspect ratio button for videos */}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0"
+                  onClick={toggleAspectRatio}
+                  title={showFullImage ? "Show cropped video" : "Show full video"}
+                >
+                  {showFullImage ? (
+                    <Minimize className="h-5 w-5" />
+                  ) : (
+                    <Maximize className="h-5 w-5" />
+                  )}
+                </Button>
               </div>
             ) : memory.image ? (
               <div className="flex justify-center bg-black relative">
