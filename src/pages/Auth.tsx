@@ -685,7 +685,7 @@ const Auth = () => {
                       />
                     </div>
                     
-                    <div className="flex justify-end">
+                    <div className="flex justify-center">
                       <Button
                         type="button"
                         variant="ghost"
