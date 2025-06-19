@@ -10,6 +10,7 @@ import AddMemory from "./pages/AddMemory";
 import MemoryDetail from "./pages/MemoryDetail";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Share from "./pages/Share";
 import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
@@ -74,6 +75,7 @@ const App = () => {
               <Routes>
                 <Route path="/welcome" element={<Welcome />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/shared/:code" element={<SharedMemories />} />
                 <Route 
                   path="/" 

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AuthAnimation from '@/components/AuthAnimation';
 
@@ -13,11 +13,21 @@ const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccessful, setResetSuccessful] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    special: false
+  });
 
   // Get the access token from URL
   const accessToken = searchParams.get('access_token');
+  const refreshToken = searchParams.get('refresh_token');
 
   useEffect(() => {
     if (!accessToken) {
@@ -29,6 +39,29 @@ const ResetPassword = () => {
       navigate('/auth', { replace: true });
     }
   }, [accessToken, navigate]);
+
+  // Check password strength
+  useEffect(() => {
+    setPasswordStrength({
+      length: newPassword.length >= 8,
+      uppercase: /[A-Z]/.test(newPassword),
+      lowercase: /[a-z]/.test(newPassword),
+      number: /\d/.test(newPassword),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
+    });
+  }, [newPassword]);
+
+  const getPasswordStrengthScore = () => {
+    return Object.values(passwordStrength).filter(Boolean).length;
+  };
+
+  const getPasswordStrengthText = () => {
+    const score = getPasswordStrengthScore();
+    if (score < 2) return { text: 'Weak', color: 'text-red-500' };
+    if (score < 4) return { text: 'Fair', color: 'text-yellow-500' };
+    if (score < 5) return { text: 'Good', color: 'text-blue-500' };
+    return { text: 'Strong', color: 'text-green-500' };
+  };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +86,19 @@ const ResetPassword = () => {
 
     setIsResetting(true);
     try {
+      // Set the session using the tokens from the URL
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          throw sessionError;
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -167,9 +213,7 @@ const ResetPassword = () => {
           >
             <div className="text-center space-y-4">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <CheckCircle className="h-8 w-8 text-green-500" />
               </div>
               <h2 className="text-xl font-semibold">Password Reset Successful</h2>
               <p className="text-muted-foreground">
@@ -195,40 +239,124 @@ const ResetPassword = () => {
                 <label htmlFor="new-password" className="block text-sm font-medium">
                   New Password
                 </label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  disabled={isResetting}
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={isResetting}
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Password strength indicator */}
+                {newPassword && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Password strength:</span>
+                      <span className={`text-xs font-medium ${getPasswordStrengthText().color}`}>
+                        {getPasswordStrengthText().text}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1">
+                      <div 
+                        className={`h-1 rounded-full transition-all duration-300 ${
+                          getPasswordStrengthScore() < 2 ? 'bg-red-500' :
+                          getPasswordStrengthScore() < 4 ? 'bg-yellow-500' :
+                          getPasswordStrengthScore() < 5 ? 'bg-blue-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${(getPasswordStrengthScore() / 5) * 100}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-xs">
+                      <div className={`flex items-center gap-1 ${passwordStrength.length ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-1 h-1 rounded-full ${passwordStrength.length ? 'bg-green-600' : 'bg-gray-400'}`} />
+                        8+ characters
+                      </div>
+                      <div className={`flex items-center gap-1 ${passwordStrength.uppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-1 h-1 rounded-full ${passwordStrength.uppercase ? 'bg-green-600' : 'bg-gray-400'}`} />
+                        Uppercase
+                      </div>
+                      <div className={`flex items-center gap-1 ${passwordStrength.lowercase ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-1 h-1 rounded-full ${passwordStrength.lowercase ? 'bg-green-600' : 'bg-gray-400'}`} />
+                        Lowercase
+                      </div>
+                      <div className={`flex items-center gap-1 ${passwordStrength.number ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={`w-1 h-1 rounded-full ${passwordStrength.number ? 'bg-green-600' : 'bg-gray-400'}`} />
+                        Number
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
                 <label htmlFor="confirm-password" className="block text-sm font-medium">
                   Confirm Password
                 </label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  disabled={isResetting}
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={isResetting}
+                    autoComplete="new-password"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Password match indicator */}
+                {confirmPassword && (
+                  <div className={`text-xs flex items-center gap-1 ${
+                    newPassword === confirmPassword ? 'text-green-600' : 'text-red-500'
+                  }`}>
+                    <div className={`w-1 h-1 rounded-full ${
+                      newPassword === confirmPassword ? 'bg-green-600' : 'bg-red-500'
+                    }`} />
+                    {newPassword === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                  </div>
+                )}
               </div>
               
               <Button
                 type="submit"
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                disabled={isResetting || !newPassword || !confirmPassword}
+                disabled={isResetting || !newPassword || !confirmPassword || newPassword !== confirmPassword}
               >
                 {isResetting ? 'Resetting Password...' : 'Reset Password'}
               </Button>
