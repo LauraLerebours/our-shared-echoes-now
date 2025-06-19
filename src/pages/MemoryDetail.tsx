@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -45,6 +45,7 @@ const MemoryDetail = () => {
   const [editLocation, setEditLocation] = useState('');
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(true);
   
   const accessCode = location.state?.accessCode;
   
@@ -227,6 +228,10 @@ const MemoryDetail = () => {
     }
     setIsEditing(false);
   };
+
+  const toggleAspectRatio = () => {
+    setShowFullImage(!showFullImage);
+  };
   
   if (loading) {
     return (
@@ -335,12 +340,29 @@ const MemoryDetail = () => {
                 />
               </div>
             ) : memory.image ? (
-              <div className="flex justify-center bg-black">
+              <div className="flex justify-center bg-black relative">
                 <img 
                   src={memory.image} 
                   alt={memory.caption || "Memory"} 
-                  className="max-w-full max-h-[80vh] object-contain" 
+                  className={cn(
+                    "max-w-full max-h-[80vh]",
+                    showFullImage ? "object-contain" : "object-cover w-full"
+                  )}
                 />
+                {/* Toggle aspect ratio button */}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white rounded-full h-10 w-10 p-0"
+                  onClick={toggleAspectRatio}
+                  title={showFullImage ? "Show cropped image" : "Show full image"}
+                >
+                  {showFullImage ? (
+                    <Minimize className="h-5 w-5" />
+                  ) : (
+                    <Maximize className="h-5 w-5" />
+                  )}
+                </Button>
               </div>
             ) : (
               <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
@@ -434,7 +456,6 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {/* Only show caption for non-notes since notes display caption as main content */}
             {memory.caption && !isNote && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}

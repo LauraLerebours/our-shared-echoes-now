@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Trash2, Video, User, FileText } from 'lucide-react';
+import { Heart, Trash2, Video, User, FileText, Maximize, Minimize } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -70,6 +70,7 @@ const MemoryCard = ({
   const [showVideoIcon, setShowVideoIcon] = useState(true);
   const [canDelete, setCanDelete] = useState(false);
   const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
+  const [showFullImage, setShowFullImage] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
@@ -264,6 +265,11 @@ const MemoryCard = ({
     return creatorProfile?.name || 'Unknown User';
   };
 
+  const toggleAspectRatio = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFullImage(!showFullImage);
+  };
+
   // For notes, render as a simple text post
   if (isNote) {
     return (
@@ -416,11 +422,30 @@ const MemoryCard = ({
             )}
           </div>
         ) : image ? (
-          <img 
-            src={image} 
-            alt={caption || "Memory"} 
-            className="w-full object-contain" 
-          />
+          <div className="relative">
+            <img 
+              src={image} 
+              alt={caption || "Memory"} 
+              className={cn(
+                "w-full", 
+                showFullImage ? "object-contain" : "aspect-[4/3] object-cover"
+              )} 
+            />
+            {/* Toggle aspect ratio button */}
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0"
+              onClick={toggleAspectRatio}
+              title={showFullImage ? "Show cropped image" : "Show full image"}
+            >
+              {showFullImage ? (
+                <Minimize className="h-4 w-4" />
+              ) : (
+                <Maximize className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         ) : (
           // Fallback for memories without images
           <div className="w-full aspect-[4/3] bg-gray-200 flex items-center justify-center">

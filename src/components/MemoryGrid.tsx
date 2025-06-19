@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Heart, Video, User, FileText } from 'lucide-react';
+import { Heart, Video, User, FileText, Maximize, Minimize } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -122,6 +122,7 @@ const NotePreview: React.FC<{ caption?: string; creatorName?: string; date: Date
 const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdateMemory }) => {
   const [likingMemories, setLikingMemories] = useState<Set<string>>(new Set());
   const [userProfiles, setUserProfiles] = useState<Map<string, UserProfile>>(new Map());
+  const [showFullImageMap, setShowFullImageMap] = useState<Map<string, boolean>>(new Map());
 
   // Fetch user profiles for all memory creators
   useEffect(() => {
@@ -243,6 +244,15 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
     return profile?.name || 'Unknown User';
   };
 
+  const toggleAspectRatio = (memoryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFullImageMap(prev => {
+      const newMap = new Map(prev);
+      newMap.set(memoryId, !prev.get(memoryId));
+      return newMap;
+    });
+  };
+
   const sortedMemories = [...memories].sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
@@ -252,6 +262,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 safari-bottom-safe">
         {sortedMemories.map((memory) => {
           const isNote = memory.type === 'note' || memory.memoryType === 'note';
+          const showFullImage = showFullImageMap.get(memory.id) || false;
           
           return (
             <Tooltip key={memory.id}>
@@ -270,12 +281,29 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                     ) : memory.isVideo && memory.image ? (
                       <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
                     ) : memory.image ? (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <div className="w-full h-full bg-gray-100">
                         <img 
                           src={memory.image} 
                           alt={memory.caption || "Memory"} 
-                          className="max-w-full max-h-full object-contain" 
+                          className={cn(
+                            "w-full h-full", 
+                            showFullImage ? "object-contain" : "object-cover"
+                          )} 
                         />
+                        {/* Toggle aspect ratio button */}
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => toggleAspectRatio(memory.id, e)}
+                          title={showFullImage ? "Show cropped image" : "Show full image"}
+                        >
+                          {showFullImage ? (
+                            <Minimize className="h-3 w-3" />
+                          ) : (
+                            <Maximize className="h-3 w-3" />
+                          )}
+                        </Button>
                       </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
