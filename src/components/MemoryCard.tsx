@@ -66,6 +66,7 @@ const MemoryCard = ({
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [showVideoIcon, setShowVideoIcon] = useState(true);
   const [canDelete, setCanDelete] = useState(false);
+  const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
@@ -78,26 +79,63 @@ const MemoryCard = ({
     const fetchCreatorProfile = async () => {
       if (!createdBy) return;
 
+      // Limit retry attempts to prevent infinite loops
+      if (profileFetchAttempts >= 3) {
+        console.warn('Max profile fetch attempts reached for user:', createdBy);
+        return;
+      }
+
       try {
+        // Add a timeout to the fetch operation
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const { data, error } = await supabase
           .from('user_profiles')
           .select('id, name')
           .eq('id', createdBy)
+          .abortSignal(controller.signal)
           .single();
+
+        clearTimeout(timeoutId);
 
         if (error) {
           console.error('Error fetching creator profile:', error);
+          
+          // If it's a network error, retry after a delay
+          if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+            setProfileFetchAttempts(prev => prev + 1);
+            setTimeout(() => {
+              fetchCreatorProfile();
+            }, 2000 * (profileFetchAttempts + 1)); // Exponential backoff
+          }
           return;
         }
 
         setCreatorProfile(data);
+        setProfileFetchAttempts(0); // Reset attempts on success
       } catch (error) {
         console.error('Error fetching creator profile:', error);
+        
+        // Handle AbortError (timeout) and other network errors
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            console.warn('Profile fetch timed out for user:', createdBy);
+          } else if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+            // Retry on network errors with exponential backoff
+            setProfileFetchAttempts(prev => prev + 1);
+            if (profileFetchAttempts < 3) {
+              setTimeout(() => {
+                fetchCreatorProfile();
+              }, 2000 * (profileFetchAttempts + 1));
+            }
+          }
+        }
       }
     };
 
     fetchCreatorProfile();
-  }, [createdBy]);
+  }, [createdBy, profileFetchAttempts]);
 
   // Update local state when props change
   useEffect(() => {
@@ -260,7 +298,7 @@ const MemoryCard = ({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
           <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
           {location && <p className="text-white/80 text-sm">{location}</p>}
-          {creatorProfile && (
+          {createdBy && (
             <div className="flex items-center gap-2 mt-1">
               <Avatar className="h-5 w-5">
                 <AvatarFallback className="bg-white/20 text-white text-xs">
