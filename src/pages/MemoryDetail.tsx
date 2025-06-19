@@ -327,17 +327,21 @@ const MemoryDetail = () => {
         ) : (
           <div className="relative">
             {memory.isVideo && memory.image ? (
-              <video 
-                src={memory.image} 
-                className="w-full aspect-square object-cover" 
-                controls
-              />
+              <div className="flex justify-center bg-black">
+                <video 
+                  src={memory.image} 
+                  className="max-w-full max-h-[80vh] object-contain" 
+                  controls
+                />
+              </div>
             ) : memory.image ? (
-              <img 
-                src={memory.image} 
-                alt={memory.caption || "Memory"} 
-                className="w-full aspect-square object-cover" 
-              />
+              <div className="flex justify-center bg-black">
+                <img 
+                  src={memory.image} 
+                  alt={memory.caption || "Memory"} 
+                  className="max-w-full max-h-[80vh] object-contain" 
+                />
+              </div>
             ) : (
               <div className="w-full aspect-square bg-gray-200 flex items-center justify-center">
                 <FileText className="h-16 w-16 text-gray-400" />

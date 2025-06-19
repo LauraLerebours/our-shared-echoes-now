@@ -394,7 +394,7 @@ const MemoryCard = ({
             <video 
               ref={videoRef}
               src={image}
-              className="w-full aspect-[4/3] object-cover" 
+              className="w-full object-contain" 
               muted
               loop
               playsInline
@@ -419,7 +419,7 @@ const MemoryCard = ({
           <img 
             src={image} 
             alt={caption || "Memory"} 
-            className="w-full aspect-[4/3] object-cover" 
+            className="w-full object-contain" 
           />
         ) : (
           // Fallback for memories without images

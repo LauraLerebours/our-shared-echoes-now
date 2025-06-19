@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Heart, Video, User, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { toggleMemoryLike } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ interface MemoryGridProps {
 interface UserProfile {
   id: string;
   name: string;
+  profile_picture_url?: string;
 }
 
 const VideoPreview: React.FC<{ src: string; alt: string }> = ({ src, alt }) => {
@@ -132,7 +133,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
       try {
         const { data, error } = await supabase
           .from('user_profiles')
-          .select('id, name')
+          .select('id, name, profile_picture_url')
           .in('id', creatorIds);
 
         if (error) {
@@ -269,11 +270,13 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                     ) : memory.isVideo && memory.image ? (
                       <VideoPreview src={memory.image} alt={memory.caption || "Memory"} />
                     ) : memory.image ? (
-                      <img 
-                        src={memory.image} 
-                        alt={memory.caption || "Memory"} 
-                        className="w-full h-full object-cover" 
-                      />
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                        <img 
+                          src={memory.image} 
+                          alt={memory.caption || "Memory"} 
+                          className="max-w-full max-h-full object-contain" 
+                        />
+                      </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                         <FileText className="h-8 w-8 text-gray-400" />
@@ -288,6 +291,10 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                             <div className="flex items-center gap-1">
                               {memory.createdBy && (
                                 <Avatar className="h-4 w-4">
+                                  <AvatarImage 
+                                    src={userProfiles.get(memory.createdBy)?.profile_picture_url} 
+                                    alt={userProfiles.get(memory.createdBy)?.name || 'Profile'} 
+                                  />
                                   <AvatarFallback className="bg-white/20 text-white text-xs">
                                     {getCreatorInitials(memory)}
                                   </AvatarFallback>
