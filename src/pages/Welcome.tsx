@@ -165,7 +165,7 @@ const Welcome = () => {
         
         {/* CTA Button */}
         <motion.div 
-          className="text-center"
+          className="flex justify-center"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.2 }}
@@ -177,7 +177,7 @@ const Welcome = () => {
             Get Started
           </Button>
           
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-gray-500 text-center w-full">
             Create an account or sign in to continue
           </p>
         </motion.div>
