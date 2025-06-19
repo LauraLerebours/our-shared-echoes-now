@@ -526,210 +526,325 @@ const Boards = () => {
                   Public Boards
                 </TabsTrigger>
               </TabsList>
-            </Tabs>
 
-            <TabsContent value="my-boards" className="mt-0">
-              {isSelectionMode && boards.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSelectAll}
-                      >
-                        {selectedBoards.size === boards.length ? 'Deselect All' : 'Select All'}
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        {selectedBoards.size} of {boards.length} boards selected
-                      </span>
-                    </div>
-                    
-                    {selectedBoards.size > 0 && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={removing}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            {removing ? 'Removing...' : `Remove from ${selectedBoards.size} Board(s)`}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove from Selected Boards</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to remove yourself from {selectedBoards.size} board(s)? 
-                              If you are the last member of any board, that board and all its memories will be deleted permanently.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleBulkRemove}
-                              className="bg-destructive hover:bg-destructive/90"
-                              disabled={removing}
-                            >
-                              {removing ? 'Removing...' : 'Remove from Selected'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {boards.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg border shadow-sm">
-                  <div className="w-16 h-16 bg-memory-lightpurple rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Image className="h-8 w-8 text-memory-purple" />
-                  </div>
-                  <h2 className="text-xl font-semibold mb-2">No Boards Yet</h2>
-                  <p className="text-muted-foreground mb-6">Create your first board to start organizing your memories.</p>
-                  <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-memory-purple hover:bg-memory-purple/90">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Your First Board
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create New Board</DialogTitle>
-                        <DialogDescription>
-                          Give your new memory board a name and choose its visibility.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="py-4 space-y-4">
-                        <Input
-                          placeholder="Board name"
-                          value={newBoardName}
-                          onChange={(e) => setNewBoardName(e.target.value)}
-                          autoComplete="off"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newBoardName.trim() && !creating) {
-                              handleCreateBoard();
-                            }
-                          }}
-                        />
-                        
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            id="public-board-empty"
-                            checked={isPublicBoard}
-                            onCheckedChange={setIsPublicBoard}
-                          />
-                          <Label htmlFor="public-board-empty" className="flex items-center gap-2">
-                            {isPublicBoard ? (
-                              <>
-                                <Globe className="h-4 w-4 text-green-500" />
-                                <span>Public Board</span>
-                                <span className="text-xs text-muted-foreground">(Anyone can find and join)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="h-4 w-4 text-orange-500" />
-                                <span>Private Board</span>
-                                <span className="text-xs text-muted-foreground">(Invite only)</span>
-                              </>
-                            )}
-                          </Label>
-                        </div>
-                      </div>
-                      <DialogFooter>
+              <TabsContent value="my-boards" className="mt-0">
+                {isSelectionMode && boards.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
                         <Button
                           variant="outline"
-                          onClick={() => {
-                            setCreateDialogOpen(false);
-                            setNewBoardName('');
-                            setIsPublicBoard(false);
-                          }}
-                          disabled={creating}
+                          size="sm"
+                          onClick={handleSelectAll}
                         >
-                          Cancel
+                          {selectedBoards.size === boards.length ? 'Deselect All' : 'Select All'}
                         </Button>
-                        <Button
-                          onClick={handleCreateBoard}
-                          disabled={creating || !newBoardName.trim()}
-                          className="bg-memory-purple hover:bg-memory-purple/90"
-                        >
-                          {creating ? 'Creating...' : 'Create Board'}
+                        <span className="text-sm text-muted-foreground">
+                          {selectedBoards.size} of {boards.length} boards selected
+                        </span>
+                      </div>
+                      
+                      {selectedBoards.size > 0 && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={removing}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {removing ? 'Removing...' : `Remove from ${selectedBoards.size} Board(s)`}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove from Selected Boards</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove yourself from {selectedBoards.size} board(s)? 
+                                If you are the last member of any board, that board and all its memories will be deleted permanently.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={handleBulkRemove}
+                                className="bg-destructive hover:bg-destructive/90"
+                                disabled={removing}
+                              >
+                                {removing ? 'Removing...' : 'Remove from Selected'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {boards.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-lg border shadow-sm">
+                    <div className="w-16 h-16 bg-memory-lightpurple rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Image className="h-8 w-8 text-memory-purple" />
+                    </div>
+                    <h2 className="text-xl font-semibold mb-2">No Boards Yet</h2>
+                    <p className="text-muted-foreground mb-6">Create your first board to start organizing your memories.</p>
+                    <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-memory-purple hover:bg-memory-purple/90">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your First Board
                         </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 safari-bottom-safe">
-                  {boardsWithPreviews.map((board) => (
-                    <div
-                      key={board.id}
-                      className={`bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow ${
-                        isSelectionMode && selectedBoards.has(board.id) ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-                      }`}
-                    >
-                      {/* Photo Preview Section */}
-                      <div className="relative">
-                        {loadingPreviews ? (
-                          <div className="w-full h-32 bg-gray-100 rounded-t-lg flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-memory-purple"></div>
-                          </div>
-                        ) : (
-                          <PhotoPreview photos={board.recentPhotos} />
-                        )}
-                        
-                        {isSelectionMode && (
-                          <div className="absolute top-2 right-2">
-                            <Checkbox
-                              checked={selectedBoards.has(board.id)}
-                              onCheckedChange={(checked) => handleBoardSelection(board.id, checked as boolean)}
-                              className="bg-white"
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Create New Board</DialogTitle>
+                          <DialogDescription>
+                            Give your new memory board a name and choose its visibility.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 space-y-4">
+                          <Input
+                            placeholder="Board name"
+                            value={newBoardName}
+                            onChange={(e) => setNewBoardName(e.target.value)}
+                            autoComplete="off"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newBoardName.trim() && !creating) {
+                                handleCreateBoard();
+                              }
+                            }}
+                          />
+                          
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="public-board-empty"
+                              checked={isPublicBoard}
+                              onCheckedChange={setIsPublicBoard}
                             />
+                            <Label htmlFor="public-board-empty" className="flex items-center gap-2">
+                              {isPublicBoard ? (
+                                <>
+                                  <Globe className="h-4 w-4 text-green-500" />
+                                  <span>Public Board</span>
+                                  <span className="text-xs text-muted-foreground">(Anyone can find and join)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="h-4 w-4 text-orange-500" />
+                                  <span>Private Board</span>
+                                  <span className="text-xs text-muted-foreground">(Invite only)</span>
+                                </>
+                              )}
+                            </Label>
                           </div>
-                        )}
-                        
-                        {/* Public/Private indicator */}
-                        <div className="absolute top-2 left-2">
-                          {board.is_public ? (
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setCreateDialogOpen(false);
+                              setNewBoardName('');
+                              setIsPublicBoard(false);
+                            }}
+                            disabled={creating}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCreateBoard}
+                            disabled={creating || !newBoardName.trim()}
+                            className="bg-memory-purple hover:bg-memory-purple/90"
+                          >
+                            {creating ? 'Creating...' : 'Create Board'}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 safari-bottom-safe">
+                    {boardsWithPreviews.map((board) => (
+                      <div
+                        key={board.id}
+                        className={`bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow ${
+                          isSelectionMode && selectedBoards.has(board.id) ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                        }`}
+                      >
+                        {/* Photo Preview Section */}
+                        <div className="relative">
+                          {loadingPreviews ? (
+                            <div className="w-full h-32 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-memory-purple"></div>
+                            </div>
+                          ) : (
+                            <PhotoPreview photos={board.recentPhotos} />
+                          )}
+                          
+                          {isSelectionMode && (
+                            <div className="absolute top-2 right-2">
+                              <Checkbox
+                                checked={selectedBoards.has(board.id)}
+                                onCheckedChange={(checked) => handleBoardSelection(board.id, checked as boolean)}
+                                className="bg-white"
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Public/Private indicator */}
+                          <div className="absolute top-2 left-2">
+                            {board.is_public ? (
+                              <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                <Globe className="h-3 w-3 mr-1" />
+                                Public
+                              </div>
+                            ) : (
+                              <div className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                <Lock className="h-3 w-3 mr-1" />
+                                Private
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Board Info Section */}
+                        <div className="p-4">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h2 className="text-xl font-semibold">{board.name}</h2>
+                                {!isSelectionMode && (
+                                  <BoardRenameDialog
+                                    boardId={board.id}
+                                    currentName={board.name}
+                                    onRename={(newName) => renameBoard(board.id, newName)}
+                                  >
+                                    <Button variant="ghost" size="sm" className="p-1 h-auto text-muted-foreground hover:text-memory-purple">
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                  </BoardRenameDialog>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Created {new Date(board.created_at).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Share code: <span className="font-mono">{board.share_code}</span>
+                              </p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <BoardMembersDialog boardId={board.id} boardName={board.name}>
+                                  <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-memory-purple p-1 h-auto">
+                                    <Users className="h-3 w-3 mr-1" />
+                                    {getMemberCount(board)} member{getMemberCount(board) !== 1 ? 's' : ''}
+                                  </Button>
+                                </BoardMembersDialog>
+                              </div>
+                            </div>
+                            
+                            {!isSelectionMode && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-orange-600 hover:bg-orange-50"
+                                    disabled={removing}
+                                  >
+                                    <UserMinus className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove from Board</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove yourself from this board? If you are the last member, the board and all its memories will be deleted permanently.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => removeFromBoard(board.id)}
+                                      className="bg-orange-600 hover:bg-orange-700"
+                                      disabled={removing}
+                                    >
+                                      {removing ? 'Removing...' : 'Remove from Board'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                          
+                          {!isSelectionMode && (
+                            <Button 
+                              className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                              onClick={() => navigate(`/board/${board.id}`)}
+                            >
+                              View Board
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="public-boards" className="mt-0">
+                {loadingPublicBoards ? (
+                  <div className="flex justify-center items-center py-12">
+                    <LoadingSpinner size="lg" text="Loading public boards..." />
+                  </div>
+                ) : publicBoards.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-lg border shadow-sm">
+                    <div className="w-16 h-16 bg-memory-lightpurple rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Globe className="h-8 w-8 text-memory-purple" />
+                    </div>
+                    <h2 className="text-xl font-semibold mb-2">No Public Boards Available</h2>
+                    <p className="text-muted-foreground mb-6">There are no public boards available to join at the moment.</p>
+                    <p className="text-sm text-muted-foreground">
+                      You can create your own public board that others can join!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 safari-bottom-safe">
+                    {publicBoards.map((board) => (
+                      <div
+                        key={board.id}
+                        className="bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow relative"
+                      >
+                        {/* Photo Preview Section */}
+                        <div className="relative">
+                          <PhotoPreview photos={board.recentPhotos} />
+                          
+                          {/* Public indicator */}
+                          <div className="absolute top-2 left-2">
                             <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
                               <Globe className="h-3 w-3 mr-1" />
                               Public
                             </div>
-                          ) : (
-                            <div className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
-                              <Lock className="h-3 w-3 mr-1" />
-                              Private
-                            </div>
-                          )}
+                          </div>
+                          
+                          {/* Join button */}
+                          <Button
+                            className="absolute top-2 right-2 bg-memory-purple hover:bg-memory-purple/90 rounded-full w-8 h-8 p-0 flex items-center justify-center"
+                            onClick={() => handleJoinBoard(board.id)}
+                            disabled={joiningBoard === board.id}
+                            title="Join this board"
+                          >
+                            {joiningBoard === board.id ? (
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
-                      </div>
 
-                      {/* Board Info Section */}
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h2 className="text-xl font-semibold">{board.name}</h2>
-                              {!isSelectionMode && (
-                                <BoardRenameDialog
-                                  boardId={board.id}
-                                  currentName={board.name}
-                                  onRename={(newName) => renameBoard(board.id, newName)}
-                                >
-                                  <Button variant="ghost" size="sm" className="p-1 h-auto text-muted-foreground hover:text-memory-purple">
-                                    <Edit2 className="h-3 w-3" />
-                                  </Button>
-                                </BoardRenameDialog>
-                              )}
-                            </div>
+                        {/* Board Info Section */}
+                        <div className="p-4">
+                          <div className="mb-4">
+                            <h2 className="text-xl font-semibold mb-1">{board.name}</h2>
                             <p className="text-sm text-muted-foreground">
                               Created {new Date(board.created_at).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Share code: <span className="font-mono">{board.share_code}</span>
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                               <BoardMembersDialog boardId={board.id} boardName={board.name}>
@@ -741,135 +856,20 @@ const Boards = () => {
                             </div>
                           </div>
                           
-                          {!isSelectionMode && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-orange-600 hover:bg-orange-50"
-                                  disabled={removing}
-                                >
-                                  <UserMinus className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Remove from Board</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to remove yourself from this board? If you are the last member, the board and all its memories will be deleted permanently.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => removeFromBoard(board.id)}
-                                    className="bg-orange-600 hover:bg-orange-700"
-                                    disabled={removing}
-                                  >
-                                    {removing ? 'Removing...' : 'Remove from Board'}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                        
-                        {!isSelectionMode && (
                           <Button 
                             className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                            onClick={() => navigate(`/board/${board.id}`)}
+                            onClick={() => handleJoinBoard(board.id)}
+                            disabled={joiningBoard === board.id}
                           >
-                            View Board
+                            {joiningBoard === board.id ? 'Joining...' : 'Join Board'}
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="public-boards" className="mt-0">
-              {loadingPublicBoards ? (
-                <div className="flex justify-center items-center py-12">
-                  <LoadingSpinner size="lg" text="Loading public boards..." />
-                </div>
-              ) : publicBoards.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg border shadow-sm">
-                  <div className="w-16 h-16 bg-memory-lightpurple rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Globe className="h-8 w-8 text-memory-purple" />
+                    ))}
                   </div>
-                  <h2 className="text-xl font-semibold mb-2">No Public Boards Available</h2>
-                  <p className="text-muted-foreground mb-6">There are no public boards available to join at the moment.</p>
-                  <p className="text-sm text-muted-foreground">
-                    You can create your own public board that others can join!
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 safari-bottom-safe">
-                  {publicBoards.map((board) => (
-                    <div
-                      key={board.id}
-                      className="bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow relative"
-                    >
-                      {/* Photo Preview Section */}
-                      <div className="relative">
-                        <PhotoPreview photos={board.recentPhotos} />
-                        
-                        {/* Public indicator */}
-                        <div className="absolute top-2 left-2">
-                          <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
-                            <Globe className="h-3 w-3 mr-1" />
-                            Public
-                          </div>
-                        </div>
-                        
-                        {/* Join button */}
-                        <Button
-                          className="absolute top-2 right-2 bg-memory-purple hover:bg-memory-purple/90 rounded-full w-8 h-8 p-0 flex items-center justify-center"
-                          onClick={() => handleJoinBoard(board.id)}
-                          disabled={joiningBoard === board.id}
-                          title="Join this board"
-                        >
-                          {joiningBoard === board.id ? (
-                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-
-                      {/* Board Info Section */}
-                      <div className="p-4">
-                        <div className="mb-4">
-                          <h2 className="text-xl font-semibold mb-1">{board.name}</h2>
-                          <p className="text-sm text-muted-foreground">
-                            Created {new Date(board.created_at).toLocaleDateString()}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <BoardMembersDialog boardId={board.id} boardName={board.name}>
-                              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-memory-purple p-1 h-auto">
-                                <Users className="h-3 w-3 mr-1" />
-                                {getMemberCount(board)} member{getMemberCount(board) !== 1 ? 's' : ''}
-                              </Button>
-                            </BoardMembersDialog>
-                          </div>
-                        </div>
-                        
-                        <Button 
-                          className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                          onClick={() => handleJoinBoard(board.id)}
-                          disabled={joiningBoard === board.id}
-                        >
-                          {joiningBoard === board.id ? 'Joining...' : 'Join Board'}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
           
           {/* Add scroll to bottom component when there are boards */}
