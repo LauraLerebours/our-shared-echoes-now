@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -28,6 +28,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const MemoryDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +48,7 @@ const MemoryDetail = () => {
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [showFullImage, setShowFullImage] = useState(true);
+  const [creatorProfile, setCreatorProfile] = useState<{name: string, profile_picture_url?: string} | null>(null);
   
   const accessCode = location.state?.accessCode;
   
@@ -84,6 +87,23 @@ const MemoryDetail = () => {
         
         // Check if current user can delete/edit this memory
         setCanDelete(user?.id === memoryData.createdBy);
+        
+        // Fetch creator profile if available
+        if (memoryData.createdBy) {
+          try {
+            const { data, error } = await supabase
+              .from('user_profiles')
+              .select('name, profile_picture_url')
+              .eq('id', memoryData.createdBy)
+              .single();
+              
+            if (!error && data) {
+              setCreatorProfile(data);
+            }
+          } catch (error) {
+            console.error('Error fetching creator profile:', error);
+          }
+        }
       } catch (error) {
         console.error('Error loading memory:', error);
         toast({
@@ -233,6 +253,15 @@ const MemoryDetail = () => {
     setShowFullImage(!showFullImage);
   };
   
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -315,6 +344,36 @@ const MemoryDetail = () => {
           // Note display as simple text content
           <div className="p-6">
             <div className="max-w-2xl mx-auto">
+              {/* Creator info for notes */}
+              {creatorProfile && (
+                <div className="flex items-center gap-3 mb-6">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage 
+                      src={creatorProfile.profile_picture_url} 
+                      alt={creatorProfile.name || 'Profile'} 
+                    />
+                    <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
+                      {creatorProfile.name ? getInitials(creatorProfile.name) : <User className="h-5 w-5" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{creatorProfile.name || 'Unknown User'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(memory.date, 'MMMM d, yyyy')}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Location for notes */}
+              {memory.location && (
+                <div className="flex items-center text-sm text-muted-foreground mb-4">
+                  <MapPin className="h-4 w-4 mr-1" />
+                  <span>{memory.location}</span>
+                </div>
+              )}
+              
+              {/* Note content */}
               {memory.caption ? (
                 <div className="prose prose-lg max-w-none">
                   <p className="text-foreground leading-relaxed whitespace-pre-wrap">
@@ -495,7 +554,7 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {memory.caption && !isNote && (
+            {!isNote && memory.caption && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}
             
@@ -503,6 +562,23 @@ const MemoryDetail = () => {
               <div className="flex items-center text-sm text-muted-foreground mb-4">
                 <MapPin className="h-4 w-4 mr-1" />
                 <span>{memory.location}</span>
+              </div>
+            )}
+            
+            {creatorProfile && !isNote && (
+              <div className="flex items-center gap-2 mb-4">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage 
+                    src={creatorProfile.profile_picture_url} 
+                    alt={creatorProfile.name || 'Profile'} 
+                  />
+                  <AvatarFallback className="bg-memory-lightpurple text-memory-purple text-xs">
+                    {creatorProfile.name ? getInitials(creatorProfile.name) : <User className="h-3 w-3" />}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-muted-foreground">
+                  Posted by {creatorProfile.name || 'Unknown User'}
+                </span>
               </div>
             )}
             
