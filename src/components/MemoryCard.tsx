@@ -565,7 +565,7 @@ const MemoryCard = ({
         ) : (
           // Fallback for memories without images
           <div className="w-full aspect-[4/3] bg-gray-200 flex items-center justify-center">
-            <FileText className="h-12 w-12 text-gray-400" />
+            <FileText className="h-16 w-16 text-gray-400" />
           </div>
         )}
         
