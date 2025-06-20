@@ -72,8 +72,10 @@ const MemoryCard = ({
   const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
   const [showFullImage, setShowFullImage] = useState(false);
   const [profileFetchError, setProfileFetchError] = useState<string | null>(null);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Determine if this is a note
   const isNote = type === 'note' || memoryType === 'note';
@@ -86,24 +88,42 @@ const MemoryCard = ({
   useEffect(() => {
     const fetchCreatorProfile = async () => {
       if (!createdBy) return;
-
+      
+      // Don't fetch if we're already fetching
+      if (isFetchingProfile) return;
+      
       // Limit retry attempts to prevent infinite loops
-      if (profileFetchAttempts >= 3) {
+      if (profileFetchAttempts >= 2) {
         console.warn('Max profile fetch attempts reached for user:', createdBy);
         setProfileFetchError('Unable to load user profile');
         return;
       }
 
+      // Cancel any previous in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create a new abort controller for this request
+      abortControllerRef.current = new AbortController();
+      
+      setIsFetchingProfile(true);
+      
       try {
+        console.log(`Fetching creator profile for user ${createdBy} (attempt ${profileFetchAttempts + 1}/2)`);
+        
         // Add a timeout to the fetch operation
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => {
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+        }, 8000); // 8 second timeout
 
         const { data, error } = await supabase
           .from('user_profiles')
           .select('id, name, profile_picture_url')
           .eq('id', createdBy)
-          .abortSignal(controller.signal)
+          .abortSignal(abortControllerRef.current.signal)
           .single();
 
         clearTimeout(timeoutId);
@@ -127,14 +147,15 @@ const MemoryCard = ({
               error.code === 'PGRST000') { // Generic connection error
             
             setProfileFetchAttempts(prev => prev + 1);
-            if (profileFetchAttempts < 2) { // Reduced max attempts
-              console.log(`Retrying profile fetch for user ${createdBy} (attempt ${profileFetchAttempts + 1}/3)`);
-              setTimeout(() => {
-                fetchCreatorProfile();
-              }, Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000)); // Exponential backoff with max 8s
-            } else {
-              setProfileFetchError('Unable to load user profile');
-            }
+            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
+            console.log(`Will retry profile fetch in ${backoffDelay}ms`);
+            
+            setTimeout(() => {
+              setIsFetchingProfile(false);
+              // The next fetch will be triggered by the useEffect dependency change
+            }, backoffDelay);
+            
+            return;
           } else {
             // For other errors, don't retry
             setProfileFetchError('Error loading user profile');
@@ -160,25 +181,38 @@ const MemoryCard = ({
                      error.message?.includes('NetworkError')) {
             // Retry on network errors with exponential backoff
             setProfileFetchAttempts(prev => prev + 1);
-            if (profileFetchAttempts < 2) { // Reduced max attempts
-              console.log(`Retrying profile fetch for user ${createdBy} after network error (attempt ${profileFetchAttempts + 1}/3)`);
-              setTimeout(() => {
-                fetchCreatorProfile();
-              }, Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000)); // Exponential backoff with max 8s
-            } else {
-              setProfileFetchError('Network error - unable to load profile');
-            }
+            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
+            console.log(`Will retry profile fetch after network error in ${backoffDelay}ms`);
+            
+            setTimeout(() => {
+              setIsFetchingProfile(false);
+              // The next fetch will be triggered by the useEffect dependency change
+            }, backoffDelay);
+            
+            return;
           } else {
             setProfileFetchError('Unexpected error loading profile');
           }
         } else {
           setProfileFetchError('Unknown error loading profile');
         }
+      } finally {
+        setIsFetchingProfile(false);
       }
     };
 
-    fetchCreatorProfile();
-  }, [createdBy, profileFetchAttempts]);
+    if (createdBy && !creatorProfile && !isFetchingProfile) {
+      fetchCreatorProfile();
+    }
+    
+    // Cleanup function
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [createdBy, profileFetchAttempts, creatorProfile, isFetchingProfile]);
 
   // Update local state when props change
   useEffect(() => {
@@ -300,7 +334,8 @@ const MemoryCard = ({
 
   const getCreatorName = () => {
     if (profileFetchError) return 'Unknown User';
-    return creatorProfile?.name || 'Loading...';
+    if (isFetchingProfile && !creatorProfile) return 'Loading...';
+    return creatorProfile?.name || 'Unknown User';
   };
 
   const toggleAspectRatio = (e: React.MouseEvent) => {
