@@ -495,7 +495,7 @@ const MemoryDetail = () => {
           </div>
         ) : (
           <div className="p-4">
-            {memory.caption && (
+            {memory.caption && !isNote && (
               <p className="text-foreground mb-4">{memory.caption}</p>
             )}
             
