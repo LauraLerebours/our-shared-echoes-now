@@ -14,57 +14,14 @@ export const memoriesApi = {
       }
       
       // Use the new safe function to avoid recursion
-      const result = await withRetry(async () => {
-        // Check if the request has been aborted
-        if (signal?.aborted) {
-          throw new Error('Request aborted');
-        }
-        
-        // Test database connection first
-        console.log('🔄 [memoriesApi.fetchMemories] Testing database connection');
-        const { error: connectionError } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-        if (connectionError) {
-          console.error('❌ [memoriesApi.fetchMemories] Connection test failed:', connectionError);
-          throw new Error(`Database connection failed: ${connectionError.message}`);
-        }
-
-        // Check if the request has been aborted after connection test
-        if (signal?.aborted) {
-          throw new Error('Request aborted');
-        }
-
-        console.log('🔄 [memoriesApi.fetchMemories] Fetching memories using safe function');
-        
-        // Use the new safe function instead of direct query
-        const { data, error } = await supabase
-          .rpc('get_memories_by_access_code_safe', { access_code_param: accessCode });
-        
-        if (error) {
-          console.error('❌ [memoriesApi.fetchMemories] Error:', error);
-          
-          if (error.message?.includes('404') || error.code === 'PGRST116') {
-            throw new Error('Memories table not found. Please check your database setup.');
-          }
-          
-          if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-            throw new Error('Database tables are missing. Please run database migrations.');
-          }
-          
-          if (error.message?.includes('permission denied')) {
-            throw new Error('Database permission denied. Please check your authentication.');
-          }
-          
-          throw new Error(error.message);
-        }
-        
-        console.log('✅ [memoriesApi.fetchMemories] Received data from database:', data?.length || 0, 'memories');
-        return data || [];
-      }, 3, 1000, signal);
+      console.log('🔄 [memoriesApi.fetchMemories] Fetching memories using safe function');
+      const { data, error } = await supabase
+        .rpc('get_memories_by_access_code_safe', { access_code_param: accessCode });
+      
+      if (error) {
+        console.error('❌ [memoriesApi.fetchMemories] Error:', error);
+        return { success: false, error: error.message };
+      }
       
       // Check if the request has been aborted after fetching data
       if (signal?.aborted) {
@@ -73,7 +30,7 @@ export const memoriesApi = {
       }
       
       // Transform database records to Memory type
-      const memories: Memory[] = await Promise.all(result.map(async (record) => {
+      const memories: Memory[] = await Promise.all((data || []).map(async (record) => {
         // Get current user's like status for this memory
         let isLiked = false;
         try {
