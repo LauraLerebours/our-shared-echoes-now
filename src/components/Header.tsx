@@ -78,7 +78,7 @@ const Header = () => {
           <UserProfileDialog>
             <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-memory-purple">
               <Settings className="h-3 w-3 mr-1" />
-              Edit Profile
+               
             </Button>
           </UserProfileDialog>
         </div>
