@@ -75,7 +75,6 @@ const MemoryCard = ({
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Determine if this is a note
   const isNote = type === 'note' || memoryType === 'note';
@@ -99,34 +98,31 @@ const MemoryCard = ({
         return;
       }
 
-      // Cancel any previous in-flight request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      
-      // Create a new abort controller for this request
-      abortControllerRef.current = new AbortController();
+      // Create a fresh AbortController for this fetch operation
+      const abortController = new AbortController();
       
       setIsFetchingProfile(true);
       
       try {
         console.log(`Fetching creator profile for user ${createdBy} (attempt ${profileFetchAttempts + 1}/2)`);
         
-        // Add a timeout to the fetch operation
-        const timeoutId = setTimeout(() => {
-          if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-          }
-        }, 8000); // 8 second timeout
+        // Create a timeout promise that rejects after 8 seconds
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Request timeout'));
+          }, 8000);
+        });
 
-        const { data, error } = await supabase
+        // Create the fetch promise
+        const fetchPromise = supabase
           .from('user_profiles')
           .select('id, name, profile_picture_url')
           .eq('id', createdBy)
-          .abortSignal(abortControllerRef.current.signal)
+          .abortSignal(abortController.signal)
           .single();
 
-        clearTimeout(timeoutId);
+        // Race the fetch against the timeout
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (error) {
           console.error('Error fetching creator profile:', error);
@@ -175,6 +171,18 @@ const MemoryCard = ({
             // AbortError is expected when requests are cancelled (e.g., component unmount)
             // Don't treat this as an error - just return silently
             return;
+          } else if (error.message === 'Request timeout') {
+            // Handle our custom timeout
+            console.log('Profile fetch timed out, will retry');
+            setProfileFetchAttempts(prev => prev + 1);
+            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
+            
+            setTimeout(() => {
+              setIsFetchingProfile(false);
+              // The next fetch will be triggered by the useEffect dependency change
+            }, backoffDelay);
+            
+            return;
           } else if (error.message?.includes('Failed to fetch') || 
                      error.message?.includes('network') ||
                      error.message?.includes('NetworkError')) {
@@ -200,19 +208,27 @@ const MemoryCard = ({
       } finally {
         setIsFetchingProfile(false);
       }
+
+      // Cleanup function for this specific fetch operation
+      return () => {
+        abortController.abort();
+      };
     };
 
     if (createdBy && !creatorProfile && !isFetchingProfile) {
-      fetchCreatorProfile();
+      const cleanup = fetchCreatorProfile();
+      
+      // Return cleanup function
+      return () => {
+        if (cleanup && typeof cleanup.then === 'function') {
+          cleanup.then(cleanupFn => {
+            if (typeof cleanupFn === 'function') {
+              cleanupFn();
+            }
+          });
+        }
+      };
     }
-    
-    // Cleanup function
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
   }, [createdBy, profileFetchAttempts, creatorProfile, isFetchingProfile]);
 
   // Update local state when props change
