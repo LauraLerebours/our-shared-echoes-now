@@ -169,8 +169,6 @@ const MemoryCard = ({
           setProfileFetchError(null); // Clear any previous errors
         }
       } catch (error) {
-        console.error('Error fetching creator profile:', error);
-        
         // Handle different types of errors
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
@@ -192,9 +190,11 @@ const MemoryCard = ({
             
             return;
           } else {
+            console.error('Error fetching creator profile:', error);
             setProfileFetchError('Unexpected error loading profile');
           }
         } else {
+          console.error('Error fetching creator profile:', error);
           setProfileFetchError('Unknown error loading profile');
         }
       } finally {
