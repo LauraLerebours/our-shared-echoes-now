@@ -174,8 +174,9 @@ const MemoryCard = ({
         // Handle different types of errors
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
-            console.warn('Profile fetch timed out for user:', createdBy);
-            setProfileFetchError('Request timed out');
+            // AbortError is expected when requests are cancelled (e.g., component unmount)
+            // Don't treat this as an error - just return silently
+            return;
           } else if (error.message?.includes('Failed to fetch') || 
                      error.message?.includes('network') ||
                      error.message?.includes('NetworkError')) {
