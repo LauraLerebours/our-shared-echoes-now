@@ -347,10 +347,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          emailRedirectTo: undefined,
           data: {
             name: name,
           },
+          // Comment out emailRedirectTo to disable email confirmation
+          // emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         },
       });
 
