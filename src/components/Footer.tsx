@@ -8,8 +8,11 @@ interface FooterProps {
 }
 
 const Footer: React.FC<FooterProps> = ({ activeTab = 'timeline' }) => {
+  // Check if the app is running in standalone mode (PWA)
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+
   return (
-    <footer className="fixed safari-footer-safe left-0 right-0 bg-white border-t py-2 z-40">
+    <footer className={`fixed safari-footer-safe left-0 right-0 bg-white border-t py-2 z-40 ${isPWA ? 'pb-safe' : ''}`}>
       <div className="flex justify-around items-center ios-bottom-spacing">
         <Link 
           to="/" 

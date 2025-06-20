@@ -11,6 +11,14 @@ import { LoadingSpinner } from './LoadingSpinner';
 const Header = () => {
   const { signOut, user, userProfile, isSigningOut } = useAuth();
   const navigate = useNavigate();
+  const [isPWA, setIsPWA] = useState(false);
+
+  useEffect(() => {
+    // Check if the app is running in standalone mode (PWA)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsPWA(true);
+    }
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -50,7 +58,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
+    <header className={`flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50 ${isPWA ? 'pt-safe' : ''}`}>
       <div className="flex items-center gap-3">
         <UserProfileDialog>
           <Button variant="ghost" className="p-0 h-auto">

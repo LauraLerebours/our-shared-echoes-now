@@ -90,6 +90,8 @@
 
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 }
 
@@ -138,4 +140,41 @@
   .safari-footer-safe {
     bottom: 0px;
   }
+}
+
+/* PWA styles for iOS */
+@media (display-mode: standalone) {
+  /* Adjust for iOS home screen app */
+  body {
+    /* Add padding for the status bar */
+    padding-top: env(safe-area-inset-top, 0);
+    /* Add padding for the home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    /* Add padding for the sides */
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+
+  /* Adjust fixed headers for standalone mode */
+  header.fixed {
+    padding-top: calc(env(safe-area-inset-top, 0) + 0.75rem);
+    height: calc(env(safe-area-inset-top, 0) + 3rem);
+  }
+
+  /* Adjust main content padding for standalone mode */
+  main.pt-16 {
+    padding-top: calc(env(safe-area-inset-top, 0) + 4rem);
+  }
+}
+
+/* Hide address bar in iOS */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
