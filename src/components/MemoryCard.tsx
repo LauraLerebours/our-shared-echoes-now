@@ -69,10 +69,8 @@ const MemoryCard = ({
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [showVideoIcon, setShowVideoIcon] = useState(true);
   const [canDelete, setCanDelete] = useState(false);
-  const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
   const [showFullImage, setShowFullImage] = useState(false);
-  const [profileFetchError, setProfileFetchError] = useState<string | null>(null);
-  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
@@ -86,150 +84,34 @@ const MemoryCard = ({
 
   useEffect(() => {
     const fetchCreatorProfile = async () => {
-      if (!createdBy) return;
+      if (!createdBy || creatorProfile || profileLoading) return;
       
-      // Don't fetch if we're already fetching
-      if (isFetchingProfile) return;
-      
-      // Limit retry attempts to prevent infinite loops
-      if (profileFetchAttempts >= 2) {
-        console.warn('Max profile fetch attempts reached for user:', createdBy);
-        setProfileFetchError('Unable to load user profile');
-        return;
-      }
-
-      // Create a fresh AbortController for this fetch operation
-      const abortController = new AbortController();
-      
-      setIsFetchingProfile(true);
+      setProfileLoading(true);
       
       try {
-        console.log(`Fetching creator profile for user ${createdBy} (attempt ${profileFetchAttempts + 1}/2)`);
-        
-        // Create a timeout promise that rejects after 8 seconds
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Request timeout'));
-          }, 8000);
-        });
-
-        // Create the fetch promise
-        const fetchPromise = supabase
+        const { data, error } = await supabase
           .from('user_profiles')
           .select('id, name, profile_picture_url')
           .eq('id', createdBy)
-          .abortSignal(abortController.signal)
           .single();
-
-        // Race the fetch against the timeout
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (error) {
           console.error('Error fetching creator profile:', error);
-          
-          // Handle specific error types
-          if (error.code === 'PGRST116') {
-            // No rows returned - user profile doesn't exist
-            console.warn('User profile not found for user:', createdBy);
-            setProfileFetchError('User profile not found');
-            return;
-          }
-          
-          // For network errors or connection issues, retry with exponential backoff
-          if (error.message?.includes('Failed to fetch') || 
-              error.message?.includes('network') || 
-              error.message?.includes('NetworkError') ||
-              error.code === 'PGRST301' || // Connection timeout
-              error.code === 'PGRST000') { // Generic connection error
-            
-            setProfileFetchAttempts(prev => prev + 1);
-            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
-            console.log(`Will retry profile fetch in ${backoffDelay}ms`);
-            
-            setTimeout(() => {
-              setIsFetchingProfile(false);
-              // The next fetch will be triggered by the useEffect dependency change
-            }, backoffDelay);
-            
-            return;
-          } else {
-            // For other errors, don't retry
-            setProfileFetchError('Error loading user profile');
-          }
           return;
         }
 
         if (data) {
           setCreatorProfile(data);
-          setProfileFetchAttempts(0); // Reset attempts on success
-          setProfileFetchError(null); // Clear any previous errors
         }
       } catch (error) {
-        // Handle different types of errors
-        if (error instanceof Error) {
-          if (error.name === 'AbortError') {
-            // AbortError is expected when requests are cancelled (e.g., component unmount)
-            // Don't treat this as an error - just return silently
-            return;
-          } else if (error.message === 'Request timeout') {
-            // Handle our custom timeout
-            console.log('Profile fetch timed out, will retry');
-            setProfileFetchAttempts(prev => prev + 1);
-            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
-            
-            setTimeout(() => {
-              setIsFetchingProfile(false);
-              // The next fetch will be triggered by the useEffect dependency change
-            }, backoffDelay);
-            
-            return;
-          } else if (error.message?.includes('Failed to fetch') || 
-                     error.message?.includes('network') ||
-                     error.message?.includes('NetworkError')) {
-            // Retry on network errors with exponential backoff
-            setProfileFetchAttempts(prev => prev + 1);
-            const backoffDelay = Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000);
-            console.log(`Will retry profile fetch after network error in ${backoffDelay}ms`);
-            
-            setTimeout(() => {
-              setIsFetchingProfile(false);
-              // The next fetch will be triggered by the useEffect dependency change
-            }, backoffDelay);
-            
-            return;
-          } else {
-            console.error('Error fetching creator profile:', error);
-            setProfileFetchError('Unexpected error loading profile');
-          }
-        } else {
-          console.error('Error fetching creator profile:', error);
-          setProfileFetchError('Unknown error loading profile');
-        }
+        console.error('Error fetching creator profile:', error);
       } finally {
-        setIsFetchingProfile(false);
+        setProfileLoading(false);
       }
-
-      // Cleanup function for this specific fetch operation
-      return () => {
-        abortController.abort();
-      };
     };
 
-    if (createdBy && !creatorProfile && !isFetchingProfile) {
-      const cleanup = fetchCreatorProfile();
-      
-      // Return cleanup function
-      return () => {
-        if (cleanup && typeof cleanup.then === 'function') {
-          cleanup.then(cleanupFn => {
-            if (typeof cleanupFn === 'function') {
-              cleanupFn();
-            }
-          });
-        }
-      };
-    }
-  }, [createdBy, profileFetchAttempts, creatorProfile, isFetchingProfile]);
+    fetchCreatorProfile();
+  }, [createdBy, creatorProfile, profileLoading]);
 
   // Update local state when props change
   useEffect(() => {
@@ -339,7 +221,6 @@ const MemoryCard = ({
   };
 
   const getCreatorInitials = () => {
-    if (profileFetchError) return '?';
     if (!creatorProfile?.name) return 'U';
     return creatorProfile.name
       .split(' ')
@@ -350,8 +231,7 @@ const MemoryCard = ({
   };
 
   const getCreatorName = () => {
-    if (profileFetchError) return 'Unknown User';
-    if (isFetchingProfile && !creatorProfile) return 'Loading...';
+    if (profileLoading) return 'Loading...';
     return creatorProfile?.name || 'Unknown User';
   };
 
@@ -373,10 +253,7 @@ const MemoryCard = ({
                   src={creatorProfile?.profile_picture_url} 
                   alt={creatorProfile?.name || 'Profile'} 
                 />
-                <AvatarFallback className={cn(
-                  "bg-memory-lightpurple text-memory-purple",
-                  profileFetchError && "bg-gray-200 text-gray-500"
-                )}>
+                <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
                   {getCreatorInitials()}
                 </AvatarFallback>
               </Avatar>
@@ -595,10 +472,7 @@ const MemoryCard = ({
                   src={creatorProfile?.profile_picture_url} 
                   alt={creatorProfile?.name || 'Profile'} 
                 />
-                <AvatarFallback className={cn(
-                  "bg-white/20 text-white text-xs",
-                  profileFetchError && "bg-white/10 text-white/60"
-                )}>
+                <AvatarFallback className="bg-white/20 text-white text-xs">
                   {getCreatorInitials()}
                 </AvatarFallback>
               </Avatar>
