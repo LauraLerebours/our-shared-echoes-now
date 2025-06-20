@@ -13,6 +13,7 @@ export const memoriesApi = {
         return { success: false, error: 'Request aborted by user' };
       }
       
+      // Use the new safe function to avoid recursion
       const result = await withRetry(async () => {
         // Check if the request has been aborted
         if (signal?.aborted) {
@@ -37,14 +38,11 @@ export const memoriesApi = {
           throw new Error('Request aborted');
         }
 
-        console.log('🔄 [memoriesApi.fetchMemories] Fetching memories from database');
+        console.log('🔄 [memoriesApi.fetchMemories] Fetching memories using safe function');
+        
+        // Use the new safe function instead of direct query
         const { data, error } = await supabase
-          .from('memories_with_likes')
-          .select('*')
-          .eq('access_code', accessCode)
-          .eq('moderation_status', 'approved') // Only fetch approved content
-          .order('event_date', { ascending: false })
-          .limit(100);
+          .rpc('get_memories_by_access_code_safe', { access_code_param: accessCode });
         
         if (error) {
           console.error('❌ [memoriesApi.fetchMemories] Error:', error);
@@ -155,92 +153,24 @@ export const memoriesApi = {
         return { success: false, error: 'Request aborted by user' };
       }
       
-      // Split into chunks to avoid query size limits and enable parallel processing
-      const chunkSize = 5;
-      const chunks = [];
-      for (let i = 0; i < accessCodes.length; i += chunkSize) {
-        chunks.push(accessCodes.slice(i, i + chunkSize));
+      // Use the new safe function to avoid recursion
+      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Fetching memories using safe function');
+      const { data, error } = await supabase
+        .rpc('get_memories_by_access_codes_safe', { access_codes: accessCodes });
+      
+      if (error) {
+        console.error('❌ [memoriesApi.fetchMemoriesByAccessCodes] Error:', error);
+        return { success: false, error: error.message };
       }
       
-      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Processing', chunks.length, 'chunks');
-      
-      // Process chunks in parallel with retry logic
-      const chunkPromises = chunks.map(async (chunk, index) => {
-        try {
-          console.log(`🔄 [Chunk ${index + 1}] Processing codes:`, chunk);
-          
-          // Check if the request has been aborted
-          if (signal?.aborted) {
-            console.log(`🛑 [Chunk ${index + 1}] Request aborted`);
-            return [];
-          }
-          
-          const result = await withRetry(async () => {
-            // Check if the request has been aborted
-            if (signal?.aborted) {
-              throw new Error('Request aborted');
-            }
-            
-            console.log(`🔄 [Chunk ${index + 1}] Fetching memories from database`);
-            const { data, error } = await supabase
-              .from('memories_with_likes')
-              .select('*')
-              .in('access_code', chunk)
-              .eq('moderation_status', 'approved') // Only fetch approved content
-              .order('event_date', { ascending: false })
-              .limit(Math.ceil(limit / chunks.length));
-            
-            if (error) {
-              console.error(`❌ [Chunk ${index + 1}] Error:`, error);
-              
-              if (error.message?.includes('404') || error.code === 'PGRST116') {
-                throw new Error('Memories table not found');
-              }
-              
-              if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-                throw new Error('Database tables are missing');
-              }
-              
-              throw new Error(error.message);
-            }
-            
-            console.log(`✅ [Chunk ${index + 1}] Received data:`, data?.length || 0, 'memories');
-            return data || [];
-          }, 2, 1000, signal); // Fewer retries for chunks
-          
-          console.log(`✅ [Chunk ${index + 1}] Success:`, result.length, 'memories');
-          return result;
-        } catch (error) {
-          // Check if this is an abort error
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.log(`🛑 [Chunk ${index + 1}] Request aborted`);
-            return [];
-          }
-          
-          console.error(`❌ [Chunk ${index + 1}] Exception:`, error);
-          return []; // Return empty array instead of failing
-        }
-      });
-      
-      // Wait for all chunks to complete
-      console.log('🔄 [memoriesApi.fetchMemoriesByAccessCodes] Waiting for all chunks to complete');
-      const results = await Promise.allSettled(chunkPromises);
-      
-      // Check if the request has been aborted after all chunks complete
+      // Check if the request has been aborted after fetching data
       if (signal?.aborted) {
-        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted after chunks completed');
+        console.log('🛑 [memoriesApi.fetchMemoriesByAccessCodes] Request aborted after data fetch');
         return { success: false, error: 'Request aborted by user' };
       }
       
-      // Combine all successful results
-      const allData = results
-        .filter(result => result.status === 'fulfilled')
-        .flatMap(result => (result as PromiseFulfilledResult<any[]>).value);
-      
-      console.log('✅ [memoriesApi.fetchMemoriesByAccessCodes] Combined data:', allData.length, 'memories');
-      
       // Transform database records to Memory type
-      const memories: Memory[] = await Promise.all(allData.map(async (record) => {
+      const memories: Memory[] = await Promise.all((data || []).map(async (record) => {
         // Get current user's like status for this memory
         let isLiked = false;
         try {
