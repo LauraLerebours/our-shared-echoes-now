@@ -71,6 +71,7 @@ const MemoryCard = ({
   const [canDelete, setCanDelete] = useState(false);
   const [profileFetchAttempts, setProfileFetchAttempts] = useState(0);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [profileFetchError, setProfileFetchError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
@@ -89,6 +90,7 @@ const MemoryCard = ({
       // Limit retry attempts to prevent infinite loops
       if (profileFetchAttempts >= 3) {
         console.warn('Max profile fetch attempts reached for user:', createdBy);
+        setProfileFetchError('Unable to load user profile');
         return;
       }
 
@@ -109,7 +111,15 @@ const MemoryCard = ({
         if (error) {
           console.error('Error fetching creator profile:', error);
           
-          // If it's a network error or connection issue, retry after a delay
+          // Handle specific error types
+          if (error.code === 'PGRST116') {
+            // No rows returned - user profile doesn't exist
+            console.warn('User profile not found for user:', createdBy);
+            setProfileFetchError('User profile not found');
+            return;
+          }
+          
+          // For network errors or connection issues, retry with exponential backoff
           if (error.message?.includes('Failed to fetch') || 
               error.message?.includes('network') || 
               error.message?.includes('NetworkError') ||
@@ -117,18 +127,26 @@ const MemoryCard = ({
               error.code === 'PGRST000') { // Generic connection error
             
             setProfileFetchAttempts(prev => prev + 1);
-            if (profileFetchAttempts < 3) {
+            if (profileFetchAttempts < 2) { // Reduced max attempts
               console.log(`Retrying profile fetch for user ${createdBy} (attempt ${profileFetchAttempts + 1}/3)`);
               setTimeout(() => {
                 fetchCreatorProfile();
-              }, 2000 * (profileFetchAttempts + 1)); // Exponential backoff
+              }, Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000)); // Exponential backoff with max 8s
+            } else {
+              setProfileFetchError('Unable to load user profile');
             }
+          } else {
+            // For other errors, don't retry
+            setProfileFetchError('Error loading user profile');
           }
           return;
         }
 
-        setCreatorProfile(data);
-        setProfileFetchAttempts(0); // Reset attempts on success
+        if (data) {
+          setCreatorProfile(data);
+          setProfileFetchAttempts(0); // Reset attempts on success
+          setProfileFetchError(null); // Clear any previous errors
+        }
       } catch (error) {
         console.error('Error fetching creator profile:', error);
         
@@ -136,18 +154,25 @@ const MemoryCard = ({
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             console.warn('Profile fetch timed out for user:', createdBy);
+            setProfileFetchError('Request timed out');
           } else if (error.message?.includes('Failed to fetch') || 
                      error.message?.includes('network') ||
                      error.message?.includes('NetworkError')) {
             // Retry on network errors with exponential backoff
             setProfileFetchAttempts(prev => prev + 1);
-            if (profileFetchAttempts < 3) {
+            if (profileFetchAttempts < 2) { // Reduced max attempts
               console.log(`Retrying profile fetch for user ${createdBy} after network error (attempt ${profileFetchAttempts + 1}/3)`);
               setTimeout(() => {
                 fetchCreatorProfile();
-              }, 2000 * (profileFetchAttempts + 1));
+              }, Math.min(2000 * Math.pow(2, profileFetchAttempts), 8000)); // Exponential backoff with max 8s
+            } else {
+              setProfileFetchError('Network error - unable to load profile');
             }
+          } else {
+            setProfileFetchError('Unexpected error loading profile');
           }
+        } else {
+          setProfileFetchError('Unknown error loading profile');
         }
       }
     };
@@ -263,6 +288,7 @@ const MemoryCard = ({
   };
 
   const getCreatorInitials = () => {
+    if (profileFetchError) return '?';
     if (!creatorProfile?.name) return 'U';
     return creatorProfile.name
       .split(' ')
@@ -273,7 +299,8 @@ const MemoryCard = ({
   };
 
   const getCreatorName = () => {
-    return creatorProfile?.name || 'Unknown User';
+    if (profileFetchError) return 'Unknown User';
+    return creatorProfile?.name || 'Loading...';
   };
 
   const toggleAspectRatio = (e: React.MouseEvent) => {
@@ -294,7 +321,10 @@ const MemoryCard = ({
                   src={creatorProfile?.profile_picture_url} 
                   alt={creatorProfile?.name || 'Profile'} 
                 />
-                <AvatarFallback className="bg-memory-lightpurple text-memory-purple">
+                <AvatarFallback className={cn(
+                  "bg-memory-lightpurple text-memory-purple",
+                  profileFetchError && "bg-gray-200 text-gray-500"
+                )}>
                   {getCreatorInitials()}
                 </AvatarFallback>
               </Avatar>
@@ -485,7 +515,7 @@ const MemoryCard = ({
             <Button
               variant="secondary"
               size="icon"
-              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0 z-20"
+              className="absolute top-2 right-2 bg-black/30 hover:bg-black/50 text-white rounded-full h-8 w-8 p-0 z-30"
               onClick={toggleAspectRatio}
               title={showFullImage ? "Show cropped image" : "Show full image"}
             >
@@ -513,7 +543,10 @@ const MemoryCard = ({
                   src={creatorProfile?.profile_picture_url} 
                   alt={creatorProfile?.name || 'Profile'} 
                 />
-                <AvatarFallback className="bg-white/20 text-white text-xs">
+                <AvatarFallback className={cn(
+                  "bg-white/20 text-white text-xs",
+                  profileFetchError && "bg-white/10 text-white/60"
+                )}>
                   {getCreatorInitials()}
                 </AvatarFallback>
               </Avatar>
