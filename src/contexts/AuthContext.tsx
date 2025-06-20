@@ -417,7 +417,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (sessionError) {
         console.warn('⚠️ Error checking session during sign out:', sessionError.message);
-        // Continue with sign out attempt even if session check fails
+        
+        // Check if the error indicates the session is already invalid
+        const isSessionInvalid = sessionError.message?.includes('Auth session missing') ||
+                                sessionError.message?.includes('Session not found') ||
+                                sessionError.message?.includes('session_not_found') ||
+                                sessionError.message?.includes('JWT') ||
+                                sessionError.message?.includes('invalid');
+        
+        if (isSessionInvalid) {
+          console.log('ℹ️ Session already invalid, skipping server sign out');
+          console.log('✅ Sign out completed (session was already invalid)');
+          return;
+        }
+        
+        // For other session errors, continue with sign out attempt
       }
       
       // Only call supabase.auth.signOut() if there's an active session
@@ -429,7 +443,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Check if the error is related to session not existing
           const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
                                 error.message?.includes('Auth session missing') ||
-                                error.message?.includes('session_not_found');
+                                error.message?.includes('session_not_found') ||
+                                error.message?.includes('Session not found');
           
           if (isSessionError) {
             // Log as warning but don't treat as critical failure
