@@ -200,6 +200,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Wrap signOut with useCallback for stable dependency
+  const signOut = useCallback(async () => {
+    try {
+      console.log('🔄 Signing out user');
+      setIsSigningOut(true);
+      
+      // Clear user state immediately to prevent UI inconsistencies
+      setUserProfile(null);
+      setUser(null);
+      setSession(null);
+      
+      // Check if there's an active session with Supabase before attempting to sign out
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.warn('⚠️ Error checking session during sign out:', sessionError.message);
+        
+        // Check if the error indicates the session is already invalid
+        const isSessionInvalid = sessionError.message?.includes('Auth session missing') ||
+                                sessionError.message?.includes('Session not found') ||
+                                sessionError.message?.includes('session_not_found') ||
+                                sessionError.message?.includes('JWT') ||
+                                sessionError.message?.includes('invalid');
+        
+        if (isSessionInvalid) {
+          console.log('ℹ️ Session already invalid, skipping server sign out');
+          console.log('✅ Sign out completed (session was already invalid)');
+          return;
+        }
+        
+        // For other session errors, continue with sign out attempt
+      }
+      
+      // Only call supabase.auth.signOut() if there's an active session
+      if (currentSession) {
+        console.log('🔄 Active session found, proceeding with sign out');
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          // Check if the error is related to session not existing
+          const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
+                                error.message?.includes('Auth session missing') ||
+                                error.message?.includes('session_not_found') ||
+                                error.message?.includes('Session not found');
+          
+          if (isSessionError) {
+            // Log as warning but don't treat as critical failure
+            console.warn('⚠️ Session already expired or invalid during sign out:', error.message);
+          } else {
+            // For other types of errors, log as error and re-throw
+            console.error('❌ Sign out error:', error);
+            throw error;
+          }
+        }
+      } else {
+        console.log('ℹ️ No active session found, skipping server sign out');
+      }
+      
+      console.log('✅ Sign out successful');
+    } catch (error) {
+      console.error('❌ Sign out error:', error);
+      // Re-throw non-session errors so calling components can handle them
+      throw error;
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, []);
+
   // Initialize auth state once on mount
   useEffect(() => {
     const initializeAuth = async () => {
@@ -316,6 +384,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [authInitialized, fetchUserProfile, createOrUpdateProfile, isSigningOut, userProfile?.id]);
 
+  // Authentication state watchdog - monitors for inconsistent states
+  useEffect(() => {
+    // Only run after auth is initialized and not during sign out process
+    if (!authInitialized || isSigningOut) return;
+
+    // Check for inconsistent state: user exists but no session
+    // This can happen when refresh tokens are invalid/expired
+    if (user && !session) {
+      console.warn('🚨 Authentication state inconsistency detected: user exists but no session');
+      console.log('🔄 Triggering cleanup via signOut');
+      
+      // Use a timeout to avoid potential infinite loops
+      const timeoutId = setTimeout(() => {
+        signOut().catch((error) => {
+          console.error('❌ Error during watchdog signOut:', error);
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, session, authInitialized, isSigningOut, signOut]);
+
   const signIn = async (email: string, password: string) => {
     try {
       console.log('🔄 Signing in user:', email);
@@ -399,73 +489,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('❌ Google sign in error:', error);
       return { error: error as AuthError };
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      console.log('🔄 Signing out user');
-      setIsSigningOut(true);
-      
-      // Clear user state immediately to prevent UI inconsistencies
-      setUserProfile(null);
-      setUser(null);
-      setSession(null);
-      
-      // Check if there's an active session with Supabase before attempting to sign out
-      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.warn('⚠️ Error checking session during sign out:', sessionError.message);
-        
-        // Check if the error indicates the session is already invalid
-        const isSessionInvalid = sessionError.message?.includes('Auth session missing') ||
-                                sessionError.message?.includes('Session not found') ||
-                                sessionError.message?.includes('session_not_found') ||
-                                sessionError.message?.includes('JWT') ||
-                                sessionError.message?.includes('invalid');
-        
-        if (isSessionInvalid) {
-          console.log('ℹ️ Session already invalid, skipping server sign out');
-          console.log('✅ Sign out completed (session was already invalid)');
-          return;
-        }
-        
-        // For other session errors, continue with sign out attempt
-      }
-      
-      // Only call supabase.auth.signOut() if there's an active session
-      if (currentSession) {
-        console.log('🔄 Active session found, proceeding with sign out');
-        const { error } = await supabase.auth.signOut();
-        
-        if (error) {
-          // Check if the error is related to session not existing
-          const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
-                                error.message?.includes('Auth session missing') ||
-                                error.message?.includes('session_not_found') ||
-                                error.message?.includes('Session not found');
-          
-          if (isSessionError) {
-            // Log as warning but don't treat as critical failure
-            console.warn('⚠️ Session already expired or invalid during sign out:', error.message);
-          } else {
-            // For other types of errors, log as error and re-throw
-            console.error('❌ Sign out error:', error);
-            throw error;
-          }
-        }
-      } else {
-        console.log('ℹ️ No active session found, skipping server sign out');
-      }
-      
-      console.log('✅ Sign out successful');
-    } catch (error) {
-      console.error('❌ Sign out error:', error);
-      // Re-throw non-session errors so calling components can handle them
-      throw error;
-    } finally {
-      setIsSigningOut(false);
     }
   };
 
