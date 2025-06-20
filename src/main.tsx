@@ -4,8 +4,8 @@ import App from './App.tsx'
 import './index.css'
 
 // Register service worker for PWA support
-// Skip registration in StackBlitz environment
-if ('serviceWorker' in navigator && !window.location.hostname.includes('stackblitz')) {
+// Only register in production environment to avoid errors in development/unsupported platforms
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then(registration => {

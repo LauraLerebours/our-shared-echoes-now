@@ -109,12 +109,20 @@ const MemoryCard = ({
         if (error) {
           console.error('Error fetching creator profile:', error);
           
-          // If it's a network error, retry after a delay
-          if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+          // If it's a network error or connection issue, retry after a delay
+          if (error.message?.includes('Failed to fetch') || 
+              error.message?.includes('network') || 
+              error.message?.includes('NetworkError') ||
+              error.code === 'PGRST301' || // Connection timeout
+              error.code === 'PGRST000') { // Generic connection error
+            
             setProfileFetchAttempts(prev => prev + 1);
-            setTimeout(() => {
-              fetchCreatorProfile();
-            }, 2000 * (profileFetchAttempts + 1)); // Exponential backoff
+            if (profileFetchAttempts < 3) {
+              console.log(`Retrying profile fetch for user ${createdBy} (attempt ${profileFetchAttempts + 1}/3)`);
+              setTimeout(() => {
+                fetchCreatorProfile();
+              }, 2000 * (profileFetchAttempts + 1)); // Exponential backoff
+            }
           }
           return;
         }
@@ -122,21 +130,23 @@ const MemoryCard = ({
         setCreatorProfile(data);
         setProfileFetchAttempts(0); // Reset attempts on success
       } catch (error) {
-        // Handle AbortError (timeout) and other network errors
+        console.error('Error fetching creator profile:', error);
+        
+        // Handle different types of errors
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             console.warn('Profile fetch timed out for user:', createdBy);
-          } else if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
-            console.error('Error fetching creator profile:', error);
+          } else if (error.message?.includes('Failed to fetch') || 
+                     error.message?.includes('network') ||
+                     error.message?.includes('NetworkError')) {
             // Retry on network errors with exponential backoff
             setProfileFetchAttempts(prev => prev + 1);
             if (profileFetchAttempts < 3) {
+              console.log(`Retrying profile fetch for user ${createdBy} after network error (attempt ${profileFetchAttempts + 1}/3)`);
               setTimeout(() => {
                 fetchCreatorProfile();
               }, 2000 * (profileFetchAttempts + 1));
             }
-          } else {
-            console.error('Error fetching creator profile:', error);
           }
         }
       }
