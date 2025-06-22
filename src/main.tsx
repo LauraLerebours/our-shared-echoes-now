@@ -7,7 +7,7 @@ import './index.css'
 // Only register in production environment to avoid errors in development/unsupported platforms
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('/service-worker.js', { type: 'classic' })
       .then(registration => {
         console.log('Service Worker registered with scope:', registration.scope);
       })
