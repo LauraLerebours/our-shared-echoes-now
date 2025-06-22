@@ -380,28 +380,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [authInitialized, fetchUserProfile, createOrUpdateProfile, userProfile?.id]);
 
-  // Authentication state watchdog - monitors for inconsistent states
-  useEffect(() => {
-    // Only run after auth is initialized and not during sign out process
-    if (!authInitialized || isSigningOut) return;
-
-    // Check for inconsistent state: user exists but no session
-    // This can happen when refresh tokens are invalid/expired
-    if (user && !session) {
-      console.warn('🚨 Authentication state inconsistency detected: user exists but no session');
-      console.log('🔄 Triggering cleanup via signOut');
-      
-      // Use a timeout to avoid potential infinite loops
-      const timeoutId = setTimeout(() => {
-        signOut().catch((error) => {
-          console.error('❌ Error during watchdog signOut:', error);
-        });
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [user, session, authInitialized, isSigningOut, signOut]);
-
   const signIn = async (email: string, password: string) => {
     try {
       console.log('🔄 Signing in user:', email);
