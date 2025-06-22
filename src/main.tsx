@@ -2,21 +2,26 @@ import { createRoot } from 'react-dom/client'
 import { StrictMode, useEffect } from 'react'
 import App from './App.tsx'
 import './index.css'
+import { registerSW } from 'virtual:pwa-register'
 
 // Register service worker for PWA support
 // Only register in production environment to avoid errors in development/unsupported platforms
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js', { 
-      type: 'module',
-      scope: '/'
-    })
-      .then(registration => {
-        console.log('Service Worker registered with scope:', registration.scope);
-      })
-      .catch(error => {
-        console.error('Service Worker registration failed:', error);
-      });
+if (import.meta.env.PROD) {
+  const updateSW = registerSW({
+    onNeedRefresh() {
+      if (confirm('New content available. Reload?')) {
+        updateSW(true);
+      }
+    },
+    onOfflineReady() {
+      console.log('App ready to work offline');
+    },
+    onRegisteredSW(swUrl, registration) {
+      console.log('Service Worker registered with scope:', registration?.scope);
+    },
+    onRegisterError(error) {
+      console.error('Service Worker registration failed:', error);
+    }
   });
 }
 
