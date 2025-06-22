@@ -215,6 +215,7 @@ const Auth = () => {
       localStorage.removeItem('thisisus_auth_state');
       
       // Navigation will be handled by the useEffect when user state changes
+      navigate('/');
     } catch (error) {
       console.error('❌ Sign in error:', error);
       toast.error('Sign in failed. An unexpected error occurred. Please try again.');

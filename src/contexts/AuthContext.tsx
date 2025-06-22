@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string; // Add profile picture URL
+  profile_picture_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -342,13 +342,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setSession(null);
           setUserProfile(null);
-          
-          // Show toast notification only if this was an implicit sign-out (session expired)
-          // not an explicit user action
-          if (!isSigningOut) {
-            toast.error('Your session has expired. Please sign in again.');
-          }
-          
           return;
         }
         
@@ -385,7 +378,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🧹 Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [authInitialized, fetchUserProfile, createOrUpdateProfile, isSigningOut, userProfile?.id]);
+  }, [authInitialized, fetchUserProfile, createOrUpdateProfile, userProfile?.id]);
 
   // Authentication state watchdog - monitors for inconsistent states
   useEffect(() => {
