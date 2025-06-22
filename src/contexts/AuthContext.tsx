@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string;
+  profile_picture_url?: string; // Add profile picture URL
   created_at?: string;
   updated_at?: string;
 }
@@ -477,6 +477,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           redirectTo: `${window.location.origin}/auth?type=google`,
           queryParams: {
             prompt: 'select_account',
+            access_type: 'offline',
           },
         },
       });
