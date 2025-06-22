@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadProfilePicture, deleteProfilePicture } from '@/lib/uploadProfilePicture';
+import { toast } from 'sonner';
 
 interface UserProfile {
   id: string;
@@ -337,15 +338,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, newSession) => {
         console.log('🔔 Auth state changed:', event, newSession?.user?.email);
         
-        if (isSigningOut) {
-          console.log('⚠️ Ignoring auth state change during sign out');
-          return;
-        }
-        
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setUserProfile(null);
+          
+          // Show toast notification only if this was an implicit sign-out (session expired)
+          // not an explicit user action
+          if (!isSigningOut) {
+            toast.error('Your session has expired. Please sign in again.');
+          }
+          
           return;
         }
         
