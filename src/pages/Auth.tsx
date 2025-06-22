@@ -87,7 +87,9 @@ const Auth = () => {
     // Handle email confirmation success
     if (type === 'signup') {
       console.log('✅ Email confirmation successful');
-      toast.success('Email confirmed! Please sign in to your account.');
+      toast.success('Email confirmed!', {
+        description: 'Your email has been verified. Please sign in to your account.',
+      });
       // Clear the URL parameters
       navigate('/auth', { replace: true });
     }
@@ -95,14 +97,18 @@ const Auth = () => {
     // Handle Google OAuth success
     if (type === 'google') {
       console.log('✅ Google OAuth successful');
-      toast.success('Welcome! You have successfully signed in with Google.');
+      toast.success('Welcome!', {
+        description: 'You have successfully signed in with Google.',
+      });
       // Clear the URL parameters and redirect to home
       navigate('/', { replace: true });
     }
     
     if (error) {
       console.error('❌ Auth error from URL:', error, errorDescription);
-      toast.error('Authentication Error: ' + (errorDescription || 'An authentication error occurred.'));
+      toast.error('Authentication Error', {
+        description: errorDescription || 'An authentication error occurred.',
+      });
       // Clear the URL parameters
       navigate('/auth', { replace: true });
     }
@@ -124,14 +130,20 @@ const Auth = () => {
 
       if (error) {
         console.error('❌ Failed to resend confirmation email:', error);
-        toast.error('Failed to resend email: ' + error.message);
+        toast.error('Failed to resend email', {
+          description: error.message,
+        });
       } else {
         console.log('✅ Confirmation email resent successfully');
-        toast.success('Confirmation email sent. Please check your email (including spam folder) for the verification link.');
+        toast.success('Confirmation email sent', {
+          description: 'Please check your email (including spam folder) for the verification link.',
+        });
       }
     } catch (error) {
       console.error('❌ Resend confirmation error:', error);
-      toast.error('Failed to resend email. An unexpected error occurred. Please try again.');
+      toast.error('Failed to resend email', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setIsResendingEmail(false);
     }
@@ -141,7 +153,9 @@ const Auth = () => {
     e.preventDefault();
 
     if (!forgotPasswordEmail.trim()) {
-      toast.error('Please enter your email address.');
+      toast.error('Email required', {
+        description: 'Please enter your email address.',
+      });
       return;
     }
 
@@ -155,15 +169,21 @@ const Auth = () => {
 
       if (error) {
         console.error('❌ Failed to send password reset email:', error);
-        toast.error('Failed to send reset email: ' + error.message);
+        toast.error('Failed to send reset email', {
+          description: error.message,
+        });
       } else {
         console.log('✅ Password reset email sent successfully');
         setResetEmailSent(true);
-        toast.success('Password reset email sent. Please check your email for instructions to reset your password.');
+        toast.success('Password reset email sent', {
+          description: 'Please check your email for instructions to reset your password.',
+        });
       }
     } catch (error) {
       console.error('❌ Password reset error:', error);
-      toast.error('Failed to send reset email. An unexpected error occurred. Please try again.');
+      toast.error('Failed to send reset email', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setIsSendingResetEmail(false);
     }
@@ -173,7 +193,9 @@ const Auth = () => {
     e.preventDefault();
     
     if (!signInEmail.trim() || !signInPassword) {
-      toast.error('Please enter both email and password.');
+      toast.error('Missing information', {
+        description: 'Please enter both email and password.',
+      });
       return;
     }
 
@@ -203,7 +225,9 @@ const Auth = () => {
           errorMessage = error.message || 'Failed to sign in. Please try again.';
         }
 
-        toast.error('Sign in failed: ' + errorMessage);
+        toast.error('Sign in failed', {
+          description: errorMessage,
+        });
         setAnimationVisible(true);
         return;
       }
@@ -214,11 +238,12 @@ const Auth = () => {
       // Clear auth state from localStorage
       localStorage.removeItem('thisisus_auth_state');
       
-      // Navigate to home page
-      navigate('/');
+      // Navigation will be handled by the useEffect when user state changes
     } catch (error) {
       console.error('❌ Sign in error:', error);
-      toast.error('Sign in failed. An unexpected error occurred. Please try again.');
+      toast.error('Sign in failed', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
       setAnimationVisible(true);
     } finally {
       setIsSigningIn(false);
@@ -229,17 +254,23 @@ const Auth = () => {
     e.preventDefault();
 
     if (!signUpName.trim()) {
-      toast.error('Please enter your name.');
+      toast.error('Name required', {
+        description: 'Please enter your name.',
+      });
       return;
     }
 
     if (!signUpEmail.trim()) {
-      toast.error('Please enter your email address.');
+      toast.error('Email required', {
+        description: 'Please enter your email address.',
+      });
       return;
     }
 
     if (signUpPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long.');
+      toast.error('Weak password', {
+        description: 'Password must be at least 6 characters long.',
+      });
       return;
     }
 
@@ -264,7 +295,9 @@ const Auth = () => {
           errorMessage = error.message || 'Failed to create account. Please try again.';
         }
 
-        toast.error('Sign up failed: ' + errorMessage);
+        toast.error('Sign up failed', {
+          description: errorMessage,
+        });
         setAnimationVisible(true);
         return;
       }
@@ -272,7 +305,9 @@ const Auth = () => {
       if (user) {
         console.log('✅ Sign up successful');
         // Since email confirmation is disabled, we can directly sign in the user
-        toast.success('Account created! You are now signed in.');
+        toast.success('Account created', {
+          description: 'Your account has been created successfully. You are now signed in.',
+        });
         
         // Clear the form
         setSignUpEmail('');
@@ -287,7 +322,9 @@ const Auth = () => {
       }
     } catch (error) {
       console.error('❌ Sign up error:', error);
-      toast.error('Sign up failed. An unexpected error occurred. Please try again.');
+      toast.error('Sign up failed', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
       setAnimationVisible(true);
     } finally {
       setIsSigningUp(false);
@@ -314,7 +351,9 @@ const Auth = () => {
           errorMessage = error.message || 'Failed to sign in with Google. Please try again.';
         }
 
-        toast.error('Google sign in failed: ' + errorMessage);
+        toast.error('Google sign in failed', {
+          description: errorMessage,
+        });
         setAnimationVisible(true);
         setIsSigningInWithGoogle(false);
         return;
@@ -325,7 +364,9 @@ const Auth = () => {
       // The loading state will be cleared when they return from Google
     } catch (error) {
       console.error('❌ Google sign in error:', error);
-      toast.error('Google sign in failed. An unexpected error occurred. Please try again.');
+      toast.error('Google sign in failed', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
       setAnimationVisible(true);
       setIsSigningInWithGoogle(false);
     }

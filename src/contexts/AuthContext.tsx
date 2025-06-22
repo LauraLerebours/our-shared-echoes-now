@@ -2,12 +2,11 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadProfilePicture, deleteProfilePicture } from '@/lib/uploadProfilePicture';
-import { toast } from 'sonner';
 
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string;
+  profile_picture_url?: string; // Add profile picture URL
   created_at?: string;
   updated_at?: string;
 }
@@ -45,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-  // Fetch user profile function
+  // Fetch user profile function - simplified and more direct
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       console.log('🔄 Fetching user profile for:', userId);
@@ -212,11 +211,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setSession(null);
       
-      const { error } = await supabase.auth.signOut();
+      // Check if there's an active session with Supabase before attempting to sign out
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
       
-      if (error) {
-        console.error('❌ Sign out error:', error);
-        throw error;
+      if (sessionError) {
+        console.warn('⚠️ Error checking session during sign out:', sessionError.message);
+        
+        // Check if the error indicates the session is already invalid
+        const isSessionInvalid = sessionError.message?.includes('Auth session missing') ||
+                                sessionError.message?.includes('Session not found') ||
+                                sessionError.message?.includes('session_not_found') ||
+                                sessionError.message?.includes('JWT') ||
+                                sessionError.message?.includes('invalid');
+        
+        if (isSessionInvalid) {
+          console.log('ℹ️ Session already invalid, skipping server sign out');
+          console.log('✅ Sign out completed (session was already invalid)');
+          return;
+        }
+        
+        // For other session errors, continue with sign out attempt
+      }
+      
+      // Only call supabase.auth.signOut() if there's an active session
+      if (currentSession) {
+        console.log('🔄 Active session found, proceeding with sign out');
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          // Check if the error is related to session not existing
+          const isSessionError = error.message?.includes('Session from session_id claim in JWT does not exist') ||
+                                error.message?.includes('Auth session missing') ||
+                                error.message?.includes('session_not_found') ||
+                                error.message?.includes('Session not found');
+          
+          if (isSessionError) {
+            // Log as warning but don't treat as critical failure
+            console.warn('⚠️ Session already expired or invalid during sign out:', error.message);
+          } else {
+            // For other types of errors, log as error and re-throw
+            console.error('❌ Sign out error:', error);
+            throw error;
+          }
+        }
+      } else {
+        console.log('ℹ️ No active session found, skipping server sign out');
       }
       
       console.log('✅ Sign out successful');
@@ -298,6 +337,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, newSession) => {
         console.log('🔔 Auth state changed:', event, newSession?.user?.email);
         
+        if (isSigningOut) {
+          console.log('⚠️ Ignoring auth state change during sign out');
+          return;
+        }
+        
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
@@ -338,7 +382,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🧹 Cleaning up auth state change listener');
       subscription.unsubscribe();
     };
-  }, [authInitialized, fetchUserProfile, createOrUpdateProfile, userProfile?.id]);
+  }, [authInitialized, fetchUserProfile, createOrUpdateProfile, isSigningOut, userProfile?.id]);
+
+  // Authentication state watchdog - monitors for inconsistent states
+  useEffect(() => {
+    // Only run after auth is initialized and not during sign out process
+    if (!authInitialized || isSigningOut) return;
+
+    // Check for inconsistent state: user exists but no session
+    // This can happen when refresh tokens are invalid/expired
+    if (user && !session) {
+      console.warn('🚨 Authentication state inconsistency detected: user exists but no session');
+      console.log('🔄 Triggering cleanup via signOut');
+      
+      // Use a timeout to avoid potential infinite loops
+      const timeoutId = setTimeout(() => {
+        signOut().catch((error) => {
+          console.error('❌ Error during watchdog signOut:', error);
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [user, session, authInitialized, isSigningOut, signOut]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -407,8 +473,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           redirectTo: `${window.location.origin}/auth?type=google`,
           queryParams: {
-            prompt: 'select_account',
             access_type: 'offline',
+            prompt: 'consent',
           },
         },
       });
