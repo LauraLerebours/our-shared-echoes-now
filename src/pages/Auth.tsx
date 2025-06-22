@@ -214,7 +214,7 @@ const Auth = () => {
       // Clear auth state from localStorage
       localStorage.removeItem('thisisus_auth_state');
       
-      // Navigation will be handled by the useEffect when user state changes
+      // Navigate to home page
       navigate('/');
     } catch (error) {
       console.error('❌ Sign in error:', error);
