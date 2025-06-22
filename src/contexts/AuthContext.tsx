@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string; // Add profile picture URL
+  profile_picture_url?: string;
   created_at?: string;
   updated_at?: string;
 }
