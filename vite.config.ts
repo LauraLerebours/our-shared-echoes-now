@@ -7,6 +7,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      // Set correct MIME type for service worker
+      "Service-Worker-Allowed": "/",
+      "Content-Type": "application/javascript; charset=utf-8"
+    }
   },
   plugins: [
     react(),
