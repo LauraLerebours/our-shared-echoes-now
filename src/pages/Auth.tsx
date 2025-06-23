@@ -408,7 +408,7 @@ const Auth = () => {
         <Alert className="bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
-            <strong>Beta Testing Notice:</strong> Our site is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable.
+            <strong>Beta Testing Notice:</strong> Our site is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable. Also, support for resetting passwords is currently unavailable
           </AlertDescription>
         </Alert>
 
