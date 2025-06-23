@@ -6,7 +6,7 @@ import { uploadProfilePicture, deleteProfilePicture } from '@/lib/uploadProfileP
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string;
+  profile_picture_url?: string; // Add profile picture URL
   created_at?: string;
   updated_at?: string;
 }
@@ -18,6 +18,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; user: User | null }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (name: string) => Promise<{ error: Error | null }>;
   updateProfilePicture: (file: File) => Promise<{ error: Error | null }>;
@@ -67,53 +68,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Create or update user profile with better error handling
+  // Create or update user profile
   const createOrUpdateProfile = useCallback(async (userId: string, name: string, userMetadata?: any) => {
     try {
       console.log('🔄 Creating/updating user profile for:', userId);
       
-      // Extract name from metadata if available
+      // Extract name from Google metadata if available
       let profileName = name;
       if (userMetadata) {
         profileName = userMetadata.full_name || userMetadata.name || name || 'User';
       }
       
-      // First try to fetch existing profile
-      const existingProfile = await fetchUserProfile(userId);
-      
-      if (existingProfile) {
-        console.log('✅ Profile already exists, updating:', existingProfile.name);
-        // Update existing profile
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .update({ name: profileName })
-          .eq('id', userId)
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: userId,
+          name: profileName,
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
+        });
 
-        if (error) {
-          console.error('❌ Error updating user profile:', error);
-          return null;
-        }
-        return data;
-      } else {
-        console.log('🔄 Creating new profile for user:', userId);
-        // Create new profile
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: userId,
-            name: profileName,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ Error creating user profile:', error);
-          return null;
-        }
-        return data;
+      if (error) {
+        console.error('❌ Error creating/updating user profile:', error);
+        return null;
       }
+
+      // Fetch the profile after upsert
+      return await fetchUserProfile(userId);
     } catch (error) {
       console.error('❌ Error creating/updating user profile:', error);
       return null;
@@ -247,6 +229,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Sign out completed (session was already invalid)');
           return;
         }
+        
+        // For other session errors, continue with sign out attempt
       }
       
       // Only call supabase.auth.signOut() if there's an active session
@@ -448,7 +432,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔄 Signing up user:', email);
       
-      // Disable email confirmation for now to avoid RLS issues
+      // Disable email confirmation for development
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -456,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             name: name,
           },
-          // Remove email confirmation to avoid RLS conflicts
+          // Comment out emailRedirectTo to disable email confirmation
           // emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         },
       });
@@ -468,20 +452,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Sign up successful');
       
-      // Create user profile immediately after successful signup
+      // If email confirmation is disabled, create user profile immediately
       if (data.user) {
-        console.log('🔄 Creating user profile after signup');
-        const profile = await createOrUpdateProfile(data.user.id, name);
-        if (profile) {
-          console.log('✅ User profile created successfully');
-          setUserProfile(profile);
-        }
+        await createOrUpdateProfile(data.user.id, name);
       }
       
       return { error: null, user: data.user };
     } catch (error) {
       console.error('❌ Sign up error:', error);
       return { error: error as AuthError, user: null };
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      console.log('🔄 Signing in with Google');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth?type=google`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('❌ Google sign in error:', error);
+        return { error };
+      }
+
+      console.log('✅ Google sign in initiated');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Google sign in error:', error);
+      return { error: error as AuthError };
     }
   };
 
@@ -492,6 +499,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     updateProfile,
     updateProfilePicture,
