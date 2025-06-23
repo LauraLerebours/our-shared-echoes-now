@@ -11,12 +11,12 @@ import AuthAnimation from '@/components/AuthAnimation';
 import FloatingHearts from '@/components/FloatingHearts';
 import MemoryParticles from '@/components/MemoryParticles';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { ArrowLeft, Mail, Eye, EyeOff } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth();
+  const { signIn, signUp, user, loading } = useAuth();
 
   useEffect(() => {
     console.log('🔄 Auth page: checking user state', { user: !!user, loading });
@@ -34,7 +34,6 @@ const Auth = () => {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -44,6 +43,8 @@ const Auth = () => {
   const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
   const [activeTab, setActiveTab] = useState<string>('sign-in');
   const [animationVisible, setAnimationVisible] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Try to restore form state from localStorage
   useEffect(() => {
@@ -92,16 +93,6 @@ const Auth = () => {
       });
       // Clear the URL parameters
       navigate('/auth', { replace: true });
-    }
-    
-    // Handle Google OAuth success
-    if (type === 'google') {
-      console.log('✅ Google OAuth successful');
-      toast.success('Welcome!', {
-        description: 'You have successfully signed in with Google.',
-      });
-      // Clear the URL parameters and redirect to home
-      navigate('/', { replace: true });
     }
     
     if (error) {
@@ -331,47 +322,6 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    console.log('🔄 Attempting Google sign in');
-    setIsSigningInWithGoogle(true);
-    setAnimationVisible(false);
-
-    try {
-      const { error } = await signInWithGoogle();
-
-      if (error) {
-        console.error('❌ Google sign in failed:', error);
-        let errorMessage = 'Something went wrong with Google sign in.';
-        
-        if (error.message?.includes('popup_closed_by_user')) {
-          errorMessage = 'Sign in was cancelled. Please try again.';
-        } else if (error.message?.includes('access_denied')) {
-          errorMessage = 'Access was denied. Please try again and allow the required permissions.';
-        } else {
-          errorMessage = error.message || 'Failed to sign in with Google. Please try again.';
-        }
-
-        toast.error('Google sign in failed', {
-          description: errorMessage,
-        });
-        setAnimationVisible(true);
-        setIsSigningInWithGoogle(false);
-        return;
-      }
-
-      console.log('✅ Google sign in initiated');
-      // Don't set loading to false here as the user will be redirected
-      // The loading state will be cleared when they return from Google
-    } catch (error) {
-      console.error('❌ Google sign in error:', error);
-      toast.error('Google sign in failed', {
-        description: 'An unexpected error occurred. Please try again.',
-      });
-      setAnimationVisible(true);
-      setIsSigningInWithGoogle(false);
-    }
-  };
-
   // Show loading while checking auth state
   if (loading) {
     return (
@@ -589,29 +539,12 @@ const Auth = () => {
 
               <TabsContent value="sign-in">
                 <div className="space-y-4">
-                  {/* Google Sign In Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full flex items-center justify-center gap-3 py-6 border-gray-300 hover:bg-gray-50"
-                    onClick={handleGoogleSignIn}
-                    disabled={isSigningInWithGoogle || isSigningIn}
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    {isSigningInWithGoogle ? 'Signing in...' : 'Continue with Google'}
-                  </Button>
-
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Or continue with email</span>
+                      <span className="bg-white px-2 text-muted-foreground">Sign in with email</span>
                     </div>
                   </div>
 
@@ -623,18 +556,33 @@ const Auth = () => {
                         value={signInEmail}
                         onChange={(e) => setSignInEmail(e.target.value)}
                         required
-                        disabled={isSigningIn || isSigningInWithGoogle}
+                        disabled={isSigningIn}
                         autoComplete="email"
                       />
-                      <Input
-                        type="password"
-                        placeholder="Password"
-                        value={signInPassword}
-                        onChange={(e) => setSignInPassword(e.target.value)}
-                        required
-                        disabled={isSigningIn || isSigningInWithGoogle}
-                        autoComplete="current-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Password"
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          required
+                          disabled={isSigningIn}
+                          autoComplete="current-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-gray-400" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="flex justify-center">
@@ -655,7 +603,7 @@ const Auth = () => {
                     <Button
                       type="submit"
                       className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                      disabled={isSigningIn || isSigningInWithGoogle || !signInEmail.trim() || !signInPassword}
+                      disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
                     >
                       {isSigningIn ? 'Signing In...' : 'Sign In'}
                     </Button>
@@ -665,29 +613,12 @@ const Auth = () => {
 
               <TabsContent value="sign-up">
                 <div className="space-y-4">
-                  {/* Google Sign Up Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full flex items-center justify-center gap-3 py-6 border-gray-300 hover:bg-gray-50"
-                    onClick={handleGoogleSignIn}
-                    disabled={isSigningInWithGoogle || isSigningUp}
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    {isSigningInWithGoogle ? 'Signing up...' : 'Continue with Google'}
-                  </Button>
-
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Or continue with email</span>
+                      <span className="bg-white px-2 text-muted-foreground">Sign up with email</span>
                     </div>
                   </div>
 
@@ -699,7 +630,7 @@ const Auth = () => {
                         value={signUpName}
                         onChange={(e) => setSignUpName(e.target.value)}
                         required
-                        disabled={isSigningUp || isSigningInWithGoogle}
+                        disabled={isSigningUp}
                         autoComplete="name"
                       />
                       <Input
@@ -708,24 +639,39 @@ const Auth = () => {
                         value={signUpEmail}
                         onChange={(e) => setSignUpEmail(e.target.value)}
                         required
-                        disabled={isSigningUp || isSigningInWithGoogle}
+                        disabled={isSigningUp}
                         autoComplete="email"
                       />
-                      <Input
-                        type="password"
-                        placeholder="Password (min 6 characters)"
-                        value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                        required
-                        disabled={isSigningUp || isSigningInWithGoogle}
-                        minLength={6}
-                        autoComplete="new-password"
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Password (min 6 characters)"
+                          value={signUpPassword}
+                          onChange={(e) => setSignUpPassword(e.target.value)}
+                          required
+                          disabled={isSigningUp}
+                          minLength={6}
+                          autoComplete="new-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-gray-400" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     <Button
                       type="submit"
                       className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                      disabled={isSigningUp || isSigningInWithGoogle || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
+                      disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
                     >
                       {isSigningUp ? 'Signing Up...' : 'Sign Up'}
                     </Button>
