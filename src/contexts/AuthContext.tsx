@@ -6,7 +6,7 @@ import { uploadProfilePicture, deleteProfilePicture } from '@/lib/uploadProfileP
 interface UserProfile {
   id: string;
   name: string;
-  profile_picture_url?: string; // Add profile picture URL
+  profile_picture_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -67,34 +67,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Create or update user profile
+  // Create or update user profile with better error handling
   const createOrUpdateProfile = useCallback(async (userId: string, name: string, userMetadata?: any) => {
     try {
       console.log('🔄 Creating/updating user profile for:', userId);
       
-      // Extract name from Google metadata if available
+      // Extract name from metadata if available
       let profileName = name;
       if (userMetadata) {
         profileName = userMetadata.full_name || userMetadata.name || name || 'User';
       }
       
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .upsert({
-          id: userId,
-          name: profileName,
-        }, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
+      // First try to fetch existing profile
+      const existingProfile = await fetchUserProfile(userId);
+      
+      if (existingProfile) {
+        console.log('✅ Profile already exists, updating:', existingProfile.name);
+        // Update existing profile
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .update({ name: profileName })
+          .eq('id', userId)
+          .select()
+          .single();
 
-      if (error) {
-        console.error('❌ Error creating/updating user profile:', error);
-        return null;
+        if (error) {
+          console.error('❌ Error updating user profile:', error);
+          return null;
+        }
+        return data;
+      } else {
+        console.log('🔄 Creating new profile for user:', userId);
+        // Create new profile
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: userId,
+            name: profileName,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ Error creating user profile:', error);
+          return null;
+        }
+        return data;
       }
-
-      // Fetch the profile after upsert
-      return await fetchUserProfile(userId);
     } catch (error) {
       console.error('❌ Error creating/updating user profile:', error);
       return null;
@@ -228,8 +247,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Sign out completed (session was already invalid)');
           return;
         }
-        
-        // For other session errors, continue with sign out attempt
       }
       
       // Only call supabase.auth.signOut() if there's an active session
@@ -431,7 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔄 Signing up user:', email);
       
-      // Enable email confirmation for production
+      // Disable email confirmation for now to avoid RLS issues
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -439,7 +456,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             name: name,
           },
-          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
+          // Remove email confirmation to avoid RLS conflicts
+          // emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         },
       });
 
@@ -450,9 +468,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Sign up successful');
       
-      // If email confirmation is enabled, create user profile immediately
+      // Create user profile immediately after successful signup
       if (data.user) {
-        await createOrUpdateProfile(data.user.id, name);
+        console.log('🔄 Creating user profile after signup');
+        const profile = await createOrUpdateProfile(data.user.id, name);
+        if (profile) {
+          console.log('✅ User profile created successfully');
+          setUserProfile(profile);
+        }
       }
       
       return { error: null, user: data.user };

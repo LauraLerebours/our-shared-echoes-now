@@ -6,12 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import AuthAnimation from '@/components/AuthAnimation';
 import FloatingHearts from '@/components/FloatingHearts';
 import MemoryParticles from '@/components/MemoryParticles';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -31,18 +30,8 @@ const Auth = () => {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpName, setSignUpName] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isResendingEmail, setIsResendingEmail] = useState(false);
-  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [pendingEmail, setPendingEmail] = useState('');
   const [activeTab, setActiveTab] = useState<string>('sign-in');
   const [animationVisible, setAnimationVisible] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -90,8 +79,8 @@ const Auth = () => {
     // Handle email confirmation success
     if (type === 'signup') {
       console.log('✅ Email confirmation successful');
-      toast.success('Email confirmed!', {
-        description: 'Your email has been verified. Please sign in to your account.',
+      toast.success('Account created!', {
+        description: 'Your account has been created successfully. You can now sign in.',
       });
       // Clear the URL parameters
       navigate('/auth', { replace: true });
@@ -106,122 +95,6 @@ const Auth = () => {
       navigate('/auth', { replace: true });
     }
   }, [searchParams, navigate]);
-
-  const handleResendVerification = async () => {
-    if (!pendingEmail) return;
-
-    console.log('🔄 Resending verification code to:', pendingEmail);
-    setIsResendingEmail(true);
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: pendingEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
-        }
-      });
-
-      if (error) {
-        console.error('❌ Failed to resend verification code:', error);
-        toast.error('Failed to resend code', {
-          description: error.message,
-        });
-      } else {
-        console.log('✅ Verification code resent successfully');
-        toast.success('Verification code sent', {
-          description: 'Please check your email for the verification code.',
-        });
-      }
-    } catch (error) {
-      console.error('❌ Resend verification error:', error);
-      toast.error('Failed to resend code', {
-        description: 'An unexpected error occurred. Please try again.',
-      });
-    } finally {
-      setIsResendingEmail(false);
-    }
-  };
-
-  const handleVerifyEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!verificationCode.trim() || !pendingEmail) {
-      toast.error('Verification failed', {
-        description: 'Please enter the verification code sent to your email.',
-      });
-      return;
-    }
-
-    setIsVerifying(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: pendingEmail,
-        token: verificationCode,
-        type: 'signup'
-      });
-
-      if (error) {
-        console.error('❌ Verification failed:', error);
-        toast.error('Verification failed', {
-          description: error.message || 'Invalid or expired verification code.',
-        });
-      } else {
-        console.log('✅ Email verification successful');
-        toast.success('Email verified!', {
-          description: 'Your account has been verified. You can now sign in.',
-        });
-        setShowEmailVerification(false);
-        setActiveTab('sign-in');
-      }
-    } catch (error) {
-      console.error('❌ Verification error:', error);
-      toast.error('Verification failed', {
-        description: 'An unexpected error occurred. Please try again.',
-      });
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!forgotPasswordEmail.trim()) {
-      toast.error('Email required', {
-        description: 'Please enter your email address.',
-      });
-      return;
-    }
-
-    console.log('🔄 Sending password reset email to:', forgotPasswordEmail);
-    setIsSendingResetEmail(true);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) {
-        console.error('❌ Failed to send password reset email:', error);
-        toast.error('Failed to send reset email', {
-          description: error.message,
-        });
-      } else {
-        console.log('✅ Password reset email sent successfully');
-        setResetEmailSent(true);
-        toast.success('Password reset email sent', {
-          description: 'Please check your email for instructions to reset your password.',
-        });
-      }
-    } catch (error) {
-      console.error('❌ Password reset error:', error);
-      toast.error('Failed to send reset email', {
-        description: 'An unexpected error occurred. Please try again.',
-      });
-    } finally {
-      setIsSendingResetEmail(false);
-    }
-  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,11 +117,7 @@ const Auth = () => {
         console.error('❌ Sign in failed:', error);
         let errorMessage = 'Something went wrong.';
         
-        if (error.message?.includes('Email not confirmed')) {
-          setPendingEmail(signInEmail);
-          setShowEmailVerification(true);
-          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification code.';
-        } else if (error.message?.includes('Invalid login credentials')) {
+        if (error.message?.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (error.message?.includes('Email rate limit exceeded')) {
           errorMessage = 'Too many login attempts. Please wait a few minutes before trying again.';
@@ -312,7 +181,6 @@ const Auth = () => {
     setAnimationVisible(false);
 
     try {
-      // Configure Supabase to require email verification
       const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
 
       if (error) {
@@ -336,13 +204,15 @@ const Auth = () => {
         return;
       }
 
-      // Show verification screen
-      setPendingEmail(signUpEmail);
-      setShowEmailVerification(true);
-      setEmailSent(true);
-      toast.success('Verification code sent', {
-        description: 'Please check your email for the verification code.',
+      console.log('✅ Sign up successful');
+      toast.success('Account created!', {
+        description: 'Your account has been created successfully. You are now signed in.',
       });
+      
+      // Clear auth state from localStorage
+      localStorage.removeItem('thisisus_auth_state');
+      
+      // Navigation will be handled by the useEffect when user state changes
       
     } catch (error) {
       console.error('❌ Sign up error:', error);
@@ -432,9 +302,7 @@ const Auth = () => {
           </h1>
           <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full inline-block">
             <p className="text-muted-foreground">
-              {showEmailVerification ? 'Verify your email' : 
-               showForgotPassword ? 'Reset your password' : 
-               'Sign in to access your memories'}
+              Sign in to access your memories
             </p>
           </div>
         </motion.div>
@@ -443,42 +311,9 @@ const Auth = () => {
         <Alert className="bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
-            <strong>Beta Testing Notice:</strong> This Is Us is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable. Also, support for resetting passwords is currently unavailable.
+            <strong>Beta Testing Notice:</strong> This Is Us is currently in beta testing. Email confirmation has been disabled for easier testing. Your account will be created immediately upon signup.
           </AlertDescription>
         </Alert>
-
-        {emailSent && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert>
-              <AlertDescription>
-                Please check your email for the verification code.
-                You may need to check your spam folder.
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-
-        {resetEmailSent && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert className="border-green-200 bg-green-50">
-              <Mail className="h-4 w-4" />
-              <AlertDescription className="text-green-800">
-                <strong>Password reset email sent!</strong>
-                <br />
-                Please check your email for instructions to reset your password. 
-                The link will expire in 1 hour.
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
 
         <motion.div 
           className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
@@ -486,266 +321,144 @@ const Auth = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
         >
-          {showEmailVerification ? (
-            /* Email Verification Form */
-            <div className="space-y-4">
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-semibold">Verify Your Email</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  We've sent a verification code to <strong>{pendingEmail}</strong>
-                </p>
-              </div>
+          <Tabs 
+            defaultValue="sign-in" 
+            value={activeTab} 
+            onValueChange={setActiveTab} 
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+            </TabsList>
 
-              <form onSubmit={handleVerifyEmail} className="space-y-4">
-                <div className="space-y-2">
-                  <Input
-                    type="text"
-                    placeholder="Enter verification code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    required
-                    disabled={isVerifying}
-                    autoComplete="one-time-code"
-                    className="text-center text-lg tracking-widest"
-                    maxLength={6}
-                  />
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                  disabled={isVerifying || !verificationCode.trim()}
-                >
-                  {isVerifying ? 'Verifying...' : 'Verify Email'}
-                </Button>
-              </form>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Didn't receive the code?
-                </p>
-                <Button
-                  variant="ghost"
-                  onClick={handleResendVerification}
-                  disabled={isResendingEmail}
-                  className="text-sm"
-                >
-                  {isResendingEmail ? 'Sending...' : 'Resend Code'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowEmailVerification(false);
-                    setVerificationCode('');
-                  }}
-                  className="text-sm"
-                >
-                  Back to Sign In
-                </Button>
-              </div>
-            </div>
-          ) : showForgotPassword ? (
-            /* Forgot Password Form */
-            <div className="space-y-4">
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-semibold">Reset Password</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Enter your email address and we'll send you a link to reset your password.
-                </p>
-              </div>
-
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Input
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    required
-                    disabled={isSendingResetEmail}
-                    autoComplete="email"
-                  />
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                  disabled={isSendingResetEmail || !forgotPasswordEmail.trim()}
-                >
-                  {isSendingResetEmail ? 'Sending...' : 'Send Reset Link'}
-                </Button>
-              </form>
-
-              <div className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setResetEmailSent(false);
-                    setForgotPasswordEmail('');
-                  }}
-                  className="text-sm"
-                >
-                  Back to Sign In
-                </Button>
-              </div>
-            </div>
-          ) : (
-            /* Regular Auth Forms */
-            <Tabs 
-              defaultValue="sign-in" 
-              value={activeTab} 
-              onValueChange={setActiveTab} 
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-                <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="sign-in">
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Sign in with email</span>
-                    </div>
+            <TabsContent value="sign-in">
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
                   </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-muted-foreground">Sign in with email</span>
+                  </div>
+                </div>
 
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <div className="space-y-2">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={signInEmail}
+                      onChange={(e) => setSignInEmail(e.target.value)}
+                      required
+                      disabled={isSigningIn}
+                      autoComplete="email"
+                    />
+                    <div className="relative">
                       <Input
-                        type="email"
-                        placeholder="Email"
-                        value={signInEmail}
-                        onChange={(e) => setSignInEmail(e.target.value)}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Password"
+                        value={signInPassword}
+                        onChange={(e) => setSignInPassword(e.target.value)}
                         required
                         disabled={isSigningIn}
-                        autoComplete="email"
+                        autoComplete="current-password"
                       />
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Password"
-                          value={signInPassword}
-                          onChange={(e) => setSignInPassword(e.target.value)}
-                          required
-                          disabled={isSigningIn}
-                          autoComplete="current-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4 text-gray-400" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-gray-400" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-center">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setShowForgotPassword(true);
-                          setForgotPasswordEmail(signInEmail);
-                        }}
-                        className="text-xs text-memory-purple hover:text-memory-purple/80"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
                       >
-                        Forgot password?
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-400" />
+                        )}
                       </Button>
                     </div>
-                    
-                    <Button
-                      type="submit"
-                      className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                      disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
-                    >
-                      {isSigningIn ? 'Signing In...' : 'Sign In'}
-                    </Button>
-                  </form>
-                </div>
-              </TabsContent>
+                  </div>
+                  
+                  <Button
+                    type="submit"
+                    className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                    disabled={isSigningIn || !signInEmail.trim() || !signInPassword}
+                  >
+                    {isSigningIn ? 'Signing In...' : 'Sign In'}
+                  </Button>
+                </form>
+              </div>
+            </TabsContent>
 
-              <TabsContent value="sign-up">
-                <div className="space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-muted-foreground">Sign up with email</span>
+            <TabsContent value="sign-up">
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-muted-foreground">Sign up with email</span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Input
+                      type="text"
+                      placeholder="Your Name"
+                      value={signUpName}
+                      onChange={(e) => setSignUpName(e.target.value)}
+                      required
+                      disabled={isSigningUp}
+                      autoComplete="name"
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={signUpEmail}
+                      onChange={(e) => setSignUpEmail(e.target.value)}
+                      required
+                      disabled={isSigningUp}
+                      autoComplete="email"
+                    />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Password (min 6 characters)"
+                        value={signUpPassword}
+                        onChange={(e) => setSignUpPassword(e.target.value)}
+                        required
+                        disabled={isSigningUp}
+                        minLength={6}
+                        autoComplete="new-password"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-400" />
+                        )}
+                      </Button>
                     </div>
                   </div>
-
-                  <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Input
-                        type="text"
-                        placeholder="Your Name"
-                        value={signUpName}
-                        onChange={(e) => setSignUpName(e.target.value)}
-                        required
-                        disabled={isSigningUp}
-                        autoComplete="name"
-                      />
-                      <Input
-                        type="email"
-                        placeholder="Email"
-                        value={signUpEmail}
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        required
-                        disabled={isSigningUp}
-                        autoComplete="email"
-                      />
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Password (min 6 characters)"
-                          value={signUpPassword}
-                          onChange={(e) => setSignUpPassword(e.target.value)}
-                          required
-                          disabled={isSigningUp}
-                          minLength={6}
-                          autoComplete="new-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4 text-gray-400" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-gray-400" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    <Button
-                      type="submit"
-                      className="w-full bg-memory-purple hover:bg-memory-purple/90"
-                      disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
-                    >
-                      {isSigningUp ? 'Signing Up...' : 'Sign Up'}
-                    </Button>
-                  </form>
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
+                  <Button
+                    type="submit"
+                    className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                    disabled={isSigningUp || !signUpName.trim() || !signUpEmail.trim() || signUpPassword.length < 6}
+                  >
+                    {isSigningUp ? 'Signing Up...' : 'Sign Up'}
+                  </Button>
+                </form>
+              </div>
+            </TabsContent>
+          </Tabs>
         </motion.div>
       </motion.div>
     </div>
