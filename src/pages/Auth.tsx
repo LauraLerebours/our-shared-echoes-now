@@ -604,7 +604,7 @@ const Auth = () => {
                         }}
                         className="text-xs text-memory-purple hover:text-memory-purple/80"
                       >
-                        Forgot password?
+                        Forgot password? (currently unavailable)
                       </Button>
                     </div>
                     
