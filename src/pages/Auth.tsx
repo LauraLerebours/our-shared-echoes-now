@@ -31,16 +31,18 @@ const Auth = () => {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpName, setSignUpName] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
-  const [showEmailNotConfirmed, setShowEmailNotConfirmed] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
   const [activeTab, setActiveTab] = useState<string>('sign-in');
   const [animationVisible, setAnimationVisible] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -105,38 +107,79 @@ const Auth = () => {
     }
   }, [searchParams, navigate]);
 
-  const handleResendConfirmation = async () => {
-    if (!unconfirmedEmail) return;
+  const handleResendVerification = async () => {
+    if (!pendingEmail) return;
 
-    console.log('🔄 Resending confirmation email to:', unconfirmedEmail);
+    console.log('🔄 Resending verification code to:', pendingEmail);
     setIsResendingEmail(true);
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: unconfirmedEmail,
+        email: pendingEmail,
         options: {
           emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         }
       });
 
       if (error) {
-        console.error('❌ Failed to resend confirmation email:', error);
-        toast.error('Failed to resend email', {
+        console.error('❌ Failed to resend verification code:', error);
+        toast.error('Failed to resend code', {
           description: error.message,
         });
       } else {
-        console.log('✅ Confirmation email resent successfully');
-        toast.success('Confirmation email sent', {
-          description: 'Please check your email (including spam folder) for the verification link.',
+        console.log('✅ Verification code resent successfully');
+        toast.success('Verification code sent', {
+          description: 'Please check your email for the verification code.',
         });
       }
     } catch (error) {
-      console.error('❌ Resend confirmation error:', error);
-      toast.error('Failed to resend email', {
+      console.error('❌ Resend verification error:', error);
+      toast.error('Failed to resend code', {
         description: 'An unexpected error occurred. Please try again.',
       });
     } finally {
       setIsResendingEmail(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!verificationCode.trim() || !pendingEmail) {
+      toast.error('Verification failed', {
+        description: 'Please enter the verification code sent to your email.',
+      });
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: verificationCode,
+        type: 'signup'
+      });
+
+      if (error) {
+        console.error('❌ Verification failed:', error);
+        toast.error('Verification failed', {
+          description: error.message || 'Invalid or expired verification code.',
+        });
+      } else {
+        console.log('✅ Email verification successful');
+        toast.success('Email verified!', {
+          description: 'Your account has been verified. You can now sign in.',
+        });
+        setShowEmailVerification(false);
+        setActiveTab('sign-in');
+      }
+    } catch (error) {
+      console.error('❌ Verification error:', error);
+      toast.error('Verification failed', {
+        description: 'An unexpected error occurred. Please try again.',
+      });
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -192,7 +235,6 @@ const Auth = () => {
 
     console.log('🔄 Attempting sign in for:', signInEmail);
     setIsSigningIn(true);
-    setShowEmailNotConfirmed(false);
     setAnimationVisible(false);
 
     try {
@@ -203,9 +245,9 @@ const Auth = () => {
         let errorMessage = 'Something went wrong.';
         
         if (error.message?.includes('Email not confirmed')) {
-          setUnconfirmedEmail(signInEmail);
-          setShowEmailNotConfirmed(true);
-          errorMessage = 'Please verify your email address before signing in. Check your inbox and spam folder for the verification link.';
+          setPendingEmail(signInEmail);
+          setShowEmailVerification(true);
+          errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification code.';
         } else if (error.message?.includes('Invalid login credentials')) {
           errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (error.message?.includes('Email rate limit exceeded')) {
@@ -270,6 +312,7 @@ const Auth = () => {
     setAnimationVisible(false);
 
     try {
+      // Configure Supabase to require email verification
       const { error, user } = await signUp(signUpEmail, signUpPassword, signUpName.trim());
 
       if (error) {
@@ -293,24 +336,14 @@ const Auth = () => {
         return;
       }
 
-      if (user) {
-        console.log('✅ Sign up successful');
-        // Since email confirmation is disabled, we can directly sign in the user
-        toast.success('Account created', {
-          description: 'Your account has been created successfully. You are now signed in.',
-        });
-        
-        // Clear the form
-        setSignUpEmail('');
-        setSignUpPassword('');
-        setSignUpName('');
-        
-        // Clear auth state from localStorage
-        localStorage.removeItem('thisisus_auth_state');
-        
-        // Navigate to home page
-        navigate('/');
-      }
+      // Show verification screen
+      setPendingEmail(signUpEmail);
+      setShowEmailVerification(true);
+      setEmailSent(true);
+      toast.success('Verification code sent', {
+        description: 'Please check your email for the verification code.',
+      });
+      
     } catch (error) {
       console.error('❌ Sign up error:', error);
       toast.error('Sign up failed', {
@@ -399,7 +432,9 @@ const Auth = () => {
           </h1>
           <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full inline-block">
             <p className="text-muted-foreground">
-              {showForgotPassword ? 'Reset your password' : 'Sign in to access your memories'}
+              {showEmailVerification ? 'Verify your email' : 
+               showForgotPassword ? 'Reset your password' : 
+               'Sign in to access your memories'}
             </p>
           </div>
         </motion.div>
@@ -420,8 +455,7 @@ const Auth = () => {
           >
             <Alert>
               <AlertDescription>
-                Please check your email and click the verification link to complete your registration.
-                After verification, return here to sign in with your credentials.
+                Please check your email for the verification code.
                 You may need to check your spam folder.
               </AlertDescription>
             </Alert>
@@ -446,47 +480,71 @@ const Auth = () => {
           </motion.div>
         )}
 
-        {showEmailNotConfirmed && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert className="border-amber-200 bg-amber-50">
-              <AlertDescription className="space-y-3">
-                <div>
-                  <strong>Email verification required</strong>
-                </div>
-                <p className="text-sm">
-                  Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
-                  Please check your inbox (and spam folder) for the verification email.
-                </p>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResendConfirmation}
-                    disabled={isResendingEmail}
-                    className="w-full"
-                  >
-                    {isResendingEmail ? 'Sending...' : 'Resend verification email'}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Didn't receive the email? Check your spam folder or try resending.
-                  </p>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-
         <motion.div 
           className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
         >
-          {showForgotPassword ? (
+          {showEmailVerification ? (
+            /* Email Verification Form */
+            <div className="space-y-4">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-semibold">Verify Your Email</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  We've sent a verification code to <strong>{pendingEmail}</strong>
+                </p>
+              </div>
+
+              <form onSubmit={handleVerifyEmail} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Enter verification code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    required
+                    disabled={isVerifying}
+                    autoComplete="one-time-code"
+                    className="text-center text-lg tracking-widest"
+                    maxLength={6}
+                  />
+                </div>
+                
+                <Button
+                  type="submit"
+                  className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                  disabled={isVerifying || !verificationCode.trim()}
+                >
+                  {isVerifying ? 'Verifying...' : 'Verify Email'}
+                </Button>
+              </form>
+
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Didn't receive the code?
+                </p>
+                <Button
+                  variant="ghost"
+                  onClick={handleResendVerification}
+                  disabled={isResendingEmail}
+                  className="text-sm"
+                >
+                  {isResendingEmail ? 'Sending...' : 'Resend Code'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowEmailVerification(false);
+                    setVerificationCode('');
+                  }}
+                  className="text-sm"
+                >
+                  Back to Sign In
+                </Button>
+              </div>
+            </div>
+          ) : showForgotPassword ? (
             /* Forgot Password Form */
             <div className="space-y-4">
               <div className="text-center mb-4">

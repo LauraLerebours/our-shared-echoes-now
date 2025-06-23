@@ -18,7 +18,6 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: AuthError | null; user: User | null }>;
-  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (name: string) => Promise<{ error: Error | null }>;
   updateProfilePicture: (file: File) => Promise<{ error: Error | null }>;
@@ -432,7 +431,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔄 Signing up user:', email);
       
-      // Disable email confirmation for development
+      // Enable email confirmation for production
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -440,8 +439,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             name: name,
           },
-          // Comment out emailRedirectTo to disable email confirmation
-          // emailRedirectTo: `${window.location.origin}/auth?type=signup`,
+          emailRedirectTo: `${window.location.origin}/auth?type=signup`,
         },
       });
 
@@ -452,7 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Sign up successful');
       
-      // If email confirmation is disabled, create user profile immediately
+      // If email confirmation is enabled, create user profile immediately
       if (data.user) {
         await createOrUpdateProfile(data.user.id, name);
       }
@@ -464,34 +462,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      console.log('🔄 Signing in with Google');
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth?type=google`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) {
-        console.error('❌ Google sign in error:', error);
-        return { error };
-      }
-
-      console.log('✅ Google sign in initiated');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ Google sign in error:', error);
-      return { error: error as AuthError };
-    }
-  };
-
   const value = {
     user,
     session,
@@ -499,7 +469,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
-    signInWithGoogle,
     signOut,
     updateProfile,
     updateProfilePicture,
