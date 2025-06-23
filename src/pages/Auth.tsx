@@ -11,7 +11,7 @@ import AuthAnimation from '@/components/AuthAnimation';
 import FloatingHearts from '@/components/FloatingHearts';
 import MemoryParticles from '@/components/MemoryParticles';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -403,6 +403,14 @@ const Auth = () => {
             </p>
           </div>
         </motion.div>
+
+        {/* Beta notice */}
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Beta Testing Notice:</strong> Our site is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable.
+          </AlertDescription>
+        </Alert>
 
         {emailSent && (
           <motion.div
