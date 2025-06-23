@@ -408,7 +408,7 @@ const Auth = () => {
         <Alert className="bg-amber-50 border-amber-200">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
-            <strong>Beta Testing Notice:</strong> This Is Us is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable. Also, support for resetting passwords is currently unavailable.
+            <strong>Beta Testing Notice:</strong> This Is Us is currently in beta testing. Please sign in with email as Google sign-in is temporarily unavailable.
           </AlertDescription>
         </Alert>
 
@@ -604,7 +604,7 @@ const Auth = () => {
                         }}
                         className="text-xs text-memory-purple hover:text-memory-purple/80"
                       >
-                        Forgot password? (currently unavailable)
+                        Forgot password?
                       </Button>
                     </div>
                     
