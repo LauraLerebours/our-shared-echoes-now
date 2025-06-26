@@ -9,9 +9,19 @@ export interface Memory {
   isLiked: boolean;
   isVideo?: boolean;
   type: 'memory' | 'note';
-  memoryType?: 'photo' | 'video' | 'note'; // Database memory_type field
+  memoryType?: 'photo' | 'video' | 'note' | 'carousel'; // Added carousel type
   accessCode: string;
   createdBy?: string;
+  mediaItems?: MediaItem[]; // Added for carousel memories
+}
+
+export interface MediaItem {
+  id: string;
+  url: string;
+  isVideo: boolean;
+  memoryId: string;
+  order: number;
+  createdAt: string;
 }
 
 export interface Board {

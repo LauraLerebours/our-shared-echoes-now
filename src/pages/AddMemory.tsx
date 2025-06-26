@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle, Images, X, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Memory } from '@/components/MemoryList';
+import { Memory, MediaItem } from '@/lib/types';
 import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
 import { extractPhotoMetadata } from '@/lib/extractMetadata';
 import { ContentModerator, ModerationRateLimit } from '@/lib/contentModeration';
@@ -33,7 +33,7 @@ const AddMemory = () => {
   const [caption, setCaption] = useState('');
   const [location_, setLocation] = useState('');
   const [previewMedia, setPreviewMedia] = useState<string | null>(null);
-  const [memoryType, setMemoryType] = useState<'photo' | 'video' | 'note'>('photo');
+  const [memoryType, setMemoryType] = useState<'photo' | 'video' | 'note' | 'carousel'>('photo');
   const [uploading, setUploading] = useState(false);
   const [selectedAccessCode, setSelectedAccessCode] = useState<string | null>(null);
   const [selectedBoard, setSelectedBoard] = useState<{id: string, name: string} | null>(null);
@@ -41,7 +41,9 @@ const AddMemory = () => {
   const [moderating, setModerating] = useState(false);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [carouselItems, setCarouselItems] = useState<{file: File, preview: string, isVideo: boolean, uploading: boolean, url?: string}[]>([]);
   const { user, userProfile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     const initializeBoard = async () => {
@@ -112,7 +114,7 @@ const AddMemory = () => {
       const moderationResult = await ContentModerator.moderateMemory(
         caption, 
         file, 
-        memoryType
+        memoryType === 'carousel' ? 'photo' : memoryType
       );
 
       if (!moderationResult.success) {
@@ -167,29 +169,73 @@ const AddMemory = () => {
       // Store the file for later upload
       setSelectedFile(file);
 
-      // Upload the file
-      const publicUrl = await uploadMediaToStorage(file, user.id);
-
-      if (publicUrl) {
-        setPreviewMedia(publicUrl);
+      // For carousel type, add to carousel items
+      if (memoryType === 'carousel') {
+        const isVideoFile = file.type.startsWith('video/');
+        const preview = URL.createObjectURL(file);
         
-        // Determine memory type based on file type
-        if (file.type.startsWith('video/')) {
-          setMemoryType('video');
+        setCarouselItems(prev => [
+          ...prev, 
+          { 
+            file, 
+            preview, 
+            isVideo: isVideoFile,
+            uploading: true
+          }
+        ]);
+        
+        // Upload the file
+        const publicUrl = await uploadMediaToStorage(file, user.id);
+        
+        if (publicUrl) {
+          // Update the carousel item with the uploaded URL
+          setCarouselItems(prev => 
+            prev.map(item => 
+              item.preview === preview 
+                ? { ...item, uploading: false, url: publicUrl } 
+                : item
+            )
+          );
+          
+          toast({
+            title: "Upload successful",
+            description: `Your ${isVideoFile ? 'video' : 'image'} has been added to the carousel.`,
+          });
         } else {
-          setMemoryType('photo');
+          // Remove the item if upload failed
+          setCarouselItems(prev => prev.filter(item => item.preview !== preview));
+          
+          toast({
+            title: "Upload failed",
+            description: "Could not upload file to storage. Please try again.",
+            variant: "destructive"
+          });
         }
-        
-        toast({
-          title: "Upload successful",
-          description: `Your ${file.type.startsWith('video/') ? 'video' : 'image'} has been uploaded successfully.`,
-        });
       } else {
-        toast({
-          title: "Upload failed",
-          description: "Could not upload file to storage. Please check if you're logged in and try again.",
-          variant: "destructive"
-        });
+        // For single photo/video, upload and set preview
+        const publicUrl = await uploadMediaToStorage(file, user.id);
+
+        if (publicUrl) {
+          setPreviewMedia(publicUrl);
+          
+          // Determine memory type based on file type
+          if (file.type.startsWith('video/')) {
+            setMemoryType('video');
+          } else {
+            setMemoryType('photo');
+          }
+          
+          toast({
+            title: "Upload successful",
+            description: `Your ${file.type.startsWith('video/') ? 'video' : 'image'} has been uploaded successfully.`,
+          });
+        } else {
+          toast({
+            title: "Upload failed",
+            description: "Could not upload file to storage. Please check if you're logged in and try again.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -205,7 +251,16 @@ const AddMemory = () => {
     } finally {
       setUploading(false);
       setModerating(false);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
+  };
+
+  const removeCarouselItem = (index: number) => {
+    setCarouselItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const sendNotification = async (memoryId: string, boardId: string, caption: string) => {
@@ -247,10 +302,30 @@ const AddMemory = () => {
     e.preventDefault();
 
     // For notes, we don't need media
-    if (memoryType !== 'note' && !previewMedia) {
+    if (memoryType !== 'note' && memoryType !== 'carousel' && !previewMedia) {
       toast({
         title: "Error",
         description: "Please select an image or video for your memory",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For carousel, we need at least one item
+    if (memoryType === 'carousel' && carouselItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one image or video to your carousel",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if any carousel items are still uploading
+    if (memoryType === 'carousel' && carouselItems.some(item => item.uploading)) {
+      toast({
+        title: "Please wait",
+        description: "Some items are still uploading. Please wait for all uploads to complete.",
         variant: "destructive",
       });
       return;
@@ -303,9 +378,9 @@ const AddMemory = () => {
       // Moderate the content before saving
       setModerating(true);
       const moderationResult = await ContentModerator.moderateMemory(
-        caption,
+        caption, 
         selectedFile || undefined,
-        memoryType
+        memoryType === 'carousel' ? 'photo' : memoryType
       );
 
       setModerating(false);
@@ -325,9 +400,22 @@ const AddMemory = () => {
 
       // Create a new memory object
       const memoryId = uuidv4();
+      
+      // Prepare media items for carousel
+      const mediaItems = memoryType === 'carousel' 
+        ? carouselItems.map((item, index) => ({
+            id: uuidv4(),
+            url: item.url!,
+            isVideo: item.isVideo,
+            memoryId,
+            order: index,
+            createdAt: new Date().toISOString()
+          }))
+        : undefined;
+      
       const newMemory: Memory = {
         id: memoryId,
-        image: memoryType === 'note' ? undefined : previewMedia,
+        image: memoryType === 'note' ? undefined : (memoryType === 'carousel' ? undefined : previewMedia),
         caption,
         date,
         location: location_ || undefined,
@@ -337,7 +425,8 @@ const AddMemory = () => {
         type: memoryType === 'note' ? 'note' : 'memory',
         memoryType: memoryType,
         accessCode: selectedAccessCode,
-        createdBy: user?.id
+        createdBy: user?.id,
+        mediaItems
       };
       
       // Save to Supabase
@@ -396,7 +485,16 @@ const AddMemory = () => {
         <Button 
           size="sm" 
           onClick={handleSubmit}
-          disabled={!caption.trim() || uploading || moderating || !selectedAccessCode || (memoryType !== 'note' && !previewMedia)}
+          disabled={
+            !caption.trim() || 
+            uploading || 
+            moderating || 
+            !selectedAccessCode || 
+            (memoryType === 'photo' && !previewMedia) || 
+            (memoryType === 'video' && !previewMedia) || 
+            (memoryType === 'carousel' && carouselItems.length === 0) ||
+            (memoryType === 'carousel' && carouselItems.some(item => item.uploading))
+          }
           className="bg-memory-purple hover:bg-memory-purple/90"
         >
           {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
@@ -405,8 +503,8 @@ const AddMemory = () => {
       
       <main className="flex-1 p-4 pt-16">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note')}>
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note' | 'carousel')}>
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="photo" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Photo
@@ -418,6 +516,10 @@ const AddMemory = () => {
               <TabsTrigger value="note" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Note
+              </TabsTrigger>
+              <TabsTrigger value="carousel" className="flex items-center gap-2">
+                <Images className="h-4 w-4" />
+                Carousel
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -451,7 +553,7 @@ const AddMemory = () => {
           )}
           
           {/* Media upload section - only show for photo/video */}
-          {memoryType !== 'note' && (
+          {memoryType === 'photo' || memoryType === 'video' ? (
             <div className={cn(
               "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
               previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
@@ -533,6 +635,98 @@ const AddMemory = () => {
                       autoComplete="off"
                     />
                   </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Carousel upload section */}
+          {memoryType === 'carousel' && (
+            <div className="space-y-4">
+              {/* Carousel items preview */}
+              {carouselItems.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {carouselItems.map((item, index) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+                      {item.isVideo ? (
+                        <video 
+                          src={item.preview} 
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      ) : (
+                        <img 
+                          src={item.preview} 
+                          alt={`Carousel item ${index + 1}`} 
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                      
+                      {/* Loading overlay */}
+                      {item.uploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                        </div>
+                      )}
+                      
+                      {/* Remove button */}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full p-0"
+                        onClick={() => removeCarouselItem(index)}
+                        disabled={item.uploading}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                      
+                      {/* Item type indicator */}
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
+                        {item.isVideo ? 'Video' : 'Photo'}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Add more button */}
+                  <div 
+                    className="aspect-square rounded-lg border-2 border-dashed border-memory-purple/30 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/10"
+                    onClick={() => document.getElementById('carousel-file-input')?.click()}
+                  >
+                    <Plus className="h-8 w-8 text-memory-purple/50 mb-2" />
+                    <p className="text-sm text-memory-purple/70">Add More</p>
+                    <input
+                      id="carousel-file-input"
+                      type="file"
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      disabled={uploading || moderating}
+                      ref={fileInputRef}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/30"
+                  onClick={() => document.getElementById('carousel-file-input')?.click()}
+                >
+                  <Images className="h-12 w-12 text-memory-purple/50 mb-3" />
+                  <p className="text-muted-foreground mb-4 text-center">
+                    Tap to add photos and videos to your carousel
+                  </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    You can add multiple photos and videos that users can swipe through
+                  </p>
+                  <input
+                    id="carousel-file-input"
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={uploading || moderating}
+                    ref={fileInputRef}
+                  />
                 </div>
               )}
             </div>

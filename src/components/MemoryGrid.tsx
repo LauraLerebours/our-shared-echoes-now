@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Heart, Video, User, FileText, Maximize, Minimize } from 'lucide-react';
+import { Heart, Video, User, FileText, Maximize, Minimize, Images } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { toggleMemoryLike } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Memory } from '@/lib/types';
+import { Memory, MediaItem } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import CarouselMemory from './CarouselMemory';
 
 interface MemoryGridProps {
   memories: Memory[];
@@ -128,6 +129,31 @@ const NotePreview: React.FC<{ caption?: string; creatorName?: string; date: Date
       <div className="text-xs text-gray-500 text-center mt-2 pt-2 border-t border-gray-100">
         <div>{creatorName || 'Unknown'}</div>
         <div>{format(date, 'MMM d')}</div>
+      </div>
+    </div>
+  );
+};
+
+const CarouselPreview: React.FC<{ mediaItems: MediaItem[]; showFull: boolean }> = ({ mediaItems, showFull }) => {
+  if (!mediaItems || mediaItems.length === 0) {
+    return (
+      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+        <Images className="h-8 w-8 text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <CarouselMemory 
+        mediaItems={mediaItems}
+        showControls={false}
+        autoPlay={true}
+        autoPlayInterval={3000}
+      />
+      <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full flex items-center">
+        <Images className="h-3 w-3 mr-1" />
+        <span>{mediaItems.length}</span>
       </div>
     </div>
   );
@@ -276,6 +302,7 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-4 safari-bottom-safe">
         {sortedMemories.map((memory) => {
           const isNote = memory.type === 'note' || memory.memoryType === 'note';
+          const isCarousel = memory.memoryType === 'carousel';
           const showFullImage = showFullImageMap.get(memory.id) || false;
           
           return (
@@ -291,6 +318,11 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                         caption={memory.caption} 
                         creatorName={getCreatorName(memory)}
                         date={memory.date}
+                      />
+                    ) : isCarousel && memory.mediaItems ? (
+                      <CarouselPreview 
+                        mediaItems={memory.mediaItems}
+                        showFull={showFullImage}
                       />
                     ) : memory.isVideo && memory.image ? (
                       <VideoPreview 
@@ -371,8 +403,8 @@ const MemoryGrid: React.FC<MemoryGridProps> = ({ memories, onViewDetail, onUpdat
                       </div>
                     )}
 
-                    {/* Toggle aspect ratio button - for both photos and videos */}
-                    {!isNote && memory.image && (
+                    {/* Toggle aspect ratio button - for both photos and videos, not for carousels */}
+                    {!isNote && !isCarousel && memory.image && (
                       <Button
                         variant="secondary"
                         size="icon"

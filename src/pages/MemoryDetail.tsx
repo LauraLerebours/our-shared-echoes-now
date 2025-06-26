@@ -3,14 +3,15 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize, User } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize, User, Images } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Memory } from '@/components/MemoryList';
+import { Memory, MediaItem } from '@/lib/types';
 import { getMemory, deleteMemory, toggleMemoryLike, updateMemoryDetails } from '@/lib/db';
 import CommentSection from '@/components/CommentSection';
+import CarouselMemory from '@/components/CarouselMemory';
 import {
   Popover,
   PopoverContent,
@@ -49,6 +50,7 @@ const MemoryDetail = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showFullImage, setShowFullImage] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState<{name: string, profile_picture_url?: string} | null>(null);
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   
   const accessCode = location.state?.accessCode;
   
@@ -282,6 +284,7 @@ const MemoryDetail = () => {
   }
 
   const isNote = memory.type === 'note' || memory.memoryType === 'note';
+  const isCarousel = memory.memoryType === 'carousel';
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -388,7 +391,18 @@ const MemoryDetail = () => {
               )}
             </div>
           </div>
+        ) : isCarousel && memory.mediaItems && memory.mediaItems.length > 0 ? (
+          // Carousel memory display
+          <div className="relative">
+            <CarouselMemory 
+              mediaItems={memory.mediaItems}
+              onMediaItemClick={(index) => setCurrentCarouselIndex(index)}
+              showControls={true}
+              className="aspect-square"
+            />
+          </div>
         ) : (
+          // Regular photo/video memory display
           <div className="relative">
             {memory.isVideo && memory.image ? (
               <div className="bg-black relative aspect-square">

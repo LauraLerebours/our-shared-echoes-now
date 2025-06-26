@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ApiResponse, withRetry } from './base';
-import { Memory } from '../types';
+import { Memory, MediaItem } from '../types';
 
 export const memoriesApi = {
   async fetchMemories(accessCode: string, signal?: AbortSignal): Promise<ApiResponse<Memory[]>> {
@@ -45,10 +45,29 @@ export const memoriesApi = {
         // Determine memory type and set appropriate fields
         const memoryType = record.memory_type || (record.is_video ? 'video' : 'photo');
         const isNote = memoryType === 'note';
+        const isCarousel = memoryType === 'carousel';
+
+        // For carousel memories, fetch the media items
+        let mediaItems: MediaItem[] = [];
+        if (isCarousel) {
+          try {
+            const { data: items, error: itemsError } = await supabase
+              .from('memory_media_items')
+              .select('*')
+              .eq('memory_id', record.id)
+              .order('order', { ascending: true });
+            
+            if (!itemsError && items) {
+              mediaItems = items as MediaItem[];
+            }
+          } catch (error) {
+            console.warn('Could not fetch media items for carousel memory:', record.id, error);
+          }
+        }
 
         return {
           id: record.id,
-          image: isNote ? undefined : record.media_url,
+          image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : record.media_url),
           caption: record.caption || undefined,
           date: new Date(record.event_date),
           location: record.location || undefined,
@@ -58,7 +77,8 @@ export const memoriesApi = {
           type: isNote ? 'note' : 'memory',
           memoryType: memoryType,
           accessCode: record.access_code || accessCode,
-          createdBy: record.created_by || undefined
+          createdBy: record.created_by || undefined,
+          mediaItems: isCarousel ? mediaItems : undefined
         };
       }));
       
@@ -142,10 +162,29 @@ export const memoriesApi = {
         // Determine memory type and set appropriate fields
         const memoryType = record.memory_type || (record.is_video ? 'video' : 'photo');
         const isNote = memoryType === 'note';
+        const isCarousel = memoryType === 'carousel';
+
+        // For carousel memories, fetch the media items
+        let mediaItems: MediaItem[] = [];
+        if (isCarousel) {
+          try {
+            const { data: items, error: itemsError } = await supabase
+              .from('memory_media_items')
+              .select('*')
+              .eq('memory_id', record.id)
+              .order('order', { ascending: true });
+            
+            if (!itemsError && items) {
+              mediaItems = items as MediaItem[];
+            }
+          } catch (error) {
+            console.warn('Could not fetch media items for carousel memory:', record.id, error);
+          }
+        }
 
         return {
           id: record.id,
-          image: isNote ? undefined : record.media_url,
+          image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : record.media_url),
           caption: record.caption || undefined,
           date: new Date(record.event_date),
           location: record.location || undefined,
@@ -155,7 +194,8 @@ export const memoriesApi = {
           type: isNote ? 'note' : 'memory',
           memoryType: memoryType,
           accessCode: record.access_code || '',
-          createdBy: record.created_by || undefined
+          createdBy: record.created_by || undefined,
+          mediaItems: isCarousel ? mediaItems : undefined
         };
       }));
       
@@ -223,10 +263,29 @@ export const memoriesApi = {
       // Determine memory type and set appropriate fields
       const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
       const isNote = memoryType === 'note';
+      const isCarousel = memoryType === 'carousel';
+
+      // For carousel memories, fetch the media items
+      let mediaItems: MediaItem[] = [];
+      if (isCarousel) {
+        try {
+          const { data: items, error: itemsError } = await supabase
+            .from('memory_media_items')
+            .select('*')
+            .eq('memory_id', result.id)
+            .order('order', { ascending: true });
+          
+          if (!itemsError && items) {
+            mediaItems = items as MediaItem[];
+          }
+        } catch (error) {
+          console.warn('Could not fetch media items for carousel memory:', result.id, error);
+        }
+      }
 
       const memory: Memory = {
         id: result.id,
-        image: isNote ? undefined : result.media_url,
+        image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : result.media_url),
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
@@ -236,7 +295,8 @@ export const memoriesApi = {
         type: isNote ? 'note' : 'memory',
         memoryType: memoryType,
         accessCode: result.access_code || '',
-        createdBy: result.created_by || undefined
+        createdBy: result.created_by || undefined,
+        mediaItems: isCarousel ? mediaItems : undefined
       };
       
       console.log('✅ [memoriesApi.getMemory] Success');
@@ -251,13 +311,16 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.createMemory] Starting');
       
+      const isCarousel = memory.memoryType === 'carousel';
+      const mediaItems = memory.mediaItems || [];
+      
       const dbRecord = {
         id: memory.id,
-        media_url: memory.image || null,
+        media_url: isCarousel ? null : memory.image || null,
         caption: memory.caption,
         event_date: memory.date.toISOString(),
         location: memory.location,
-        is_video: memory.isVideo || false,
+        is_video: !isCarousel && (memory.isVideo || false),
         memory_type: memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo')),
         access_code: memory.accessCode,
         created_by: memory.createdBy,
@@ -287,13 +350,36 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // If this is a carousel memory, insert the media items
+      if (isCarousel && mediaItems.length > 0) {
+        console.log('🔄 [memoriesApi.createMemory] Inserting carousel media items');
+        
+        const mediaItemsToInsert = mediaItems.map((item, index) => ({
+          memory_id: result.id,
+          url: item.url,
+          is_video: item.isVideo,
+          order: index
+        }));
+        
+        const { error: mediaItemsError } = await supabase
+          .from('memory_media_items')
+          .insert(mediaItemsToInsert);
+        
+        if (mediaItemsError) {
+          console.error('❌ [memoriesApi.createMemory] Error inserting media items:', mediaItemsError);
+          // Continue anyway, we've already created the memory
+        } else {
+          console.log('✅ [memoriesApi.createMemory] Media items inserted successfully');
+        }
+      }
+      
       // Determine memory type and set appropriate fields
       const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
       const isNote = memoryType === 'note';
 
       const createdMemory: Memory = {
         id: result.id,
-        image: isNote ? undefined : result.media_url,
+        image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : result.media_url),
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
@@ -303,7 +389,8 @@ export const memoriesApi = {
         type: isNote ? 'note' : 'memory',
         memoryType: memoryType,
         accessCode: result.access_code || '',
-        createdBy: result.created_by || undefined
+        createdBy: result.created_by || undefined,
+        mediaItems: isCarousel ? mediaItems : undefined
       };
       
       console.log('✅ [memoriesApi.createMemory] Success');
@@ -350,6 +437,39 @@ export const memoriesApi = {
         return data;
       }, 3, 1000);
       
+      // If this is a carousel memory and mediaItems are being updated
+      if (updates.memoryType === 'carousel' && updates.mediaItems) {
+        console.log('🔄 [memoriesApi.updateMemory] Updating carousel media items');
+        
+        // First delete existing media items
+        const { error: deleteError } = await supabase
+          .from('memory_media_items')
+          .delete()
+          .eq('memory_id', id);
+        
+        if (deleteError) {
+          console.error('❌ [memoriesApi.updateMemory] Error deleting existing media items:', deleteError);
+        } else {
+          // Then insert the new media items
+          const mediaItemsToInsert = updates.mediaItems.map((item, index) => ({
+            memory_id: id,
+            url: item.url,
+            is_video: item.isVideo,
+            order: index
+          }));
+          
+          const { error: insertError } = await supabase
+            .from('memory_media_items')
+            .insert(mediaItemsToInsert);
+          
+          if (insertError) {
+            console.error('❌ [memoriesApi.updateMemory] Error inserting media items:', insertError);
+          } else {
+            console.log('✅ [memoriesApi.updateMemory] Media items updated successfully');
+          }
+        }
+      }
+      
       // Get current like count and status
       let likes = 0;
       let isLiked = false;
@@ -366,10 +486,29 @@ export const memoriesApi = {
       // Determine memory type and set appropriate fields
       const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
       const isNote = memoryType === 'note';
+      const isCarousel = memoryType === 'carousel';
+
+      // For carousel memories, fetch the media items
+      let mediaItems: MediaItem[] = [];
+      if (isCarousel) {
+        try {
+          const { data: items, error: itemsError } = await supabase
+            .from('memory_media_items')
+            .select('*')
+            .eq('memory_id', result.id)
+            .order('order', { ascending: true });
+          
+          if (!itemsError && items) {
+            mediaItems = items as MediaItem[];
+          }
+        } catch (error) {
+          console.warn('Could not fetch media items for carousel memory:', result.id, error);
+        }
+      }
 
       const updatedMemory: Memory = {
         id: result.id,
-        image: isNote ? undefined : result.media_url,
+        image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : result.media_url),
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
@@ -379,7 +518,8 @@ export const memoriesApi = {
         type: isNote ? 'note' : 'memory',
         memoryType: memoryType,
         accessCode: result.access_code || '',
-        createdBy: result.created_by || undefined
+        createdBy: result.created_by || undefined,
+        mediaItems: isCarousel ? mediaItems : undefined
       };
       
       console.log('✅ [memoriesApi.updateMemory] Success');
@@ -421,10 +561,11 @@ export const memoriesApi = {
       // Determine memory type and set appropriate fields
       const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
       const isNote = memoryType === 'note';
+      const isCarousel = memoryType === 'carousel';
 
       const deletedMemory: Memory = {
         id: result.id,
-        image: isNote ? undefined : result.media_url,
+        image: isNote ? undefined : (isCarousel ? undefined : result.media_url),
         caption: result.caption || undefined,
         date: new Date(result.event_date),
         location: result.location || undefined,
@@ -516,10 +657,29 @@ export const memoriesApi = {
       // Determine memory type and set appropriate fields
       const memoryType = data.memory_type || (data.is_video ? 'video' : 'photo');
       const isNote = memoryType === 'note';
+      const isCarousel = memoryType === 'carousel';
+
+      // For carousel memories, fetch the media items
+      let mediaItems: MediaItem[] = [];
+      if (isCarousel) {
+        try {
+          const { data: items, error: itemsError } = await supabase
+            .from('memory_media_items')
+            .select('*')
+            .eq('memory_id', data.id)
+            .order('order', { ascending: true });
+          
+          if (!itemsError && items) {
+            mediaItems = items as MediaItem[];
+          }
+        } catch (error) {
+          console.warn('Could not fetch media items for carousel memory:', data.id, error);
+        }
+      }
 
       const memory: Memory = {
         id: data.id,
-        image: isNote ? undefined : data.media_url,
+        image: isNote ? undefined : (isCarousel ? mediaItems[0]?.url : data.media_url),
         caption: data.caption || undefined,
         date: new Date(data.event_date),
         location: data.location || undefined,
@@ -529,13 +689,115 @@ export const memoriesApi = {
         type: isNote ? 'note' : 'memory',
         memoryType: memoryType,
         accessCode: data.access_code || '',
-        createdBy: data.created_by || undefined
+        createdBy: data.created_by || undefined,
+        mediaItems: isCarousel ? mediaItems : undefined
       };
       
       return { success: true, data: memory };
     } catch (error) {
       console.error('❌ [memoriesApi.updateMemoryDetails] Error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Failed to update memory details' };
+    }
+  },
+
+  async getMemoryMediaItems(memoryId: string): Promise<ApiResponse<MediaItem[]>> {
+    try {
+      console.log('🔄 [memoriesApi.getMemoryMediaItems] Starting for ID:', memoryId);
+      
+      const { data, error } = await supabase
+        .from('memory_media_items')
+        .select('*')
+        .eq('memory_id', memoryId)
+        .order('order', { ascending: true });
+      
+      if (error) {
+        console.error('❌ [memoriesApi.getMemoryMediaItems] Error:', error);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('✅ [memoriesApi.getMemoryMediaItems] Success:', data?.length || 0);
+      return { success: true, data: data as MediaItem[] || [] };
+    } catch (error) {
+      console.error('❌ [memoriesApi.getMemoryMediaItems] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch memory media items' };
+    }
+  },
+
+  async addMediaItemsToMemory(memoryId: string, mediaItems: Omit<MediaItem, 'id' | 'memoryId' | 'createdAt'>[]): Promise<ApiResponse<MediaItem[]>> {
+    try {
+      console.log('🔄 [memoriesApi.addMediaItemsToMemory] Starting for ID:', memoryId);
+      
+      const itemsToInsert = mediaItems.map((item, index) => ({
+        memory_id: memoryId,
+        url: item.url,
+        is_video: item.isVideo,
+        order: item.order !== undefined ? item.order : index
+      }));
+      
+      const { data, error } = await supabase
+        .from('memory_media_items')
+        .insert(itemsToInsert)
+        .select();
+      
+      if (error) {
+        console.error('❌ [memoriesApi.addMediaItemsToMemory] Error:', error);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('✅ [memoriesApi.addMediaItemsToMemory] Success:', data?.length || 0);
+      return { success: true, data: data as MediaItem[] || [] };
+    } catch (error) {
+      console.error('❌ [memoriesApi.addMediaItemsToMemory] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to add media items to memory' };
+    }
+  },
+
+  async updateMediaItemsOrder(memoryId: string, itemOrders: { id: string, order: number }[]): Promise<ApiResponse<boolean>> {
+    try {
+      console.log('🔄 [memoriesApi.updateMediaItemsOrder] Starting for ID:', memoryId);
+      
+      // Update each item's order
+      for (const item of itemOrders) {
+        const { error } = await supabase
+          .from('memory_media_items')
+          .update({ order: item.order })
+          .eq('id', item.id)
+          .eq('memory_id', memoryId);
+        
+        if (error) {
+          console.error(`❌ [memoriesApi.updateMediaItemsOrder] Error updating item ${item.id}:`, error);
+          return { success: false, error: error.message };
+        }
+      }
+      
+      console.log('✅ [memoriesApi.updateMediaItemsOrder] Success');
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('❌ [memoriesApi.updateMediaItemsOrder] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to update media items order' };
+    }
+  },
+
+  async deleteMediaItem(id: string, memoryId: string): Promise<ApiResponse<boolean>> {
+    try {
+      console.log('🔄 [memoriesApi.deleteMediaItem] Starting for ID:', id);
+      
+      const { error } = await supabase
+        .from('memory_media_items')
+        .delete()
+        .eq('id', id)
+        .eq('memory_id', memoryId);
+      
+      if (error) {
+        console.error('❌ [memoriesApi.deleteMediaItem] Error:', error);
+        return { success: false, error: error.message };
+      }
+      
+      console.log('✅ [memoriesApi.deleteMediaItem] Success');
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('❌ [memoriesApi.deleteMediaItem] Error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to delete media item' };
     }
   }
 };

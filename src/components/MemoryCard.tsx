@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Trash2, Video, User, FileText, Maximize, Minimize } from 'lucide-react';
+import { Heart, Trash2, Video, User, FileText, Maximize, Minimize, Images } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toggleMemoryLike } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import CarouselMemory from './CarouselMemory';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +32,8 @@ export interface MemoryCardProps {
   isLiked: boolean;
   isVideo?: boolean;
   type?: 'memory' | 'note';
-  memoryType?: 'photo' | 'video' | 'note';
+  memoryType?: 'photo' | 'video' | 'note' | 'carousel';
+  mediaItems?: Array<{id: string, url: string, isVideo: boolean, order: number}>;
   onLike: (id: string, newLikes: number, newIsLiked: boolean) => void;
   onViewDetail: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -56,6 +58,7 @@ const MemoryCard = ({
   isVideo,
   type = 'memory',
   memoryType,
+  mediaItems = [],
   onLike,
   onViewDetail,
   onDelete,
@@ -76,6 +79,8 @@ const MemoryCard = ({
 
   // Determine if this is a note
   const isNote = type === 'note' || memoryType === 'note';
+  // Determine if this is a carousel
+  const isCarousel = memoryType === 'carousel';
 
   useEffect(() => {
     // Check if current user can delete this memory
@@ -361,7 +366,120 @@ const MemoryCard = ({
     );
   }
 
-  // Regular memory card formatting
+  // For carousel memories, render with the carousel component
+  if (isCarousel && mediaItems && mediaItems.length > 0) {
+    return (
+      <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
+        <div className="relative" onClick={() => onViewDetail(id)}>
+          <CarouselMemory 
+            mediaItems={mediaItems}
+            showControls={true}
+            className="aspect-[4/3]"
+          />
+          
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 z-20">
+            <p className="text-white font-medium">{format(new Date(date), 'MMMM d, yyyy')}</p>
+            {location && <p className="text-white/80 text-sm">{location}</p>}
+            {createdBy && (
+              <div className="flex items-center gap-2 mt-1">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage 
+                    src={creatorProfile?.profile_picture_url} 
+                    alt={creatorProfile?.name || 'Profile'} 
+                  />
+                  <AvatarFallback className="bg-white/20 text-white text-xs">
+                    {getCreatorInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-white/80 text-xs">by {getCreatorName()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <CardContent className="py-3 px-4" onClick={() => onViewDetail(id)}>
+          {caption && (
+            <p className="text-foreground/80">{caption}</p>
+          )}
+        </CardContent>
+        
+        <CardFooter className="px-4 py-2 flex justify-between border-t">
+          <div className="flex items-center">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="p-0 h-auto" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLike();
+              }}
+              disabled={isLiking}
+            >
+              <Heart className={cn(
+                "h-5 w-5 mr-1", 
+                currentIsLiked ? "fill-memory-pink text-memory-pink" : "text-muted-foreground"
+              )} />
+              <span className={cn(
+                "text-sm", 
+                currentIsLiked ? "text-memory-pink" : "text-muted-foreground"
+              )}>{currentLikes}</span>
+            </Button>
+          </div>
+          
+          {onDelete && (
+            canDelete ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="p-1 h-auto text-destructive hover:bg-destructive/10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Memory</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this memory? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(id);
+                      }}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : (
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="p-1 h-auto text-muted-foreground cursor-not-allowed opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick(e);
+                }}
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            )
+          )}
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // Regular memory card formatting (photo or video)
   return (
     <Card className="overflow-hidden mb-6 animate-fade-in border-none shadow-md">
       <div className="relative" onClick={() => onViewDetail(id)}>
