@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle, Images, X, Plus, Save } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle, Images, X, Plus, Save, FileEdit } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
