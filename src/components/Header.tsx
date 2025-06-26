@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, FileEdit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import UserProfileDialog from './UserProfileDialog';
 import { LoadingSpinner } from './LoadingSpinner';
+import DraftsDialog from './DraftsDialog';
+import DraftsBadge from './DraftsBadge';
 
 const Header = () => {
   const { signOut, user, userProfile, isSigningOut } = useAuth();
@@ -91,21 +93,34 @@ const Header = () => {
         </h1>
       </div>
       
-      {/* Logout button in the corner */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleLogout}
-        className="text-muted-foreground hover:text-destructive"
-        title="Logout"
-        disabled={isSigningOut}
-      >
-        {isSigningOut ? (
-          <LoadingSpinner size="sm" />
-        ) : (
-          <LogOut className="h-4 w-4" />
-        )}
-      </Button>
+      {/* Drafts and Logout buttons in the corner */}
+      <div className="flex items-center gap-3">
+        <DraftsDialog>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-memory-purple relative"
+            title="Drafts"
+          >
+            <DraftsBadge />
+          </Button>
+        </DraftsDialog>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLogout}
+          className="text-muted-foreground hover:text-destructive"
+          title="Logout"
+          disabled={isSigningOut}
+        >
+          {isSigningOut ? (
+            <LoadingSpinner size="sm" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
     </header>
   );
 };

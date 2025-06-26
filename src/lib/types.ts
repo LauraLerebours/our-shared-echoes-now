@@ -13,6 +13,7 @@ export interface Memory {
   accessCode: string;
   createdBy?: string;
   mediaItems?: MediaItem[]; // Added for carousel memories
+  isDraft?: boolean; // Added for draft memories
 }
 
 export interface MediaItem {
@@ -76,4 +77,19 @@ export interface BoardOperationResponse {
   message: string;
   newName?: string;
   board?: Board;
+}
+
+export interface Draft {
+  id: string;
+  memory: Partial<Memory>;
+  lastUpdated: Date;
+  boardId?: string;
+  mediaItems?: Array<{
+    file?: File;
+    preview: string;
+    isVideo: boolean;
+    uploading: boolean;
+    url?: string;
+    order: number;
+  }>;
 }

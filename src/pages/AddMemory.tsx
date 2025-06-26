@@ -5,11 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle, Images, X, Plus } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, MapPin, Image, Video, Upload, FileText, Shield, AlertTriangle, Images, X, Plus, Save } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { createMemory, fetchBoards, createBoard } from '@/lib/db';
+import { Memory, MediaItem, Draft } from '@/lib/types';
+import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
+import { extractPhotoMetadata } from '@/lib/extractMetadata';
+import { ContentModerator, ModerationRateLimit } from '@/lib/contentModeration';
+import { saveDraft, getDraftById, deleteDraft } from '@/lib/draftsStorage';
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
 import {
   Popover,
   PopoverContent,
@@ -17,14 +25,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Memory, MediaItem } from '@/lib/types';
-import { uploadMediaToStorage } from '@/lib/uploadMediaToStorage';
-import { extractPhotoMetadata } from '@/lib/extractMetadata';
-import { ContentModerator, ModerationRateLimit } from '@/lib/contentModeration';
-import {
-  Alert,
-  AlertDescription,
-} from "@/components/ui/alert";
+import { fetchBoards, createBoard, createMemory } from '@/lib/db';
+import DraftsDialog from '@/components/DraftsDialog';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -41,9 +43,104 @@ const AddMemory = () => {
   const [moderating, setModerating] = useState(false);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [carouselItems, setCarouselItems] = useState<{file: File, preview: string, isVideo: boolean, uploading: boolean, url?: string}[]>([]);
+  const [carouselItems, setCarouselItems] = useState<{file: File, preview: string, isVideo: boolean, uploading: boolean, url?: string, order: number}[]>([]);
   const { user, userProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [autosaveInterval, setAutosaveInterval] = useState<NodeJS.Timeout | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // Auto-save draft every 30 seconds if there are changes
+  useEffect(() => {
+    // Clear any existing interval
+    if (autosaveInterval) {
+      clearInterval(autosaveInterval);
+    }
+    
+    // Set up new interval for auto-saving
+    const interval = setInterval(() => {
+      if (shouldSaveDraft()) {
+        handleSaveDraft();
+      }
+    }, 30000); // 30 seconds
+    
+    setAutosaveInterval(interval);
+    
+    // Clean up on unmount
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [caption, location_, date, previewMedia, memoryType, carouselItems, selectedBoard]);
+  
+  // Check if we should save a draft (if there's content to save)
+  const shouldSaveDraft = () => {
+    // Don't save if user is not logged in
+    if (!user) return false;
+    
+    // Don't save if no board is selected
+    if (!selectedBoard) return false;
+    
+    // Save if there's a caption
+    if (caption.trim()) return true;
+    
+    // Save if there's a location
+    if (location_.trim()) return true;
+    
+    // Save if there's media
+    if (previewMedia) return true;
+    
+    // Save if there are carousel items
+    if (carouselItems.length > 0) return true;
+    
+    // Otherwise, don't save
+    return false;
+  };
+  
+  // Handle saving draft
+  const handleSaveDraft = () => {
+    if (!user || !selectedBoard) return;
+    
+    // Create a unique ID for this draft if it doesn't exist
+    const currentDraftId = draftId || uuidv4();
+    
+    // Create the draft object
+    const draft: Draft = {
+      id: currentDraftId,
+      memory: {
+        caption: caption.trim() || undefined,
+        date,
+        location: location_.trim() || undefined,
+        image: previewMedia || undefined,
+        memoryType,
+        isVideo: memoryType === 'video',
+        type: memoryType === 'note' ? 'note' : 'memory',
+        accessCode: selectedAccessCode || '',
+        createdBy: user.id,
+        isDraft: true
+      },
+      lastUpdated: new Date(),
+      boardId: selectedBoard.id,
+      mediaItems: memoryType === 'carousel' ? carouselItems.map((item, index) => ({
+        preview: item.preview,
+        isVideo: item.isVideo,
+        uploading: item.uploading,
+        url: item.url,
+        order: index,
+      })) : undefined
+    };
+    
+    // Save the draft
+    saveDraft(draft);
+    
+    // Update state
+    setDraftId(currentDraftId);
+    setLastSaved(new Date());
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('draftsUpdated'));
+  };
   
   useEffect(() => {
     const initializeBoard = async () => {
@@ -52,6 +149,46 @@ const AddMemory = () => {
       try {
         // Get all boards
         const boards = await fetchBoards(user.id);
+        
+        // Check if we have a draft ID from location state
+        const draftIdFromState = location.state?.draftId;
+        if (draftIdFromState) {
+          // Load the draft
+          const draft = getDraftById(draftIdFromState);
+          if (draft) {
+            // Set draft ID
+            setDraftId(draftIdFromState);
+            
+            // Set form values from draft
+            if (draft.memory.caption) setCaption(draft.memory.caption);
+            if (draft.memory.location) setLocation(draft.memory.location);
+            if (draft.memory.date) setDate(draft.memory.date);
+            if (draft.memory.image) setPreviewMedia(draft.memory.image);
+            if (draft.memory.memoryType) setMemoryType(draft.memory.memoryType);
+            
+            // Set carousel items if applicable
+            if (draft.memory.memoryType === 'carousel' && draft.mediaItems) {
+              setCarouselItems(draft.mediaItems.map(item => ({
+                file: undefined as any, // We don't store the file object in drafts
+                preview: item.preview,
+                isVideo: item.isVideo,
+                uploading: item.uploading,
+                url: item.url,
+                order: item.order
+              })));
+            }
+            
+            // Set board if it exists in the draft
+            if (draft.boardId) {
+              const board = boards.find(b => b.id === draft.boardId);
+              if (board) {
+                setSelectedAccessCode(board.access_code);
+                setSelectedBoard({id: board.id, name: board.name});
+                return;
+              }
+            }
+          }
+        }
         
         // If we have a boardId in location state, find that board's access code
         const boardId = location.state?.boardId;
@@ -180,7 +317,8 @@ const AddMemory = () => {
             file, 
             preview, 
             isVideo: isVideoFile,
-            uploading: true
+            uploading: true,
+            order: prev.length
           }
         ]);
         
@@ -201,6 +339,11 @@ const AddMemory = () => {
             title: "Upload successful",
             description: `Your ${isVideoFile ? 'video' : 'image'} has been added to the carousel.`,
           });
+          
+          // Auto-save draft after adding media
+          if (shouldSaveDraft()) {
+            handleSaveDraft();
+          }
         } else {
           // Remove the item if upload failed
           setCarouselItems(prev => prev.filter(item => item.preview !== preview));
@@ -229,6 +372,11 @@ const AddMemory = () => {
             title: "Upload successful",
             description: `Your ${file.type.startsWith('video/') ? 'video' : 'image'} has been uploaded successfully.`,
           });
+          
+          // Auto-save draft after adding media
+          if (shouldSaveDraft()) {
+            handleSaveDraft();
+          }
         } else {
           toast({
             title: "Upload failed",
@@ -261,6 +409,11 @@ const AddMemory = () => {
 
   const removeCarouselItem = (index: number) => {
     setCarouselItems(prev => prev.filter((_, i) => i !== index));
+    
+    // Auto-save draft after removing media
+    if (shouldSaveDraft()) {
+      handleSaveDraft();
+    }
   };
 
   const sendNotification = async (memoryId: string, boardId: string, caption: string) => {
@@ -455,6 +608,13 @@ const AddMemory = () => {
           console.error('Error sending notification:', error);
         });
       
+      // Delete the draft if it exists
+      if (draftId) {
+        deleteDraft(draftId);
+        // Dispatch custom event to notify other components
+        window.dispatchEvent(new Event('draftsUpdated'));
+      }
+      
       // Navigate back to the home page
       navigate('/');
       
@@ -480,25 +640,40 @@ const AddMemory = () => {
           </Link>
         </Button>
         
-        <h1 className="text-lg font-medium">Add New Memory</h1>
+        <h1 className="text-lg font-medium">
+          {draftId ? 'Edit Draft' : 'Add New Memory'}
+        </h1>
         
-        <Button 
-          size="sm" 
-          onClick={handleSubmit}
-          disabled={
-            !caption.trim() || 
-            uploading || 
-            moderating || 
-            !selectedAccessCode || 
-            (memoryType === 'photo' && !previewMedia) || 
-            (memoryType === 'video' && !previewMedia) || 
-            (memoryType === 'carousel' && carouselItems.length === 0) ||
-            (memoryType === 'carousel' && carouselItems.some(item => item.uploading))
-          }
-          className="bg-memory-purple hover:bg-memory-purple/90"
-        >
-          {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
-        </Button>
+        <div className="flex gap-2">
+          <DraftsDialog>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-1"
+            >
+              <FileEdit className="h-4 w-4" />
+              Drafts
+            </Button>
+          </DraftsDialog>
+          
+          <Button 
+            size="sm" 
+            onClick={handleSubmit}
+            disabled={
+              !caption.trim() || 
+              uploading || 
+              moderating || 
+              !selectedAccessCode || 
+              (memoryType === 'photo' && !previewMedia) || 
+              (memoryType === 'video' && !previewMedia) || 
+              (memoryType === 'carousel' && carouselItems.length === 0) ||
+              (memoryType === 'carousel' && carouselItems.some(item => item.uploading))
+            }
+            className="bg-memory-purple hover:bg-memory-purple/90"
+          >
+            {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
+          </Button>
+        </div>
       </header>
       
       <main className="flex-1 p-4 pt-16">
@@ -640,6 +815,18 @@ const AddMemory = () => {
             </div>
           ) : null}
 
+          {/* Note preview section - only show for notes */}
+          {memoryType === 'note' && (
+            <div className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-6">
+              <div className="flex flex-col items-center justify-center">
+                <FileText className="h-12 w-12 text-memory-purple/50 mb-3" />
+                <p className="text-muted-foreground text-center">
+                  This will be a text-only note without any media
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Carousel upload section */}
           {memoryType === 'carousel' && (
             <div className="space-y-4">
@@ -731,18 +918,6 @@ const AddMemory = () => {
               )}
             </div>
           )}
-
-          {/* Note preview section - only show for notes */}
-          {memoryType === 'note' && (
-            <div className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-6">
-              <div className="flex flex-col items-center justify-center">
-                <FileText className="h-12 w-12 text-memory-purple/50 mb-3" />
-                <p className="text-muted-foreground text-center">
-                  This will be a text-only note without any media
-                </p>
-              </div>
-            </div>
-          )}
           
           <div className="space-y-4">
             <div>
@@ -753,7 +928,13 @@ const AddMemory = () => {
                 id="caption"
                 placeholder={memoryType === 'note' ? "Write your note..." : "Write something about this memory..."}
                 value={caption}
-                onChange={(e) => setCaption(e.target.value)}
+                onChange={(e) => {
+                  setCaption(e.target.value);
+                  // Auto-save draft when caption changes and there's content
+                  if (e.target.value.trim() && shouldSaveDraft()) {
+                    handleSaveDraft();
+                  }
+                }}
                 className="resize-none"
                 rows={memoryType === 'note' ? 6 : 3}
                 required
@@ -783,7 +964,15 @@ const AddMemory = () => {
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={(newDate) => newDate && setDate(newDate)}
+                    onSelect={(newDate) => {
+                      if (newDate) {
+                        setDate(newDate);
+                        // Auto-save draft when date changes
+                        if (shouldSaveDraft()) {
+                          handleSaveDraft();
+                        }
+                      }
+                    }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
@@ -801,13 +990,42 @@ const AddMemory = () => {
                   id="location"
                   placeholder="Add a location"
                   value={location_}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    // Auto-save draft when location changes and there's content
+                    if (e.target.value.trim() && shouldSaveDraft()) {
+                      handleSaveDraft();
+                    }
+                  }}
                   className="pl-10"
                   autoComplete="off"
                   maxLength={200}
                 />
               </div>
             </div>
+            
+            {/* Manual save draft button */}
+            {shouldSaveDraft() && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveDraft}
+                  className="flex items-center gap-1 text-memory-purple border-memory-purple/30"
+                >
+                  <Save className="h-4 w-4" />
+                  Save as Draft
+                </Button>
+              </div>
+            )}
+            
+            {/* Last saved indicator */}
+            {lastSaved && (
+              <div className="text-xs text-muted-foreground text-right">
+                Last saved: {format(lastSaved, 'h:mm a')}
+              </div>
+            )}
           </div>
         </form>
       </main>
