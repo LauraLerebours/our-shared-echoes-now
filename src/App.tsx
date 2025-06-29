@@ -17,7 +17,7 @@ import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
 import Welcome from "./pages/Welcome";
 import TutorialOverlay from "./components/TutorialOverlay";
-import DraftsSyncManager from "./components/DraftsSyncManager";
+import { DraftsSyncManager } from "./components/DraftsSyncManager";
 
 const queryClient = new QueryClient({
   defaultOptions: {
