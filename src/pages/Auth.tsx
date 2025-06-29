@@ -156,7 +156,7 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `https:thisisus.space/reset-password`,
       });
 
       if (error) {
