@@ -315,14 +315,22 @@ export const memoriesApi = {
       const isNote = memory.memoryType === 'note';
       const mediaItems = memory.mediaItems || [];
       
+      // Determine the memory type
+      const memoryType = memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo'));
+      
       // Fix media_url assignment to satisfy database constraint
       let mediaUrl = null;
-      if (isCarousel || isNote) {
+      if (memoryType === 'carousel' || memoryType === 'note') {
         // For carousel and note memories, media_url must be NULL
         mediaUrl = null;
       } else {
         // For photo/video memories, media_url must NOT be NULL
-        mediaUrl = memory.image || null;
+        // If no image is provided, we cannot create a photo/video memory
+        if (!memory.image || memory.image.trim() === '') {
+          console.error('❌ [memoriesApi.createMemory] Photo/video memory requires a media URL');
+          return { success: false, error: 'Photo and video memories must have a media URL' };
+        }
+        mediaUrl = memory.image;
       }
       
       const dbRecord = {
@@ -332,7 +340,7 @@ export const memoriesApi = {
         event_date: memory.date.toISOString(),
         location: memory.location,
         is_video: !isCarousel && !isNote && (memory.isVideo || false),
-        memory_type: memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo')),
+        memory_type: memoryType,
         access_code: memory.accessCode,
         created_by: memory.createdBy,
         moderation_status: 'approved', // Set as approved since we moderate on client-side
@@ -385,7 +393,7 @@ export const memoriesApi = {
       }
       
       // Determine memory type and set appropriate fields
-      const memoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
+      const resultMemoryType = result.memory_type || (result.is_video ? 'video' : 'photo');
 
       const createdMemory: Memory = {
         id: result.id,
@@ -395,9 +403,9 @@ export const memoriesApi = {
         location: result.location || undefined,
         likes: 0, // New memories start with 0 likes
         isLiked: false,
-        isVideo: memoryType === 'video',
+        isVideo: resultMemoryType === 'video',
         type: isNote ? 'note' : 'memory',
-        memoryType: memoryType,
+        memoryType: resultMemoryType,
         accessCode: result.access_code || '',
         createdBy: result.created_by || undefined,
         mediaItems: isCarousel ? mediaItems : undefined
