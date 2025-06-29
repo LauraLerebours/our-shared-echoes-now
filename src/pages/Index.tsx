@@ -383,11 +383,13 @@ const Index = () => {
           ) : memories.length > 0 ? (
             <>
               {viewMode === 'timeline' ? (
-                <MemoryList 
-                  memories={memories} 
-                  onDeleteMemory={handleDeleteMemory}
-                  onUpdateMemory={handleUpdateMemory}
-                />
+                <div className="max-w-3xl mx-auto">
+                  <MemoryList 
+                    memories={memories} 
+                    onDeleteMemory={handleDeleteMemory}
+                    onUpdateMemory={handleUpdateMemory}
+                  />
+                </div>
               ) : (
                 <MemoryGrid 
                   memories={memories}

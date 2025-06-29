@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
+import { getDrafts, saveDraft } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
 import { Draft } from '@/lib/types';
 import { toast } from 'sonner';
@@ -53,7 +53,7 @@ export const DraftsSyncManager = () => {
       console.log(`📱 Found ${localDrafts.length} local drafts`);
       
       // Try to get server drafts - initialize as empty array
-      let serverDrafts: any[] = [];
+      let serverDrafts: Draft[] = [];
       let serverFetchSuccessful = false;
       
       try {
@@ -70,7 +70,7 @@ export const DraftsSyncManager = () => {
             // Wrapped response with success flag
             serverDrafts = response.data;
             serverFetchSuccessful = true;
-          } else if (Array.isArray(response.data)) {
+          } else if (response.data && Array.isArray(response.data)) {
             // Response with data property
             serverDrafts = response.data;
             serverFetchSuccessful = true;
@@ -131,7 +131,7 @@ export const DraftsSyncManager = () => {
       }
       
       // Create a map of server drafts by ID for quick lookup
-      const serverDraftsMap = new Map();
+      const serverDraftsMap = new Map<string, Draft>();
       serverDrafts.forEach(draft => {
         if (draft && draft.id) {
           serverDraftsMap.set(draft.id, draft);
@@ -150,30 +150,18 @@ export const DraftsSyncManager = () => {
       serverDrafts.forEach(serverDraft => {
         try {
           // Validate server draft structure
-          if (!serverDraft || !serverDraft.id || !serverDraft.content) {
+          if (!serverDraft || !serverDraft.id) {
             console.warn('⚠️ Invalid server draft structure:', serverDraft);
             return;
           }
           
-          // Convert server draft to client format
-          const clientDraft: Draft = {
-            id: serverDraft.id,
-            memory: {
-              ...serverDraft.content.memory,
-              date: new Date(serverDraft.content.memory.date)
-            },
-            lastUpdated: new Date(serverDraft.updated_at),
-            board_id: serverDraft.board_id,
-            mediaItems: serverDraft.content.mediaItems || []
-          };
-          
           const localDraft = mergedDrafts.get(serverDraft.id);
           
-          if (!localDraft || new Date(serverDraft.updated_at) > localDraft.lastUpdated) {
-            mergedDrafts.set(serverDraft.id, clientDraft);
+          if (!localDraft || serverDraft.lastUpdated > localDraft.lastUpdated) {
+            mergedDrafts.set(serverDraft.id, serverDraft);
           }
         } catch (conversionError) {
-          console.warn(`⚠️ Failed to convert server draft ${serverDraft.id}:`, conversionError);
+          console.warn(`⚠️ Failed to process server draft ${serverDraft.id}:`, conversionError);
         }
       });
       
@@ -189,37 +177,13 @@ export const DraftsSyncManager = () => {
           const serverDraft = serverDraftsMap.get(draft.id);
           
           // Skip if server has newer version
-          if (serverDraft && new Date(serverDraft.updated_at) >= draft.lastUpdated) {
+          if (serverDraft && serverDraft.lastUpdated >= draft.lastUpdated) {
             continue;
           }
           
           try {
-            // Prepare the draft data for server
-            const serverDraftData = {
-              id: draft.id,
-              board_id: draft.board_id,
-              content: {
-                memory: {
-                  ...draft.memory,
-                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
-                },
-                mediaItems: draft.mediaItems ? draft.mediaItems.map(item => ({
-                  ...item,
-                  url: item.url || item.preview
-                })) : []
-              }
-            };
-            
-            // Check if draft exists on server
-            if (serverDraft) {
-              // Update existing draft
-              await draftsApi.updateDraft(draft.id, serverDraftData);
-              console.log(`✅ Updated draft on server: ${draft.id}`);
-            } else {
-              // Create new draft
-              await draftsApi.saveDraft(serverDraftData);
-              console.log(`✅ Created draft on server: ${draft.id}`);
-            }
+            await draftsApi.saveDraft(draft);
+            console.log(`✅ Synced draft to server: ${draft.id}`);
           } catch (error) {
             console.error(`❌ Failed to sync draft to server: ${draft.id}`, error);
             

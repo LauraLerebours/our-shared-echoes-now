@@ -172,11 +172,13 @@ const BoardView = () => {
           </div>
         ) : (
           <>
-            <MemoryList 
-              memories={memories} 
-              onDeleteMemory={handleDeleteMemory}
-              onUpdateMemory={handleUpdateMemory}
-            />
+            <div className="max-w-3xl mx-auto">
+              <MemoryList 
+                memories={memories} 
+                onDeleteMemory={handleDeleteMemory}
+                onUpdateMemory={handleUpdateMemory}
+              />
+            </div>
             <ScrollToBottom containerRef={mainRef} />
           </>
         )}
