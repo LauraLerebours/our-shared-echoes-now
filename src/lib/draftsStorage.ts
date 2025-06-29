@@ -118,17 +118,30 @@ export const getDraftsCount = (): number => {
  */
 export const syncDraftToServer = async (draft: Draft): Promise<void> => {
   try {
+    // Transform the draft data to match the database schema
+    const dbPayload = {
+      id: draft.id,
+      user_id: draft.userId, // Convert camelCase to snake_case
+      board_id: draft.boardId || null, // Convert camelCase to snake_case
+      content: {
+        memory: draft.memory,
+        mediaItems: draft.mediaItems || []
+      },
+      created_at: draft.createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
     // Check if draft already exists on server
     const existingDrafts = await draftsApi.fetchDrafts();
     const existingDraft = existingDrafts.find(d => d.id === draft.id);
     
     if (existingDraft) {
       // Update existing draft on server
-      await draftsApi.updateDraft(draft.id, draft);
+      await draftsApi.updateDraft(draft.id, dbPayload);
       console.log(`Draft synced to server (updated): ${draft.id}`);
     } else {
       // Create new draft on server
-      await draftsApi.createDraft(draft);
+      await draftsApi.createDraft(dbPayload);
       console.log(`Draft synced to server (created): ${draft.id}`);
     }
   } catch (error) {
