@@ -318,11 +318,19 @@ export const memoriesApi = {
       // Determine the memory type
       const memoryType = memory.memoryType || (memory.type === 'note' ? 'note' : (memory.isVideo ? 'video' : 'photo'));
       
-      // Fix media_url assignment to satisfy database constraint
+      // Fix media_url assignment and is_video flag to satisfy database constraint
       let mediaUrl = null;
-      if (memoryType === 'carousel' || memoryType === 'note') {
-        // For carousel and note memories, media_url must be NULL
+      let isVideo = false;
+      
+      if (memoryType === 'carousel') {
+        // For carousel memories, media_url must be NULL
         mediaUrl = null;
+        // Set is_video to true if any media item is a video, false otherwise
+        isVideo = mediaItems.some(item => item.isVideo);
+      } else if (memoryType === 'note') {
+        // For note memories, media_url must be NULL and is_video must be false
+        mediaUrl = null;
+        isVideo = false;
       } else {
         // For photo/video memories, media_url must NOT be NULL
         // If no image is provided, we cannot create a photo/video memory
@@ -331,6 +339,7 @@ export const memoriesApi = {
           return { success: false, error: 'Photo and video memories must have a media URL' };
         }
         mediaUrl = memory.image;
+        isVideo = memoryType === 'video';
       }
       
       const dbRecord = {
@@ -339,7 +348,7 @@ export const memoriesApi = {
         caption: memory.caption,
         event_date: memory.date.toISOString(),
         location: memory.location,
-        is_video: !isCarousel && !isNote && (memory.isVideo || false),
+        is_video: isVideo,
         memory_type: memoryType,
         access_code: memory.accessCode,
         created_by: memory.createdBy,
