@@ -119,7 +119,7 @@ export const getDraftsCount = (): number => {
 export const syncDraftToServer = async (draft: Draft): Promise<void> => {
   try {
     // Check if draft already exists on server
-    const existingDrafts = await draftsApi.getDrafts();
+    const existingDrafts = await draftsApi.fetchDrafts();
     const existingDraft = existingDrafts.find(d => d.id === draft.id);
     
     if (existingDraft) {
