@@ -169,7 +169,7 @@ const AddMemory = () => {
             // Set carousel items if applicable
             if (draft.memory.memoryType === 'carousel' && draft.mediaItems) {
               setCarouselItems(draft.mediaItems.map(item => ({
-                file: undefined as any, // We don't store the file object in drafts
+                file: undefined,
                 preview: item.preview,
                 isVideo: item.isVideo,
                 uploading: item.uploading,
@@ -676,7 +676,7 @@ const AddMemory = () => {
         </div>
       </header>
       
-      <main className="flex-1 p-4 pt-16">
+      <main className="flex-1 p-4 pt-16 max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note' | 'carousel')}>
             <TabsList className="grid w-full grid-cols-4">

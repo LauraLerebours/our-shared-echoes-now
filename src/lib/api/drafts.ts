@@ -1,16 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
-
-type MemoryDraft = Database['public']['Tables']['memory_drafts']['Row'];
-type MemoryDraftInsert = Database['public']['Tables']['memory_drafts']['Insert'];
-type MemoryDraftUpdate = Database['public']['Tables']['memory_drafts']['Update'];
+import { ApiResponse, withErrorHandling } from './base';
+import { Draft } from '../types';
 
 export const draftsApi = {
-  async fetchDrafts(): Promise<MemoryDraft[]> {
-    try {
-      console.log('🔄 [draftsApi.fetchDrafts] Starting fetch...');
+  async fetchDrafts(): Promise<ApiResponse<Draft[]>> {
+    return withErrorHandling(async () => {
+      console.log('🔄 [draftsApi.fetchDrafts] Starting');
       
-      // First check if user is authenticated
+      // Check if user is authenticated
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) {
         console.error('❌ [draftsApi.fetchDrafts] Auth error:', authError);
@@ -18,42 +15,44 @@ export const draftsApi = {
       }
       
       if (!user) {
-        console.log('ℹ️ [draftsApi.fetchDrafts] No authenticated user, returning empty array');
+        console.log('ℹ️ [draftsApi.fetchDrafts] No authenticated user');
         return [];
       }
-      
-      console.log('✅ [draftsApi.fetchDrafts] User authenticated:', user.id);
       
       const { data, error } = await supabase
         .from('memory_drafts')
         .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
+        .eq('user_id', user.id);
+      
       if (error) {
-        console.error('❌ [draftsApi.fetchDrafts] Database error:', error);
+        console.error('❌ [draftsApi.fetchDrafts] Error:', error);
         throw error;
       }
-
-      console.log('✅ [draftsApi.fetchDrafts] Success:', data?.length || 0, 'drafts found');
-      return data || [];
-    } catch (error) {
-      console.error('❌ [draftsApi.fetchDrafts] Error:', error);
       
-      // If it's a network error or connection issue, return empty array instead of throwing
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        console.warn('⚠️ [draftsApi.fetchDrafts] Network error detected, returning empty array');
-        return [];
-      }
+      // Transform database records to Draft type
+      const drafts: Draft[] = (data || []).map(record => {
+        const content = record.content;
+        
+        return {
+          id: record.id,
+          memory: {
+            ...content.memory,
+            date: new Date(content.memory.date)
+          },
+          lastUpdated: new Date(record.updated_at),
+          board_id: record.board_id,
+          mediaItems: content.mediaItems || []
+        };
+      });
       
-      // For other errors, still throw to maintain error handling
-      throw error;
-    }
+      console.log('✅ [draftsApi.fetchDrafts] Success:', drafts.length);
+      return drafts;
+    }, 'fetchDrafts');
   },
 
-  async saveDraft(draft: Omit<MemoryDraftInsert, 'user_id'>): Promise<MemoryDraft> {
-    try {
-      console.log('🔄 [draftsApi.saveDraft] Starting save...');
+  async saveDraft(draft: Draft): Promise<ApiResponse<string>> {
+    return withErrorHandling(async () => {
+      console.log('🔄 [draftsApi.saveDraft] Starting');
       
       // Check if user is authenticated
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -66,93 +65,141 @@ export const draftsApi = {
         throw new Error('User must be authenticated to save drafts');
       }
       
-      const draftWithUser: MemoryDraftInsert = {
-        ...draft,
-        user_id: user.id,
+      // Prepare content object
+      const content = {
+        memory: {
+          ...draft.memory,
+          date: draft.memory.date?.toISOString()
+        },
+        mediaItems: draft.mediaItems ? draft.mediaItems.map(item => ({
+          ...item,
+          url: item.url || item.preview
+        })) : []
       };
-
-      const { data, error } = await supabase
+      
+      // Check if draft already exists
+      const { data: existingDraft, error: checkError } = await supabase
         .from('memory_drafts')
-        .insert(draftWithUser)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ [draftsApi.saveDraft] Database error:', error);
-        throw error;
+        .select('id')
+        .eq('id', draft.id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.warn('⚠️ [draftsApi.saveDraft] Error checking existing draft:', checkError);
+        // Continue anyway, we'll try to insert
       }
-
-      console.log('✅ [draftsApi.saveDraft] Success:', data.id);
-      return data;
-    } catch (error) {
-      console.error('❌ [draftsApi.saveDraft] Error:', error);
-      throw error;
-    }
+      
+      let result;
+      
+      if (existingDraft) {
+        // Update existing draft
+        const { data, error } = await supabase
+          .from('memory_drafts')
+          .update({
+            content,
+            board_id: draft.board_id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', draft.id)
+          .eq('user_id', user.id)
+          .select('id')
+          .single();
+        
+        if (error) {
+          console.error('❌ [draftsApi.saveDraft] Error updating draft:', error);
+          throw error;
+        }
+        
+        result = data.id;
+        console.log('✅ [draftsApi.saveDraft] Draft updated:', result);
+      } else {
+        // Insert new draft
+        const { data, error } = await supabase
+          .from('memory_drafts')
+          .insert({
+            id: draft.id,
+            user_id: user.id,
+            board_id: draft.board_id,
+            content,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+        
+        if (error) {
+          console.error('❌ [draftsApi.saveDraft] Error inserting draft:', error);
+          throw error;
+        }
+        
+        result = data.id;
+        console.log('✅ [draftsApi.saveDraft] Draft created:', result);
+      }
+      
+      return result;
+    }, 'saveDraft');
   },
 
-  async updateDraft(id: string, updates: Partial<Omit<MemoryDraftUpdate, 'user_id'>>): Promise<MemoryDraft> {
-    try {
-      console.log('🔄 [draftsApi.updateDraft] Starting update for:', id);
+  async deleteDraft(id: string): Promise<ApiResponse<boolean>> {
+    return withErrorHandling(async () => {
+      console.log('🔄 [draftsApi.deleteDraft] Starting for ID:', id);
       
-      const { data, error } = await supabase
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('❌ [draftsApi.deleteDraft] Auth error:', authError);
+        throw authError;
+      }
+      
+      if (!user) {
+        throw new Error('User must be authenticated to delete drafts');
+      }
+      
+      const { error } = await supabase
         .from('memory_drafts')
-        .update(updates)
+        .delete()
         .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ [draftsApi.updateDraft] Database error:', error);
-        throw error;
-      }
-
-      console.log('✅ [draftsApi.updateDraft] Success:', data.id);
-      return data;
-    } catch (error) {
-      console.error('❌ [draftsApi.updateDraft] Error:', error);
-      throw error;
-    }
-  },
-
-  async deleteDraft(id: string): Promise<void> {
-    try {
-      console.log('🔄 [draftsApi.deleteDraft] Starting delete for:', id);
+        .eq('user_id', user.id);
       
-      const { error } = await supabase
-        .from('memory_drafts')
-        .delete()
-        .eq('id', id);
-
       if (error) {
-        console.error('❌ [draftsApi.deleteDraft] Database error:', error);
+        console.error('❌ [draftsApi.deleteDraft] Error:', error);
         throw error;
       }
-
+      
       console.log('✅ [draftsApi.deleteDraft] Success:', id);
-    } catch (error) {
-      console.error('❌ [draftsApi.deleteDraft] Error:', error);
-      throw error;
-    }
+      return true;
+    }, 'deleteDraft');
   },
 
-  async deleteDraftsByBoardId(boardId: string): Promise<void> {
-    try {
-      console.log('🔄 [draftsApi.deleteDraftsByBoardId] Starting delete for board:', boardId);
+  async getDraftById(id: string): Promise<ApiResponse<Draft>> {
+    return withErrorHandling(async () => {
+      console.log('🔄 [draftsApi.getDraftById] Starting for ID:', id);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('memory_drafts')
-        .delete()
-        .eq('board_id', boardId);
-
+        .select('*')
+        .eq('id', id)
+        .single();
+      
       if (error) {
-        console.error('❌ [draftsApi.deleteDraftsByBoardId] Database error:', error);
+        console.error('❌ [draftsApi.getDraftById] Error:', error);
         throw error;
       }
-
-      console.log('✅ [draftsApi.deleteDraftsByBoardId] Success for board:', boardId);
-    } catch (error) {
-      console.error('❌ [draftsApi.deleteDraftsByBoardId] Error:', error);
-      throw error;
-    }
+      
+      // Transform database record to Draft type
+      const draft: Draft = {
+        id: data.id,
+        memory: {
+          ...data.content.memory,
+          date: new Date(data.content.memory.date)
+        },
+        lastUpdated: new Date(data.updated_at),
+        board_id: data.board_id,
+        mediaItems: data.content.mediaItems || []
+      };
+      
+      console.log('✅ [draftsApi.getDraftById] Success');
+      return draft;
+    }, 'getDraftById');
   }
 };

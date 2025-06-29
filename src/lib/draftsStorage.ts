@@ -1,5 +1,5 @@
 import { Draft } from './types';
-import { draftsApi } from './api/drafts';
+import { draftsApi } from './lib/api/drafts';
 
 // Key for storing drafts in localStorage
 const DRAFTS_STORAGE_KEY = 'thisisus_memory_drafts';
@@ -31,7 +31,10 @@ export const saveDraft = (draft: Draft): void => {
     // Save back to localStorage
     localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(existingDrafts));
     
-    console.log(`Draft saved: ${draft.id}`);
+    console.log(`Draft saved locally: ${draft.id}`);
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('draftsUpdated'));
   } catch (error) {
     console.error('Error saving draft:', error);
   }
@@ -84,13 +87,27 @@ export const deleteDraft = (id: string): void => {
     const drafts = getDrafts();
     const filteredDrafts = drafts.filter(draft => draft.id !== id);
     localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filteredDrafts));
+    console.log(`Draft deleted from localStorage: ${id}`);
     
-    // Delete from server (async, don't wait)
-    draftsApi.deleteDraft(id).catch(error => {
-      console.warn(`Failed to delete draft ${id} from server:`, error);
-    });
+    // Try to delete from server (don't wait for result)
+    try {
+      draftsApi.deleteDraft(id)
+        .then(result => {
+          if (result.success) {
+            console.log(`Draft deleted from server: ${id}`);
+          } else {
+            console.warn(`Failed to delete draft ${id} from server:`, result.error);
+          }
+        })
+        .catch(error => {
+          console.warn(`Failed to delete draft ${id} from server:`, error);
+        });
+    } catch (error) {
+      console.warn(`Failed to initiate server deletion for draft ${id}:`, error);
+    }
     
-    console.log(`Draft deleted: ${id}`);
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('draftsUpdated'));
   } catch (error) {
     console.error('Error deleting draft:', error);
   }
@@ -106,20 +123,28 @@ export const clearAllDrafts = async (): Promise<void> => {
     
     // Clear localStorage
     localStorage.removeItem(DRAFTS_STORAGE_KEY);
+    console.log('All drafts cleared from localStorage');
     
-    // Delete each draft from server
-    const deletePromises = drafts.map(draft => 
-      draftsApi.deleteDraft(draft.id).catch(error => {
-        console.warn(`Failed to delete draft ${draft.id} from server:`, error);
-      })
-    );
+    // Try to delete each draft from server
+    if (drafts.length > 0) {
+      const deletePromises = drafts.map(draft => 
+        draftsApi.deleteDraft(draft.id)
+          .catch(error => {
+            console.warn(`Failed to delete draft ${draft.id} from server:`, error);
+            return { success: false, error };
+          })
+      );
+      
+      // Wait for all deletions to complete
+      await Promise.allSettled(deletePromises);
+      console.log('Server draft deletion requests completed');
+    }
     
-    // Wait for all deletions to complete
-    await Promise.allSettled(deletePromises);
-    
-    console.log('All drafts cleared');
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('draftsUpdated'));
   } catch (error) {
     console.error('Error clearing drafts:', error);
+    throw error;
   }
 };
 
@@ -137,48 +162,14 @@ export const getDraftsCount = (): number => {
 
 /**
  * Sync a draft to the server
+ * This function is used by DraftsSyncManager
  */
 export const syncDraftToServer = async (draft: Draft): Promise<void> => {
   try {
-    // Transform the draft data to match the database schema
-    const dbPayload = {
-      id: draft.id,
-      board_id: draft.board_id || null,
-      content: {
-        memory: {
-          ...draft.memory,
-          date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
-        },
-        mediaItems: draft.mediaItems ? draft.mediaItems.map(item => ({
-          ...item,
-          // Ensure URL is saved for media items
-          url: item.url || item.preview
-        })) : []
-      }
-    };
-    
-    // Check if draft already exists on server
-    let existingDrafts: any[] = [];
-    try {
-      existingDrafts = await draftsApi.fetchDrafts();
-    } catch (error) {
-      console.error('Error fetching existing drafts:', error);
-      // If we can't fetch, assume it doesn't exist and try to create
-    }
-    
-    const existingDraft = existingDrafts.find(d => d.id === draft.id);
-    
-    if (existingDraft) {
-      // Update existing draft on server
-      await draftsApi.updateDraft(draft.id, dbPayload);
-      console.log(`Draft synced to server (updated): ${draft.id}`);
-    } else {
-      // Create new draft on server
-      await draftsApi.saveDraft(dbPayload);
-      console.log(`Draft synced to server (created): ${draft.id}`);
-    }
+    await draftsApi.saveDraft(draft);
+    console.log(`Draft synced to server: ${draft.id}`);
   } catch (error) {
-    console.error('Error syncing draft to server:', error);
+    console.error(`Error syncing draft to server: ${draft.id}`, error);
     throw error;
   }
 };

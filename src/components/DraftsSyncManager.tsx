@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDrafts, saveDraft, deleteDraft, syncDraftToServer } from '@/lib/draftsStorage';
+import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
 import { Draft } from '@/lib/types';
+import { toast } from 'sonner';
 
 /**
  * Component that handles syncing drafts between localStorage and server
@@ -12,158 +13,208 @@ export const DraftsSyncManager = () => {
   const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const maxRetries = 3;
 
   // Helper function to check if error is network-related
   const isNetworkError = (error: any): boolean => {
-    const errorMessage = error?.message?.toLowerCase() || '';
+    if (!error) return false;
+    
+    const errorMessage = String(error.message || '').toLowerCase();
     return (
       errorMessage.includes('failed to fetch') ||
-      errorMessage.includes('network error') ||
+      errorMessage.includes('network') ||
       errorMessage.includes('connection') ||
-      error?.name === 'TypeError' ||
-      error?.code === 'NETWORK_ERROR'
+      error.name === 'TypeError' ||
+      error.code === 'NETWORK_ERROR' ||
+      error.code === 'ECONNREFUSED'
     );
   };
 
-  // Sync drafts when user logs in
-  useEffect(() => {
-    if (!user) return;
+  // Sync drafts function with retry logic and better error handling
+  const syncDrafts = useCallback(async (isRetry = false) => {
+    if (isSyncing) {
+      console.log('🔄 Sync already in progress, skipping');
+      return;
+    }
 
-    const syncDrafts = async () => {
-      if (isSyncing) return;
-      setIsSyncing(true);
+    if (!user) {
+      console.log('ℹ️ No user logged in, skipping sync');
+      return;
+    }
 
+    setIsSyncing(true);
+    console.log(`🔄 Starting drafts sync${isRetry ? ` (retry ${retryCount}/${maxRetries})` : ''}`);
+
+    try {
+      // Get local drafts
+      const localDrafts = getDrafts();
+      console.log(`📱 Found ${localDrafts.length} local drafts`);
+      
+      // Try to get server drafts
+      let serverDrafts: any[] = [];
       try {
-        console.log('🔄 Syncing drafts...');
+        serverDrafts = await draftsApi.fetchDrafts();
+        console.log(`☁️ Fetched ${serverDrafts.length} server drafts`);
         
-        // Get local drafts
-        const localDrafts = getDrafts();
-        console.log(`📱 Found ${localDrafts.length} local drafts`);
+        // Reset retry count on success
+        if (retryCount > 0) {
+          setRetryCount(0);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch server drafts:', error);
         
-        // Try to get server drafts with better error handling
-        let serverDrafts: any[] = [];
-        try {
-          serverDrafts = await draftsApi.fetchDrafts();
-          console.log(`☁️ Fetched ${serverDrafts.length} server drafts`);
-          setRetryCount(0); // Reset retry count on success
-        } catch (error) {
-          console.warn('⚠️ Failed to fetch server drafts:', error);
+        // If it's a network error and we haven't exceeded retry limit, schedule a retry
+        if (isNetworkError(error) && retryCount < maxRetries) {
+          const nextRetryCount = retryCount + 1;
+          setRetryCount(nextRetryCount);
           
-          // If it's a network error and we haven't exceeded retry limit, we'll retry later
-          if (isNetworkError(error) && retryCount < maxRetries) {
-            console.log(`🔄 Network error detected, will retry later (attempt ${retryCount + 1}/${maxRetries})`);
-            setRetryCount(prev => prev + 1);
-            setIsSyncing(false);
-            return; // Exit early, will retry later
+          // Schedule retry with exponential backoff
+          const retryDelay = Math.min(1000 * Math.pow(2, nextRetryCount), 30000); // Max 30 seconds
+          console.log(`⏳ Will retry in ${retryDelay/1000}s (attempt ${nextRetryCount}/${maxRetries})`);
+          
+          if (syncTimeoutRef.current) {
+            clearTimeout(syncTimeoutRef.current);
           }
           
-          // For non-network errors or after max retries, continue with local drafts only
-          console.log('📱 Continuing with local drafts only');
+          syncTimeoutRef.current = setTimeout(() => {
+            syncDrafts(true);
+          }, retryDelay);
+          
+          setIsSyncing(false);
+          return;
         }
         
-        // Create a map of server drafts by ID for quick lookup
-        const serverDraftsMap = new Map<string, any>();
-        serverDrafts.forEach(draft => {
-          serverDraftsMap.set(draft.id, draft);
-        });
+        // For non-network errors or after max retries, continue with local drafts only
+        console.log('📱 Continuing with local drafts only');
         
-        // Merge drafts (prefer newer versions)
-        const mergedDrafts = new Map<string, Draft>();
-        
-        // First add all local drafts
-        localDrafts.forEach(draft => {
-          mergedDrafts.set(draft.id, draft);
-        });
-        
-        // Then add server drafts, overwriting local ones if server version is newer
-        serverDrafts.forEach(serverDraft => {
+        // If we've reached max retries, reset counter for future attempts
+        if (retryCount >= maxRetries) {
+          console.log('⚠️ Max retries reached, resetting retry counter');
+          setRetryCount(0);
+        }
+      }
+      
+      // Create a map of server drafts by ID for quick lookup
+      const serverDraftsMap = new Map();
+      serverDrafts.forEach(draft => {
+        serverDraftsMap.set(draft.id, draft);
+      });
+      
+      // Merge drafts (prefer newer versions)
+      const mergedDrafts = new Map<string, Draft>();
+      
+      // First add all local drafts
+      localDrafts.forEach(draft => {
+        mergedDrafts.set(draft.id, draft);
+      });
+      
+      // Then add server drafts, overwriting local ones if server version is newer
+      serverDrafts.forEach(serverDraft => {
+        try {
+          // Convert server draft to client format
+          const clientDraft: Draft = {
+            id: serverDraft.id,
+            memory: {
+              ...serverDraft.content.memory,
+              date: new Date(serverDraft.content.memory.date)
+            },
+            lastUpdated: new Date(serverDraft.updated_at),
+            board_id: serverDraft.board_id,
+            mediaItems: serverDraft.content.mediaItems || []
+          };
+          
+          const localDraft = mergedDrafts.get(serverDraft.id);
+          
+          if (!localDraft || new Date(serverDraft.updated_at) > localDraft.lastUpdated) {
+            mergedDrafts.set(serverDraft.id, clientDraft);
+          }
+        } catch (conversionError) {
+          console.warn(`⚠️ Failed to convert server draft ${serverDraft.id}:`, conversionError);
+        }
+      });
+      
+      // Update localStorage with merged drafts
+      Array.from(mergedDrafts.values()).forEach(draft => {
+        saveDraft(draft);
+      });
+      
+      // Sync local drafts to server
+      if (serverDrafts.length >= 0) { // We got a response, even if empty
+        // Only sync drafts that don't exist on server or have been updated locally
+        for (const draft of localDrafts) {
+          const serverDraft = serverDraftsMap.get(draft.id);
+          
+          // Skip if server has newer version
+          if (serverDraft && new Date(serverDraft.updated_at) >= draft.lastUpdated) {
+            continue;
+          }
+          
           try {
-            // Convert server draft to client format
-            const clientDraft: Draft = {
-              id: serverDraft.id,
-              memory: {
-                ...serverDraft.content.memory,
-                date: new Date(serverDraft.content.memory.date)
-              },
-              lastUpdated: new Date(serverDraft.updated_at),
-              board_id: serverDraft.board_id,
-              mediaItems: serverDraft.content.mediaItems
+            // Prepare the draft data for server
+            const serverDraftData = {
+              id: draft.id,
+              board_id: draft.board_id,
+              content: {
+                memory: {
+                  ...draft.memory,
+                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
+                },
+                mediaItems: draft.mediaItems ? draft.mediaItems.map(item => ({
+                  ...item,
+                  url: item.url || item.preview
+                })) : []
+              }
             };
             
-            const localDraft = mergedDrafts.get(serverDraft.id);
+            // Check if draft exists on server
+            if (serverDraft) {
+              // Update existing draft
+              await draftsApi.updateDraft(draft.id, serverDraftData);
+              console.log(`✅ Updated draft on server: ${draft.id}`);
+            } else {
+              // Create new draft
+              await draftsApi.saveDraft(serverDraftData);
+              console.log(`✅ Created draft on server: ${draft.id}`);
+            }
+          } catch (error) {
+            console.error(`❌ Failed to sync draft to server: ${draft.id}`, error);
             
-            if (!localDraft || new Date(serverDraft.updated_at) > localDraft.lastUpdated) {
-              mergedDrafts.set(serverDraft.id, clientDraft);
-            }
-          } catch (conversionError) {
-            console.warn('⚠️ Failed to convert server draft:', serverDraft.id, conversionError);
-          }
-        });
-        
-        // Update localStorage with merged drafts
-        try {
-          Array.from(mergedDrafts.values()).forEach(draft => {
-            saveDraft(draft);
-          });
-          console.log(`💾 Updated localStorage with ${mergedDrafts.size} merged drafts`);
-        } catch (storageError) {
-          console.error('❌ Failed to update localStorage:', storageError);
-        }
-        
-        // Try to sync local drafts to server (only if we successfully connected earlier)
-        if (serverDrafts.length >= 0) { // We got a response, even if empty
-          let syncedCount = 0;
-          let failedCount = 0;
-          
-          for (const draft of localDrafts) {
-            try {
-              await syncDraftToServer(draft);
-              syncedCount++;
-            } catch (error) {
-              failedCount++;
-              if (isNetworkError(error)) {
-                console.warn(`⚠️ Network error syncing draft ${draft.id}, will retry later`);
-              } else {
-                console.error(`❌ Failed to sync draft ${draft.id}:`, error);
-              }
+            // Don't retry immediately - the next scheduled sync will handle it
+            if (!isNetworkError(error)) {
+              // For non-network errors, show a toast
+              toast.error(`Failed to sync draft: ${error.message}`);
             }
           }
-          
-          if (syncedCount > 0) {
-            console.log(`✅ Successfully synced ${syncedCount} drafts to server`);
-          }
-          if (failedCount > 0) {
-            console.log(`⚠️ Failed to sync ${failedCount} drafts`);
-          }
         }
-        
-        console.log('✅ Drafts sync completed');
-        
-        // Dispatch custom event to notify other components
-        window.dispatchEvent(new Event('draftsUpdated'));
-      } catch (error) {
-        console.error('❌ Error during drafts sync:', error);
-        
-        // If it's a network error, we'll retry later
-        if (isNetworkError(error) && retryCount < maxRetries) {
-          console.log(`🔄 Will retry sync later due to network error`);
-          setRetryCount(prev => prev + 1);
-        }
-      } finally {
-        setIsSyncing(false);
       }
-    };
+      
+      console.log('✅ Drafts sync completed successfully');
+      setLastSyncTime(new Date());
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new Event('draftsUpdated'));
+    } catch (error) {
+      console.error('❌ Error during drafts sync:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user, isSyncing, retryCount]);
 
-    // Initial sync with a small delay to let auth settle
-    const initialSyncTimeout = setTimeout(syncDrafts, 1000);
+  // Initial sync when user logs in
+  useEffect(() => {
+    if (!user) return;
     
-    // Set up interval to sync every 5 minutes, but only if not currently syncing
-    const interval = setInterval(() => {
-      if (!isSyncing) {
-        syncDrafts();
-      }
-    }, 5 * 60 * 1000);
+    // Initial sync with a delay to let auth settle
+    const initialSyncTimeout = setTimeout(() => {
+      syncDrafts();
+    }, 1000);
+    
+    // Set up interval for periodic syncs
+    const syncInterval = setInterval(() => {
+      syncDrafts();
+    }, 5 * 60 * 1000); // Every 5 minutes
     
     // Set up event listener for manual sync
     const handleDraftsUpdated = () => {
@@ -176,26 +227,16 @@ export const DraftsSyncManager = () => {
     
     return () => {
       clearTimeout(initialSyncTimeout);
-      clearInterval(interval);
+      clearInterval(syncInterval);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
       window.removeEventListener('draftsUpdated', handleDraftsUpdated);
     };
-  }, [user, isSyncing, retryCount]);
-
-  // Retry mechanism for failed syncs
-  useEffect(() => {
-    if (retryCount > 0 && retryCount <= maxRetries && user && !isSyncing) {
-      const retryDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000); // Exponential backoff, max 30s
-      console.log(`⏳ Scheduling retry in ${retryDelay / 1000}s (attempt ${retryCount}/${maxRetries})`);
-      
-      const retryTimeout = setTimeout(() => {
-        console.log(`🔄 Retrying drafts sync (attempt ${retryCount}/${maxRetries})`);
-        window.dispatchEvent(new Event('draftsUpdated'));
-      }, retryDelay);
-      
-      return () => clearTimeout(retryTimeout);
-    }
-  }, [retryCount, user, isSyncing]);
+  }, [user, isSyncing, syncDrafts]);
 
   // This component doesn't render anything
   return null;
 };
+
+export default DraftsSyncManager;
