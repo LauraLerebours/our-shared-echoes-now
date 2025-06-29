@@ -31,6 +31,12 @@ const ResetPassword = () => {
   const type = searchParams.get('type');
 
   useEffect(() => {
+    console.log('Reset Password page loaded with params:', { 
+      accessToken: accessToken ? 'exists' : 'missing', 
+      refreshToken: refreshToken ? 'exists' : 'missing',
+      type 
+    });
+    
     if (!accessToken && !type) {
       toast({
         variant: 'destructive',
@@ -38,8 +44,36 @@ const ResetPassword = () => {
         description: 'This password reset link is invalid or has expired. Please request a new one.',
       });
       navigate('/auth', { replace: true });
+    } else {
+      // Set the session using the tokens from the URL
+      const setupSession = async () => {
+        try {
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              console.error('Error setting session:', error);
+              toast({
+                variant: 'destructive',
+                title: 'Session error',
+                description: 'There was an error with your reset link. Please request a new one.',
+              });
+              navigate('/auth', { replace: true });
+            } else {
+              console.log('Session set successfully');
+            }
+          }
+        } catch (error) {
+          console.error('Error in setupSession:', error);
+        }
+      };
+      
+      setupSession();
     }
-  }, [accessToken, type, navigate]);
+  }, [accessToken, refreshToken, type, navigate]);
 
   // Check password strength
   useEffect(() => {
@@ -87,19 +121,6 @@ const ResetPassword = () => {
 
     setIsResetting(true);
     try {
-      // Set the session using the tokens from the URL
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        });
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError);
-          throw sessionError;
-        }
-      }
-
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });

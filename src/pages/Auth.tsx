@@ -444,73 +444,78 @@ const Auth = () => {
           </AlertDescription>
         </Alert>
 
-        {emailSent && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert>
-              <AlertDescription>
-                Please check your email and click the verification link to complete your registration.
-                After verification, return here to sign in with your credentials.
-                You may need to check your spam folder.
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {emailSent && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Alert>
+                <AlertDescription>
+                  Please check your email and click the verification link to complete your registration.
+                  After verification, return here to sign in with your credentials.
+                  You may need to check your spam folder.
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
 
-        {resetEmailSent && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert className="border-green-200 bg-green-50">
-              <Mail className="h-4 w-4" />
-              <AlertDescription className="text-green-800">
-                <strong>Password reset email sent!</strong>
-                <br />
-                Please check your email for instructions to reset your password. 
-                The link will expire in 1 hour.
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
+          {resetEmailSent && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Alert className="border-green-200 bg-green-50">
+                <Mail className="h-4 w-4" />
+                <AlertDescription className="text-green-800">
+                  <strong>Password reset email sent!</strong>
+                  <br />
+                  Please check your email for instructions to reset your password. 
+                  The link will expire in 1 hour.
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
 
-        {showEmailNotConfirmed && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Alert className="border-amber-200 bg-amber-50">
-              <AlertDescription className="space-y-3">
-                <div>
-                  <strong>Email verification required</strong>
-                </div>
-                <p className="text-sm">
-                  Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
-                  Please check your inbox (and spam folder) for the verification email.
-                </p>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResendConfirmation}
-                    disabled={isResendingEmail}
-                    className="w-full"
-                  >
-                    {isResendingEmail ? 'Sending...' : 'Resend verification email'}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Didn't receive the email? Check your spam folder or try resending.
+          {showEmailNotConfirmed && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertDescription className="space-y-3">
+                  <div>
+                    <strong>Email verification required</strong>
+                  </div>
+                  <p className="text-sm">
+                    Your email address <strong>{unconfirmedEmail}</strong> needs to be verified before you can sign in.
+                    Please check your inbox (and spam folder) for the verification email.
                   </p>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResendConfirmation}
+                      disabled={isResendingEmail}
+                      className="w-full"
+                    >
+                      {isResendingEmail ? 'Sending...' : 'Resend verification email'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Didn't receive the email? Check your spam folder or try resending.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.div 
           className="bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-6"
