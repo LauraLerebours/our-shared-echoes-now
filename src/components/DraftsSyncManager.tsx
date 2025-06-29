@@ -52,11 +52,38 @@ export const DraftsSyncManager = () => {
       const localDrafts = getDrafts();
       console.log(`📱 Found ${localDrafts.length} local drafts`);
       
-      // Try to get server drafts
+      // Try to get server drafts - initialize as empty array
       let serverDrafts: any[] = [];
+      let serverFetchSuccessful = false;
+      
       try {
-        serverDrafts = await draftsApi.fetchDrafts();
-        console.log(`☁️ Fetched ${serverDrafts.length} server drafts`);
+        const response = await draftsApi.fetchDrafts();
+        console.log(`☁️ Server response:`, response);
+        
+        // Check if response has the expected structure
+        if (response && typeof response === 'object') {
+          if (Array.isArray(response)) {
+            // Direct array response
+            serverDrafts = response;
+            serverFetchSuccessful = true;
+          } else if (response.success && Array.isArray(response.data)) {
+            // Wrapped response with success flag
+            serverDrafts = response.data;
+            serverFetchSuccessful = true;
+          } else if (Array.isArray(response.data)) {
+            // Response with data property
+            serverDrafts = response.data;
+            serverFetchSuccessful = true;
+          } else {
+            console.warn('⚠️ Unexpected server response format:', response);
+            serverDrafts = [];
+          }
+        } else {
+          console.warn('⚠️ Invalid server response:', response);
+          serverDrafts = [];
+        }
+        
+        console.log(`☁️ Processed ${serverDrafts.length} server drafts`);
         
         // Reset retry count on success
         if (retryCount > 0) {
@@ -64,6 +91,7 @@ export const DraftsSyncManager = () => {
         }
       } catch (error) {
         console.warn('⚠️ Failed to fetch server drafts:', error);
+        serverDrafts = []; // Ensure it's always an array
         
         // If it's a network error and we haven't exceeded retry limit, schedule a retry
         if (isNetworkError(error) && retryCount < maxRetries) {
@@ -96,10 +124,18 @@ export const DraftsSyncManager = () => {
         }
       }
       
+      // Ensure serverDrafts is always an array before proceeding
+      if (!Array.isArray(serverDrafts)) {
+        console.warn('⚠️ serverDrafts is not an array, resetting to empty array:', serverDrafts);
+        serverDrafts = [];
+      }
+      
       // Create a map of server drafts by ID for quick lookup
       const serverDraftsMap = new Map();
       serverDrafts.forEach(draft => {
-        serverDraftsMap.set(draft.id, draft);
+        if (draft && draft.id) {
+          serverDraftsMap.set(draft.id, draft);
+        }
       });
       
       // Merge drafts (prefer newer versions)
@@ -113,6 +149,12 @@ export const DraftsSyncManager = () => {
       // Then add server drafts, overwriting local ones if server version is newer
       serverDrafts.forEach(serverDraft => {
         try {
+          // Validate server draft structure
+          if (!serverDraft || !serverDraft.id || !serverDraft.content) {
+            console.warn('⚠️ Invalid server draft structure:', serverDraft);
+            return;
+          }
+          
           // Convert server draft to client format
           const clientDraft: Draft = {
             id: serverDraft.id,
@@ -140,8 +182,8 @@ export const DraftsSyncManager = () => {
         saveDraft(draft);
       });
       
-      // Sync local drafts to server
-      if (serverDrafts.length >= 0) { // We got a response, even if empty
+      // Sync local drafts to server (only if we successfully fetched from server)
+      if (serverFetchSuccessful) {
         // Only sync drafts that don't exist on server or have been updated locally
         for (const draft of localDrafts) {
           const serverDraft = serverDraftsMap.get(draft.id);
@@ -188,6 +230,8 @@ export const DraftsSyncManager = () => {
             }
           }
         }
+      } else {
+        console.log('⚠️ Skipping server sync due to failed server fetch');
       }
       
       console.log('✅ Drafts sync completed successfully');
