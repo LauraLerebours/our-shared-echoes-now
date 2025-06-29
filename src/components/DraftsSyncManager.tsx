@@ -30,7 +30,9 @@ const DraftsSyncManager = () => {
         const { success, data: serverDrafts, error } = await draftsApi.fetchDrafts();
         
         if (!success || !serverDrafts) {
-          console.error('Failed to fetch server drafts:', error);
+          console.warn('Failed to fetch server drafts:', error);
+          // Continue with local drafts only
+          setIsSyncing(false);
           return;
         }
         

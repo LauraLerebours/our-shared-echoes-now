@@ -101,7 +101,7 @@ const MemoryCard = ({
           .single();
 
         if (error) {
-          console.error('Error fetching creator profile:', error);
+          console.warn('Error fetching creator profile:', error);
           return;
         }
 
@@ -109,7 +109,7 @@ const MemoryCard = ({
           setCreatorProfile(data);
         }
       } catch (error) {
-        console.error('Error fetching creator profile:', error);
+        console.warn('Error fetching creator profile:', error);
       } finally {
         setProfileLoading(false);
       }
