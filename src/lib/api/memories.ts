@@ -314,9 +314,19 @@ export const memoriesApi = {
       const isCarousel = memory.memoryType === 'carousel';
       const mediaItems = memory.mediaItems || [];
       
+      // Fix media_url assignment to satisfy database constraint
+      let mediaUrl = null;
+      if (isCarousel) {
+        // For carousel memories, use the first media item's URL
+        mediaUrl = mediaItems.length > 0 ? mediaItems[0].url : null;
+      } else {
+        // For non-carousel memories, use the image field
+        mediaUrl = memory.image || null;
+      }
+      
       const dbRecord = {
         id: memory.id,
-        media_url: isCarousel ? null : memory.image || null,
+        media_url: mediaUrl,
         caption: memory.caption,
         event_date: memory.date.toISOString(),
         location: memory.location,

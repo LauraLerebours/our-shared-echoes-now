@@ -140,8 +140,8 @@ export const syncDraftToServer = async (draft: Draft): Promise<void> => {
       await draftsApi.updateDraft(draft.id, dbPayload);
       console.log(`Draft synced to server (updated): ${draft.id}`);
     } else {
-      // Create new draft on server
-      await draftsApi.createDraft(dbPayload);
+      // Create new draft on server - Fixed function name
+      await draftsApi.saveDraft(dbPayload);
       console.log(`Draft synced to server (created): ${draft.id}`);
     }
   } catch (error) {
