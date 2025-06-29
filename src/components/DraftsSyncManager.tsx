@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDrafts, saveDraft, deleteDraft, syncDraftToServer } from '@/lib/draftsStorage';
+import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
 import { Draft } from '@/lib/types';
 
@@ -36,6 +36,12 @@ export const DraftsSyncManager = () => {
           // Continue with local drafts only
         }
         
+        // Create a map of server drafts by ID for quick lookup
+        const serverDraftsMap = new Map<string, any>();
+        serverDrafts.forEach(draft => {
+          serverDraftsMap.set(draft.id, draft);
+        });
+        
         // Merge drafts (prefer newer versions)
         const mergedDrafts = new Map<string, Draft>();
         
@@ -67,11 +73,40 @@ export const DraftsSyncManager = () => {
           saveDraft(draft);
         });
         
-        // Sync merged drafts to server using the proper sync function
-        for (const draft of Array.from(mergedDrafts.values())) {
+        // Sync local drafts to server
+        for (const draft of localDrafts) {
           try {
-            await syncDraftToServer(draft);
-            console.log('✅ Synced draft to server:', draft.id);
+            // Prepare draft for server
+            const serverDraft = {
+              id: draft.id,
+              board_id: draft.board_id,
+              content: {
+                memory: {
+                  ...draft.memory,
+                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
+                },
+                mediaItems: draft.mediaItems || []
+              }
+            };
+            
+            // Check if draft already exists on server
+            const existingServerDraft = serverDraftsMap.get(draft.id);
+            
+            if (existingServerDraft) {
+              // Draft exists on server, check if local version is newer
+              const serverUpdatedAt = new Date(existingServerDraft.updated_at);
+              if (draft.lastUpdated > serverUpdatedAt) {
+                // Local version is newer, update the server draft
+                await draftsApi.updateDraft(draft.id, serverDraft);
+                console.log('✅ Updated existing draft on server:', draft.id);
+              } else {
+                console.log('⏭️ Server draft is newer, skipping sync for:', draft.id);
+              }
+            } else {
+              // Draft doesn't exist on server, create new one
+              await draftsApi.saveDraft(serverDraft);
+              console.log('✅ Created new draft on server:', draft.id);
+            }
           } catch (error) {
             console.error('Failed to sync draft to server:', draft.id, error);
           }

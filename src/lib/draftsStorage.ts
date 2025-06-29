@@ -121,18 +121,25 @@ export const syncDraftToServer = async (draft: Draft): Promise<void> => {
     // Transform the draft data to match the database schema
     const dbPayload = {
       id: draft.id,
-      user_id: draft.userId, // Convert camelCase to snake_case
-      board_id: draft.boardId || null, // Convert camelCase to snake_case
+      board_id: draft.board_id || null,
       content: {
-        memory: draft.memory,
+        memory: {
+          ...draft.memory,
+          date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
+        },
         mediaItems: draft.mediaItems || []
-      },
-      created_at: draft.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      }
     };
     
     // Check if draft already exists on server
-    const existingDrafts = await draftsApi.fetchDrafts();
+    let existingDrafts: any[] = [];
+    try {
+      existingDrafts = await draftsApi.fetchDrafts();
+    } catch (error) {
+      console.error('Error fetching existing drafts:', error);
+      // If we can't fetch, assume it doesn't exist and try to create
+    }
+    
     const existingDraft = existingDrafts.find(d => d.id === draft.id);
     
     if (existingDraft) {
@@ -140,7 +147,7 @@ export const syncDraftToServer = async (draft: Draft): Promise<void> => {
       await draftsApi.updateDraft(draft.id, dbPayload);
       console.log(`Draft synced to server (updated): ${draft.id}`);
     } else {
-      // Create new draft on server - Fixed function name
+      // Create new draft on server
       await draftsApi.saveDraft(dbPayload);
       console.log(`Draft synced to server (created): ${draft.id}`);
     }
