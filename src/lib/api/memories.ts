@@ -323,10 +323,10 @@ export const memoriesApi = {
       let isVideo = false;
       
       if (memoryType === 'carousel') {
-        // For carousel memories, media_url must be NULL
+        // For carousel memories, media_url must be NULL and is_video must be false
+        // The individual media types are stored in the memory_media_items table
         mediaUrl = null;
-        // Set is_video to true if any media item is a video, false otherwise
-        isVideo = mediaItems.some(item => item.isVideo);
+        isVideo = false;
       } else if (memoryType === 'note') {
         // For note memories, media_url must be NULL and is_video must be false
         mediaUrl = null;
