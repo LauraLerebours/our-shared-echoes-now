@@ -41,7 +41,7 @@ export const draftsApi = {
       console.error('❌ [draftsApi.fetchDrafts] Error:', error);
       
       // If it's a network error or connection issue, return empty array instead of throwing
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
         console.warn('⚠️ [draftsApi.fetchDrafts] Network error detected, returning empty array');
         return [];
       }
