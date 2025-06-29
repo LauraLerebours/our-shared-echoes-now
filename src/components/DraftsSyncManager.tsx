@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { draftsApi } from '@/lib/api/drafts';
-import { getDrafts, clearDrafts, syncDraftToServer } from '@/lib/draftsStorage';
+import { getDrafts, clearAllDrafts, syncDraftToServer } from '@/lib/draftsStorage';
 
 export const DraftsSyncManager: React.FC = () => {
   const { user } = useAuth();
@@ -52,7 +52,7 @@ export const DraftsSyncManager: React.FC = () => {
         
         // Clear local drafts only if all were synced successfully
         if (syncedCount === localDrafts.length) {
-          clearDrafts();
+          clearAllDrafts();
           console.log('🧹 [DraftsSyncManager] Cleared local drafts after successful sync');
         }
       }
