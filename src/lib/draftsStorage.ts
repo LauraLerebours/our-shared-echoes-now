@@ -1,5 +1,5 @@
 import { Draft } from './types';
-import { draftsApi } from './lib/api/drafts';
+import { draftsApi } from './api/drafts';
 
 // Key for storing drafts in localStorage
 const DRAFTS_STORAGE_KEY = 'thisisus_memory_drafts';
