@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update profile picture function
   const updateProfilePicture = async (file: File) => {
-    if (!user) {
+    if (!user?.id) {
       return { error: new Error('No user logged in') };
     }
 
@@ -168,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Remove profile picture function
   const removeProfilePicture = async () => {
-    if (!user) {
+    if (!user?.id) {
       return { error: new Error('No user logged in') };
     }
 
