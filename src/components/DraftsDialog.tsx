@@ -51,7 +51,7 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
   };
 
   const handleEditDraft = (draft: Draft) => {
-    navigate('/add', { state: { draftId: draft.id, boardId: draft.boardId } });
+    navigate('/add', { state: { draftId: draft.id, boardId: draft.board_id } });
     setOpen(false);
     if (onDraftSelected) {
       onDraftSelected();

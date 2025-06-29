@@ -121,7 +121,7 @@ const AddMemory = () => {
         isDraft: true
       },
       lastUpdated: new Date(),
-      boardId: selectedBoard.id,
+      board_id: selectedBoard.id,
       mediaItems: memoryType === 'carousel' ? carouselItems.map((item, index) => ({
         preview: item.preview,
         isVideo: item.isVideo,
@@ -179,8 +179,8 @@ const AddMemory = () => {
             }
             
             // Set board if it exists in the draft
-            if (draft.boardId) {
-              const board = boards.find(b => b.id === draft.boardId);
+            if (draft.board_id) {
+              const board = boards.find(b => b.id === draft.board_id);
               if (board) {
                 setSelectedAccessCode(board.access_code);
                 setSelectedBoard({id: board.id, name: board.name});

@@ -83,7 +83,7 @@ export interface Draft {
   id: string;
   memory: Partial<Memory>;
   lastUpdated: Date;
-  boardId?: string;
+  board_id?: string; // Changed from boardId to board_id to match database schema
   mediaItems?: Array<{
     file?: File;
     preview: string;
