@@ -384,7 +384,7 @@ export const memoriesApi = {
         
         const mediaItemsToInsert = mediaItems.map((item, index) => ({
           memory_id: result.id,
-          url: item.url,
+          url: item.url || item.preview,
           is_video: item.isVideo,
           order: index
         }));
@@ -480,7 +480,7 @@ export const memoriesApi = {
           // Then insert the new media items
           const mediaItemsToInsert = updates.mediaItems.map((item, index) => ({
             memory_id: id,
-            url: item.url,
+            url: item.url || item.preview,
             is_video: item.isVideo,
             order: index
           }));

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
+import { getDrafts, saveDraft, deleteDraft, syncDraftToServer } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
 import { Draft } from '@/lib/types';
 
@@ -55,7 +55,10 @@ export const DraftsSyncManager = () => {
           // Convert server draft to client format
           const clientDraft: Draft = {
             id: serverDraft.id,
-            memory: serverDraft.content.memory,
+            memory: {
+              ...serverDraft.content.memory,
+              date: new Date(serverDraft.content.memory.date)
+            },
             lastUpdated: new Date(serverDraft.updated_at),
             board_id: serverDraft.board_id,
             mediaItems: serverDraft.content.mediaItems
@@ -76,37 +79,7 @@ export const DraftsSyncManager = () => {
         // Sync local drafts to server
         for (const draft of localDrafts) {
           try {
-            // Prepare draft for server
-            const serverDraft = {
-              id: draft.id,
-              board_id: draft.board_id,
-              content: {
-                memory: {
-                  ...draft.memory,
-                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
-                },
-                mediaItems: draft.mediaItems || []
-              }
-            };
-            
-            // Check if draft already exists on server
-            const existingServerDraft = serverDraftsMap.get(draft.id);
-            
-            if (existingServerDraft) {
-              // Draft exists on server, check if local version is newer
-              const serverUpdatedAt = new Date(existingServerDraft.updated_at);
-              if (draft.lastUpdated > serverUpdatedAt) {
-                // Local version is newer, update the server draft
-                await draftsApi.updateDraft(draft.id, serverDraft);
-                console.log('✅ Updated existing draft on server:', draft.id);
-              } else {
-                console.log('⏭️ Server draft is newer, skipping sync for:', draft.id);
-              }
-            } else {
-              // Draft doesn't exist on server, create new one
-              await draftsApi.saveDraft(serverDraft);
-              console.log('✅ Created new draft on server:', draft.id);
-            }
+            await syncDraftToServer(draft);
           } catch (error) {
             console.error('Failed to sync draft to server:', draft.id, error);
           }

@@ -76,13 +76,20 @@ export const getDraftById = (id: string): Draft | null => {
 };
 
 /**
- * Delete a draft by ID
+ * Delete a draft by ID from both localStorage and server
  */
 export const deleteDraft = (id: string): void => {
   try {
+    // Delete from localStorage
     const drafts = getDrafts();
     const filteredDrafts = drafts.filter(draft => draft.id !== id);
     localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filteredDrafts));
+    
+    // Delete from server (async, don't wait)
+    draftsApi.deleteDraft(id).catch(error => {
+      console.warn(`Failed to delete draft ${id} from server:`, error);
+    });
+    
     console.log(`Draft deleted: ${id}`);
   } catch (error) {
     console.error('Error deleting draft:', error);
@@ -90,11 +97,26 @@ export const deleteDraft = (id: string): void => {
 };
 
 /**
- * Delete all drafts
+ * Delete all drafts from both localStorage and server
  */
-export const clearAllDrafts = (): void => {
+export const clearAllDrafts = async (): Promise<void> => {
   try {
+    // Get all drafts first to know their IDs
+    const drafts = getDrafts();
+    
+    // Clear localStorage
     localStorage.removeItem(DRAFTS_STORAGE_KEY);
+    
+    // Delete each draft from server
+    const deletePromises = drafts.map(draft => 
+      draftsApi.deleteDraft(draft.id).catch(error => {
+        console.warn(`Failed to delete draft ${draft.id} from server:`, error);
+      })
+    );
+    
+    // Wait for all deletions to complete
+    await Promise.allSettled(deletePromises);
+    
     console.log('All drafts cleared');
   } catch (error) {
     console.error('Error clearing drafts:', error);
@@ -127,7 +149,11 @@ export const syncDraftToServer = async (draft: Draft): Promise<void> => {
           ...draft.memory,
           date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
         },
-        mediaItems: draft.mediaItems || []
+        mediaItems: draft.mediaItems ? draft.mediaItems.map(item => ({
+          ...item,
+          // Ensure URL is saved for media items
+          url: item.url || item.preview
+        })) : []
       }
     };
     

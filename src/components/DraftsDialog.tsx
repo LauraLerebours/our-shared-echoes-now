@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileEdit, Trash2, Calendar, MapPin, FileText, Video, Image, Images } from 'lucide-react';
 import { format } from 'date-fns';
-import { getDrafts, deleteDraft } from '@/lib/draftsStorage';
+import { getDrafts, deleteDraft, clearAllDrafts } from '@/lib/draftsStorage';
 import { Draft } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -37,6 +37,7 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isClearingAll, setIsClearingAll] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,6 +77,27 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
       });
     } finally {
       setIsDeleting(null);
+    }
+  };
+
+  const handleClearAllDrafts = async () => {
+    try {
+      setIsClearingAll(true);
+      await clearAllDrafts();
+      setDrafts([]);
+      toast({
+        title: "Drafts cleared",
+        description: "All drafts have been deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error clearing drafts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear drafts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClearingAll(false);
     }
   };
 
@@ -262,9 +284,17 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
           {drafts.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All Drafts
+                <Button 
+                  variant="outline" 
+                  className="text-destructive border-destructive hover:bg-destructive/10"
+                  disabled={isClearingAll}
+                >
+                  {isClearingAll ? (
+                    <div className="h-4 w-4 border-2 border-destructive border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  {isClearingAll ? 'Clearing...' : 'Clear All Drafts'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -277,23 +307,7 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={() => {
-                      try {
-                        localStorage.removeItem('thisisus_memory_drafts');
-                        setDrafts([]);
-                        toast({
-                          title: "Drafts cleared",
-                          description: "All drafts have been deleted successfully",
-                        });
-                      } catch (error) {
-                        console.error('Error clearing drafts:', error);
-                        toast({
-                          title: "Error",
-                          description: "Failed to clear drafts",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
+                    onClick={handleClearAllDrafts}
                     className="bg-destructive hover:bg-destructive/90"
                   >
                     Delete All

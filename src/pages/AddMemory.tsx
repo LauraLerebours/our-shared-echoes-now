@@ -43,7 +43,7 @@ const AddMemory = () => {
   const [moderating, setModerating] = useState(false);
   const [moderationError, setModerationError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [carouselItems, setCarouselItems] = useState<{file: File, preview: string, isVideo: boolean, uploading: boolean, url?: string, order: number}[]>([]);
+  const [carouselItems, setCarouselItems] = useState<{file?: File, preview: string, isVideo: boolean, uploading: boolean, url?: string, order: number}[]>([]);
   const { user, userProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -558,7 +558,7 @@ const AddMemory = () => {
       const mediaItems = memoryType === 'carousel' 
         ? carouselItems.map((item, index) => ({
             id: uuidv4(),
-            url: item.url!,
+            url: item.url || item.preview,
             isVideo: item.isVideo,
             memoryId,
             order: index,
