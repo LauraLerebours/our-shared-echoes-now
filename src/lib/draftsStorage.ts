@@ -1,4 +1,5 @@
 import { Draft } from './types';
+import { draftsApi } from './api/drafts';
 
 // Key for storing drafts in localStorage
 const DRAFTS_STORAGE_KEY = 'thisisus_memory_drafts';
@@ -109,5 +110,29 @@ export const getDraftsCount = (): number => {
   } catch (error) {
     console.error('Error getting drafts count:', error);
     return 0;
+  }
+};
+
+/**
+ * Sync a draft to the server
+ */
+export const syncDraftToServer = async (draft: Draft): Promise<void> => {
+  try {
+    // Check if draft already exists on server
+    const existingDrafts = await draftsApi.getDrafts();
+    const existingDraft = existingDrafts.find(d => d.id === draft.id);
+    
+    if (existingDraft) {
+      // Update existing draft on server
+      await draftsApi.updateDraft(draft.id, draft);
+      console.log(`Draft synced to server (updated): ${draft.id}`);
+    } else {
+      // Create new draft on server
+      await draftsApi.createDraft(draft);
+      console.log(`Draft synced to server (created): ${draft.id}`);
+    }
+  } catch (error) {
+    console.error('Error syncing draft to server:', error);
+    throw error;
   }
 };
