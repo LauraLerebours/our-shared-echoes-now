@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
+import { getDrafts, saveDraft, deleteDraft, syncDraftToServer } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
 import { Draft } from '@/lib/types';
 
@@ -67,23 +67,10 @@ export const DraftsSyncManager = () => {
           saveDraft(draft);
         });
         
-        // Sync local drafts to server
-        for (const draft of localDrafts) {
+        // Sync merged drafts to server using the proper sync function
+        for (const draft of Array.from(mergedDrafts.values())) {
           try {
-            // Prepare draft for server
-            const serverDraft = {
-              id: draft.id,
-              board_id: draft.board_id,
-              content: {
-                memory: {
-                  ...draft.memory,
-                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
-                },
-                mediaItems: draft.mediaItems || []
-              }
-            };
-            
-            await draftsApi.saveDraft(serverDraft);
+            await syncDraftToServer(draft);
             console.log('✅ Synced draft to server:', draft.id);
           } catch (error) {
             console.error('Failed to sync draft to server:', draft.id, error);
