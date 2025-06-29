@@ -1,85 +1,124 @@
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getDrafts, saveDraft, deleteDraft } from '@/lib/draftsStorage';
 import { draftsApi } from '@/lib/api/drafts';
-import { getDrafts, clearAllDrafts, syncDraftToServer } from '@/lib/draftsStorage';
+import { Draft } from '@/lib/types';
 
-export const DraftsSyncManager: React.FC = () => {
+/**
+ * Component that handles syncing drafts between localStorage and server
+ * This component doesn't render anything, it just runs the sync logic
+ */
+export const DraftsSyncManager = () => {
   const { user } = useAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const syncDrafts = useCallback(async () => {
-    if (!user) {
-      console.log('ℹ️ [DraftsSyncManager] No user authenticated, skipping sync');
-      return;
-    }
-
-    try {
-      console.log('🔄 [DraftsSyncManager] Starting draft sync...');
-      
-      // Get local drafts
-      const localDrafts = getDrafts();
-      console.log('📱 [DraftsSyncManager] Local drafts found:', localDrafts.length);
-
-      if (localDrafts.length === 0) {
-        console.log('ℹ️ [DraftsSyncManager] No local drafts to sync');
-        return;
-      }
-
-      // Try to fetch server drafts to check connectivity
-      let serverDrafts;
-      try {
-        serverDrafts = await draftsApi.fetchDrafts();
-        console.log('☁️ [DraftsSyncManager] Server drafts found:', serverDrafts.length);
-      } catch (error) {
-        console.warn('⚠️ [DraftsSyncManager] Failed to fetch server drafts, will retry sync later:', error);
-        return; // Don't sync if we can't connect to server
-      }
-
-      // Sync each local draft to server
-      let syncedCount = 0;
-      for (const localDraft of localDrafts) {
-        try {
-          await syncDraftToServer(localDraft);
-          syncedCount++;
-          console.log('✅ [DraftsSyncManager] Synced draft:', localDraft.id);
-        } catch (error) {
-          console.error('❌ [DraftsSyncManager] Failed to sync draft:', localDraft.id, error);
-          // Continue with other drafts even if one fails
-        }
-      }
-
-      if (syncedCount > 0) {
-        console.log(`✅ [DraftsSyncManager] Successfully synced ${syncedCount}/${localDrafts.length} drafts`);
-        
-        // Clear local drafts only if all were synced successfully
-        if (syncedCount === localDrafts.length) {
-          clearAllDrafts();
-          console.log('🧹 [DraftsSyncManager] Cleared local drafts after successful sync');
-        }
-      }
-    } catch (error) {
-      console.error('❌ [DraftsSyncManager] Sync error:', error);
-      // Don't throw the error to prevent breaking the component
-    }
-  }, [user]);
-
+  // Sync drafts when user logs in
   useEffect(() => {
-    if (user) {
-      console.log('👤 [DraftsSyncManager] User authenticated, starting sync process');
-      
-      // Initial sync
+    if (!user) return;
+
+    const syncDrafts = async () => {
+      if (isSyncing) return;
+      setIsSyncing(true);
+
+      try {
+        console.log('🔄 Syncing drafts...');
+        
+        // Get local drafts
+        const localDrafts = getDrafts();
+        
+        // Get server drafts
+        let serverDrafts: any[] = [];
+        try {
+          serverDrafts = await draftsApi.fetchDrafts();
+          console.log('✅ Fetched server drafts:', serverDrafts.length);
+        } catch (error) {
+          console.error('Failed to fetch server drafts:', error);
+          // Continue with local drafts only
+        }
+        
+        // Merge drafts (prefer newer versions)
+        const mergedDrafts = new Map<string, Draft>();
+        
+        // First add all local drafts
+        localDrafts.forEach(draft => {
+          mergedDrafts.set(draft.id, draft);
+        });
+        
+        // Then add server drafts, overwriting local ones if server version is newer
+        serverDrafts.forEach(serverDraft => {
+          // Convert server draft to client format
+          const clientDraft: Draft = {
+            id: serverDraft.id,
+            memory: serverDraft.content.memory,
+            lastUpdated: new Date(serverDraft.updated_at),
+            board_id: serverDraft.board_id,
+            mediaItems: serverDraft.content.mediaItems
+          };
+          
+          const localDraft = mergedDrafts.get(serverDraft.id);
+          
+          if (!localDraft || new Date(serverDraft.updated_at) > localDraft.lastUpdated) {
+            mergedDrafts.set(serverDraft.id, clientDraft);
+          }
+        });
+        
+        // Update localStorage with merged drafts
+        Array.from(mergedDrafts.values()).forEach(draft => {
+          saveDraft(draft);
+        });
+        
+        // Sync local drafts to server
+        for (const draft of localDrafts) {
+          try {
+            // Prepare draft for server
+            const serverDraft = {
+              id: draft.id,
+              board_id: draft.board_id,
+              content: {
+                memory: {
+                  ...draft.memory,
+                  date: draft.memory.date ? draft.memory.date.toISOString() : new Date().toISOString()
+                },
+                mediaItems: draft.mediaItems || []
+              }
+            };
+            
+            await draftsApi.saveDraft(serverDraft);
+            console.log('✅ Synced draft to server:', draft.id);
+          } catch (error) {
+            console.error('Failed to sync draft to server:', draft.id, error);
+          }
+        }
+        
+        console.log('✅ Drafts synced successfully');
+        
+        // Dispatch custom event to notify other components
+        window.dispatchEvent(new Event('draftsUpdated'));
+      } catch (error) {
+        console.error('Error syncing drafts:', error);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Sync on initial load
+    syncDrafts();
+    
+    // Set up interval to sync every 5 minutes
+    const interval = setInterval(syncDrafts, 5 * 60 * 1000);
+    
+    // Set up event listener for manual sync
+    const handleDraftsUpdated = () => {
       syncDrafts();
-
-      // Set up periodic sync every 30 seconds
-      const syncInterval = setInterval(syncDrafts, 30000);
-
-      return () => {
-        console.log('🛑 [DraftsSyncManager] Cleaning up sync interval');
-        clearInterval(syncInterval);
-      };
-    } else {
-      console.log('👤 [DraftsSyncManager] No user authenticated, sync disabled');
-    }
-  }, [user, syncDrafts]);
+    };
+    
+    window.addEventListener('draftsUpdated', handleDraftsUpdated);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('draftsUpdated', handleDraftsUpdated);
+    };
+  }, [user, isSyncing]);
 
   // This component doesn't render anything
   return null;

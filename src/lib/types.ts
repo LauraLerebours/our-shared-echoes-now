@@ -84,6 +84,8 @@ export interface Draft {
   memory: Partial<Memory>;
   lastUpdated: Date;
   board_id?: string; // Changed from boardId to board_id to match database schema
+  userId?: string; // Added for server-side drafts
+  createdAt?: string; // Added for server-side drafts
   mediaItems?: Array<{
     file?: File;
     preview: string;
