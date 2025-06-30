@@ -20,8 +20,13 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     if (!ctx) return;
     
     // Set canvas dimensions to match window
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
     
     // Colors from the app's theme
     const colors = ['#FFA5BA', '#9b87f5', '#E5DEFF'];
@@ -36,6 +41,16 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     // Center position
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
+    
+    // Calculate responsive font size based on screen dimensions
+    const calculateFontSize = () => {
+      const baseFontSize = 48;
+      const minFontSize = 24;
+      const screenSizeMultiplier = Math.min(canvas.width, canvas.height) / 1000;
+      return Math.max(minFontSize, Math.floor(baseFontSize * screenSizeMultiplier * 2));
+    };
+    
+    const fontSize = calculateFontSize();
     
     // Heart shape points (will be the targets for the small hearts)
     const heartPoints: {x: number, y: number}[] = [];
@@ -189,8 +204,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
           ctx.save();
           ctx.globalAlpha = textOpacity;
           
-          // Use the same font as in the Welcome component
-          ctx.font = 'bold 48px sans-serif';
+          // Use responsive font size
+          ctx.font = `bold ${fontSize}px sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           
@@ -200,9 +215,9 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
           
           // Gradient text
           const textGradient = ctx.createLinearGradient(
-            centerX - 100, 
+            centerX - fontSize * 2, 
             textY, 
-            centerX + 100, 
+            centerX + fontSize * 2, 
             textY
           );
           textGradient.addColorStop(0, '#FFA5BA');
@@ -229,6 +244,7 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     
     // Cleanup function
     return () => {
+      window.removeEventListener('resize', resizeCanvas);
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
       }
