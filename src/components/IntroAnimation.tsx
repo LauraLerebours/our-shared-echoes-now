@@ -47,14 +47,14 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       const baseFontSize = 48;
       const minFontSize = 24;
       const screenSizeMultiplier = Math.min(canvas.width, canvas.height) / 1000;
-      return Math.max(minFontSize, Math.floor(baseFontSize * screenSizeMultiplier * 2));
+      return Math.max(minFontSize, Math.floor(baseFontSize * screenSizeMultiplier * 1.2));
     };
     
     const fontSize = calculateFontSize();
     
     // Heart shape points (will be the targets for the small hearts)
     const heartPoints: {x: number, y: number}[] = [];
-    const heartSize = Math.min(canvas.width, canvas.height) * 0.2; // Responsive heart size
+    const heartSize = Math.min(canvas.width, canvas.height) * 0.25; // Responsive heart size
     
     // Generate points along a heart shape
     for (let i = 0; i < 40; i++) {
@@ -110,7 +110,7 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     // Text elements
     const text = "This Is Us";
     let textOpacity = 0;
-    let textY = centerY; // Starting Y position for text
+    let textY = centerY + heartSize * 0.1; // Position text inside the heart
     
     // Draw heart shape
     function drawHeart(x: number, y: number, size: number, color: string, rotation: number, opacity: number) {
