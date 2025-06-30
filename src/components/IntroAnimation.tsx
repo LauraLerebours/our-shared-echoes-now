@@ -23,7 +23,10 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     const colors = ['#FFA5BA', '#9b87f5', '#E5DEFF'];
     
     // Animation timing
-    const animationDuration = 3000; // 3 seconds
+    const animationDuration = 4000; // 4 seconds total
+    const heartFormationTime = 2000; // 2 seconds to form heart
+    const heartDisplayTime = 1000; // 1 second to display heart
+    const textRiseTime = 1000; // 1 second for text to rise
     const startTime = performance.now();
     
     // Center position
@@ -88,6 +91,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     // Text elements
     const text = "This Is Us";
     let textOpacity = 0;
+    let textY = centerY; // Starting Y position for text
+    let textTargetY = centerY - 100; // Target Y position (higher up)
     
     // Draw heart shape
     function drawHeart(x: number, y: number, size: number, color: string, rotation: number, opacity: number) {
@@ -123,6 +128,13 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       const elapsed = timestamp - startTime;
       const progress = Math.min(elapsed / animationDuration, 1);
       
+      // Calculate sub-progress for each animation phase
+      const heartFormationProgress = Math.min(elapsed / heartFormationTime, 1);
+      const heartDisplayProgress = elapsed > heartFormationTime ? 
+        Math.min((elapsed - heartFormationTime) / heartDisplayTime, 1) : 0;
+      const textRiseProgress = elapsed > (heartFormationTime + heartDisplayTime) ? 
+        Math.min((elapsed - heartFormationTime - heartDisplayTime) / textRiseTime, 1) : 0;
+      
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -133,27 +145,42 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
+      // Calculate heart opacity based on display phase
+      // 0 during formation, rises to 1, then falls back to 0
+      const heartOpacityMultiplier = heartFormationProgress < 1 ? 1 : 
+        (1 - heartDisplayProgress);
+      
       // Update and draw hearts
-      for (const heart of hearts) {
-        // Custom easing function for smoother movement
-        const easeProgress = progress < 0.5 
-          ? 4 * progress * progress * progress 
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-        
-        // Update position and size with easing
-        heart.x = heart.x + (heart.targetX - heart.x) * easeProgress * heart.speed;
-        heart.y = heart.y + (heart.targetY - heart.y) * easeProgress * heart.speed;
-        heart.size = heart.size + (heart.targetSize - heart.size) * easeProgress * 0.1;
-        heart.rotation = heart.rotation + (heart.targetRotation - heart.rotation) * easeProgress * 0.1;
-        heart.opacity = Math.min(1, progress * 3); // Fade in faster
-        
-        // Draw heart
-        drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
+      if (heartOpacityMultiplier > 0) {
+        for (const heart of hearts) {
+          // Custom easing function for smoother movement
+          const easeProgress = heartFormationProgress < 0.5 
+            ? 4 * heartFormationProgress * heartFormationProgress * heartFormationProgress 
+            : 1 - Math.pow(-2 * heartFormationProgress + 2, 3) / 2;
+          
+          // Update position and size with easing
+          heart.x = heart.x + (heart.targetX - heart.x) * easeProgress * heart.speed;
+          heart.y = heart.y + (heart.targetY - heart.y) * easeProgress * heart.speed;
+          heart.size = heart.size + (heart.targetSize - heart.size) * easeProgress * 0.1;
+          heart.rotation = heart.rotation + (heart.targetRotation - heart.rotation) * easeProgress * 0.1;
+          heart.opacity = Math.min(1, heartFormationProgress * 3) * heartOpacityMultiplier; // Fade in faster, then fade out
+          
+          // Draw heart
+          drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
+        }
       }
       
-      // Draw text with fade in
-      if (progress > 0.6) {
-        textOpacity = (progress - 0.6) * 2.5; // Fade in during last part
+      // Draw text with fade in and movement
+      if (heartFormationProgress > 0.6) {
+        // Text appears during heart formation
+        textOpacity = Math.min(1, (heartFormationProgress - 0.6) * 2.5);
+        
+        // Text rises after heart disappears
+        if (textRiseProgress > 0) {
+          // Ease out cubic for smooth movement
+          const easedProgress = 1 - Math.pow(1 - textRiseProgress, 3);
+          textY = centerY - (centerY * 0.6) * easedProgress; // Move up to 60% of the way to the top
+        }
         
         ctx.save();
         ctx.globalAlpha = textOpacity;
@@ -163,20 +190,20 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
         
         // Text shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillText(text, centerX + 2, centerY + 2);
+        ctx.fillText(text, centerX + 2, textY + 2);
         
         // Gradient text
         const textGradient = ctx.createLinearGradient(
           centerX - 100, 
-          centerY, 
+          textY, 
           centerX + 100, 
-          centerY
+          textY
         );
         textGradient.addColorStop(0, '#FFA5BA');
         textGradient.addColorStop(1, '#9b87f5');
         
         ctx.fillStyle = textGradient;
-        ctx.fillText(text, centerX, centerY);
+        ctx.fillText(text, centerX, textY);
         ctx.restore();
       }
       
@@ -184,10 +211,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Animation complete, trigger callback after a short delay
-        setTimeout(() => {
-          onAnimationComplete();
-        }, 500);
+        // Animation complete, trigger callback
+        onAnimationComplete();
       }
     }
     
