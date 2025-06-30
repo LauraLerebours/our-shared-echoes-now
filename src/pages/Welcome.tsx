@@ -41,7 +41,6 @@ const Welcome = () => {
   const handleIntroComplete = () => {
     setShowMainContent(true);
     setIntroCompleted(true);
-    // Keep showIntro true so the title doesn't disappear
   };
 
   // Auto-advance slides

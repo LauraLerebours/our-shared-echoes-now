@@ -96,7 +96,6 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     const text = "This Is Us";
     let textOpacity = 0;
     let textY = centerY; // Starting Y position for text
-    let textTargetY = centerY - 100; // Target Y position (higher up)
     
     // Draw heart shape
     function drawHeart(x: number, y: number, size: number, color: string, rotation: number, opacity: number) {
@@ -181,38 +180,38 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
         // Text appears during heart formation
         textOpacity = Math.min(1, (heartFormationProgress - 0.6) * 2.5);
         
-        // Text rises after heart disappears
+        // Text fades out after heart disappears
         if (textRiseProgress > 0) {
-          // Ease out cubic for smooth movement
-          const easedProgress = 1 - Math.pow(1 - textRiseProgress, 3);
-          textY = centerY - (centerY * 0.6) * easedProgress; // Move up to 60% of the way to the top
+          textOpacity = Math.max(0, 1 - textRiseProgress * 2); // Fade out faster
         }
         
-        ctx.save();
-        ctx.globalAlpha = textOpacity;
-        
-        // Use the same font as in the Welcome component
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        // Text shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillText(text, centerX + 2, textY + 2);
-        
-        // Gradient text
-        const textGradient = ctx.createLinearGradient(
-          centerX - 100, 
-          textY, 
-          centerX + 100, 
-          textY
-        );
-        textGradient.addColorStop(0, '#FFA5BA');
-        textGradient.addColorStop(1, '#9b87f5');
-        
-        ctx.fillStyle = textGradient;
-        ctx.fillText(text, centerX, textY);
-        ctx.restore();
+        if (textOpacity > 0) {
+          ctx.save();
+          ctx.globalAlpha = textOpacity;
+          
+          // Use the same font as in the Welcome component
+          ctx.font = 'bold 48px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // Text shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+          ctx.fillText(text, centerX + 2, textY + 2);
+          
+          // Gradient text
+          const textGradient = ctx.createLinearGradient(
+            centerX - 100, 
+            textY, 
+            centerX + 100, 
+            textY
+          );
+          textGradient.addColorStop(0, '#FFA5BA');
+          textGradient.addColorStop(1, '#9b87f5');
+          
+          ctx.fillStyle = textGradient;
+          ctx.fillText(text, centerX, textY);
+          ctx.restore();
+        }
       }
       
       // Continue animation or end
