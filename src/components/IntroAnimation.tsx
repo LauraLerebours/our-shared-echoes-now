@@ -23,10 +23,32 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     const colors = ['#FFA5BA', '#9b87f5', '#E5DEFF'];
     
     // Animation timing
-    const animationDuration = 2000; // 2 seconds
+    const animationDuration = 3000; // 3 seconds
     const startTime = performance.now();
     
-    // Logo elements
+    // Center position
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    // Heart shape points (will be the targets for the small hearts)
+    const heartPoints: {x: number, y: number}[] = [];
+    const heartSize = Math.min(canvas.width, canvas.height) * 0.2; // Responsive heart size
+    
+    // Generate points along a heart shape
+    for (let i = 0; i < 40; i++) {
+      const t = (i / 40) * Math.PI * 2;
+      // Heart shape parametric equation
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+      
+      // Scale and position the heart
+      heartPoints.push({
+        x: centerX + x * (heartSize / 16),
+        y: centerY - y * (heartSize / 16) // Negative because canvas y-axis is flipped
+      });
+    }
+    
+    // Logo elements - small hearts that will converge to form the big heart
     const hearts: {
       x: number;
       y: number;
@@ -38,21 +60,28 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       targetY: number;
       targetSize: number;
       targetRotation: number;
+      speed: number;
     }[] = [];
     
-    // Create scattered hearts that will converge to form the logo
-    for (let i = 0; i < 20; i++) {
+    // Create scattered hearts that will converge to form the heart shape
+    for (let i = 0; i < 40; i++) {
+      // Get a point on the heart shape as the target
+      const targetPoint = heartPoints[i % heartPoints.length];
+      
       hearts.push({
+        // Start from random positions around the screen
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 30 + 5,
+        size: Math.random() * 20 + 5,
         color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * 360,
         opacity: 0,
-        targetX: canvas.width / 2 + (Math.random() - 0.5) * 100,
-        targetY: canvas.height / 2 + (Math.random() - 0.5) * 100,
-        targetSize: Math.random() * 20 + 10,
-        targetRotation: Math.random() * 30 - 15
+        // Target is a point on the heart shape
+        targetX: targetPoint.x,
+        targetY: targetPoint.y,
+        targetSize: Math.random() * 10 + 5,
+        targetRotation: Math.random() * 30 - 15,
+        speed: 0.5 + Math.random() * 0.5 // Random speed for more natural movement
       });
     }
     
@@ -106,25 +135,25 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       
       // Update and draw hearts
       for (const heart of hearts) {
-        // Ease in
+        // Custom easing function for smoother movement
         const easeProgress = progress < 0.5 
           ? 4 * progress * progress * progress 
           : 1 - Math.pow(-2 * progress + 2, 3) / 2;
         
         // Update position and size with easing
-        heart.x = heart.x + (heart.targetX - heart.x) * easeProgress * 0.1;
-        heart.y = heart.y + (heart.targetY - heart.y) * easeProgress * 0.1;
+        heart.x = heart.x + (heart.targetX - heart.x) * easeProgress * heart.speed;
+        heart.y = heart.y + (heart.targetY - heart.y) * easeProgress * heart.speed;
         heart.size = heart.size + (heart.targetSize - heart.size) * easeProgress * 0.1;
         heart.rotation = heart.rotation + (heart.targetRotation - heart.rotation) * easeProgress * 0.1;
-        heart.opacity = Math.min(1, progress * 2);
+        heart.opacity = Math.min(1, progress * 3); // Fade in faster
         
         // Draw heart
         drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
       }
       
       // Draw text with fade in
-      if (progress > 0.5) {
-        textOpacity = (progress - 0.5) * 2; // Fade in during second half
+      if (progress > 0.6) {
+        textOpacity = (progress - 0.6) * 2.5; // Fade in during last part
         
         ctx.save();
         ctx.globalAlpha = textOpacity;
@@ -134,20 +163,20 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
         
         // Text shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillText(text, canvas.width / 2 + 2, canvas.height / 2 + 2);
+        ctx.fillText(text, centerX + 2, centerY + 2);
         
         // Gradient text
         const textGradient = ctx.createLinearGradient(
-          canvas.width / 2 - 100, 
-          canvas.height / 2, 
-          canvas.width / 2 + 100, 
-          canvas.height / 2
+          centerX - 100, 
+          centerY, 
+          centerX + 100, 
+          centerY
         );
         textGradient.addColorStop(0, '#FFA5BA');
         textGradient.addColorStop(1, '#9b87f5');
         
         ctx.fillStyle = textGradient;
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(text, centerX, centerY);
         ctx.restore();
       }
       
