@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Heart, Users, Camera, Calendar } from 'lucide-react';
 import AuthAnimation from '@/components/AuthAnimation';
 import FloatingHearts from '@/components/FloatingHearts';
-import WelcomeAnimation from '@/components/WelcomeAnimation';
+import IntroAnimation from '@/components/IntroAnimation';
 
 const Welcome = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
+  const [showIntro, setShowIntro] = useState(true);
   const [showMainContent, setShowMainContent] = useState(false);
 
   // Features to showcase
@@ -35,14 +36,11 @@ const Welcome = () => {
     }
   ];
   
-  // Show intro animation first, then reveal main content
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowMainContent(true);
-    }, 2000); // Show main content after 2 seconds
-    
-    return () => clearTimeout(timer);
-  }, []);
+  // Handle intro animation completion
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    setShowMainContent(true);
+  };
 
   // Auto-advance slides
   useEffect(() => {
@@ -74,15 +72,25 @@ const Welcome = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* Cool new animation */}
-      <WelcomeAnimation />
+      {/* Intro Animation */}
+      <AnimatePresence>
+        {showIntro && (
+          <IntroAnimation onAnimationComplete={handleIntroComplete} />
+        )}
+      </AnimatePresence>
       
-      {/* Existing animated backgrounds */}
-      <AuthAnimation />
-      <FloatingHearts count={15} />
+      {/* Existing animated backgrounds - only show after intro */}
+      {!showIntro && (
+        <>
+          <AuthAnimation />
+          <FloatingHearts count={15} />
+        </>
+      )}
       
-      {/* Overlay for better readability */}
-      <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      {/* Overlay for better readability - only show after intro */}
+      {!showIntro && (
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      )}
       
       <AnimatePresence>
         {showMainContent && (
