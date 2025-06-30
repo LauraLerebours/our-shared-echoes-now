@@ -3,6 +3,7 @@ import { StrictMode, useEffect } from 'react'
 import App from './App.tsx'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
+import { HelmetProvider } from 'react-helmet-async';
 
 // Register service worker for PWA support
 // Only register in production environment to avoid errors in development/unsupported platforms
@@ -57,7 +58,9 @@ function PWAInstallPrompt() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <PWAInstallPrompt />
-    <App />
+    <HelmetProvider>
+      <PWAInstallPrompt />
+      <App />
+    </HelmetProvider>
   </StrictMode>
 );

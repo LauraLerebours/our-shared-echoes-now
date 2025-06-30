@@ -16,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Grid3X3, List, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import SEOHelmet from '@/components/SEOHelmet';
 
 const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -331,84 +332,91 @@ const Index = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
+      <>
+        <SEOHelmet 
+          title="Your Timeline | This Is Us"
+          description="View and manage your shared memories timeline. Add photos, videos, and notes to capture special moments with your loved ones."
+        />
         
-        {/* View Mode Toggle - only show if we have memories or are not loading */}
-        {memories.length > 0 && !memoriesLoading && (
-          <div className="flex justify-center items-center py-3 px-4 border-b bg-white sticky top-16 z-40">
-            <div className="flex bg-muted rounded-lg p-1">
-              <Button
-                variant={viewMode === 'timeline' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('timeline')}
-                className={viewMode === 'timeline' ? 'bg-memory-purple hover:bg-memory-purple/90' : ''}
-              >
-                <List className="h-4 w-4 mr-2" />
-                Timeline
-              </Button>
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className={viewMode === 'grid' ? 'bg-memory-purple hover:bg-memory-purple/90' : ''}
-              >
-                <Grid3X3 className="h-4 w-4 mr-2" />
-                Grid
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        <main ref={mainRef} className="flex-1 relative pt-16">
-          {/* Show loading only if we're in the initial loading phase or explicitly loading memories */}
-          {(boardsLoading && !hasInitiallyLoaded) || (memoriesLoading && !hasInitiallyLoaded) ? (
-            <div className="flex justify-center items-center h-64">
-              <LoadingSpinner size="lg" text={
-                boardsLoading ? "Loading your boards..." : "Loading your memories..."
-              } />
-            </div>
-          ) : boards.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64">
-              <p className="text-muted-foreground mb-4">No boards found</p>
-              <Button 
-                onClick={handleCreateDefaultBoard}
-                className="bg-memory-purple hover:bg-memory-purple/90"
-              >
-                Create Your First Board
-              </Button>
-            </div>
-          ) : memories.length === 0 && hasInitiallyLoaded ? (
-            <EmptyState />
-          ) : memories.length > 0 ? (
-            <>
-              {viewMode === 'timeline' ? (
-                <div className="max-w-3xl mx-auto">
-                  <MemoryList 
-                    memories={memories} 
-                    onDeleteMemory={handleDeleteMemory}
-                    onUpdateMemory={handleUpdateMemory}
-                  />
-                </div>
-              ) : (
-                <MemoryGrid 
-                  memories={memories}
-                  onViewDetail={handleViewDetail}
-                  onUpdateMemory={handleUpdateMemory}
-                />
-              )}
-              <ScrollToBottom containerRef={mainRef} />
-            </>
-          ) : (
-            // Show a minimal loading state if we're waiting for data
-            <div className="flex justify-center items-center h-64">
-              <LoadingSpinner size="md" text="Loading..." />
+        <div className="min-h-screen bg-background flex flex-col">
+          <Header />
+          
+          {/* View Mode Toggle - only show if we have memories or are not loading */}
+          {memories.length > 0 && !memoriesLoading && (
+            <div className="flex justify-center items-center py-3 px-4 border-b bg-white sticky top-16 z-40">
+              <div className="flex bg-muted rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('timeline')}
+                  className={viewMode === 'timeline' ? 'bg-memory-purple hover:bg-memory-purple/90' : ''}
+                >
+                  <List className="h-4 w-4 mr-2" />
+                  Timeline
+                </Button>
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className={viewMode === 'grid' ? 'bg-memory-purple hover:bg-memory-purple/90' : ''}
+                >
+                  <Grid3X3 className="h-4 w-4 mr-2" />
+                  Grid
+                </Button>
+              </div>
             </div>
           )}
-        </main>
-        
-        <Footer activeTab="timeline" />
-      </div>
+          
+          <main ref={mainRef} className="flex-1 relative pt-16">
+            {/* Show loading only if we're in the initial loading phase or explicitly loading memories */}
+            {(boardsLoading && !hasInitiallyLoaded) || (memoriesLoading && !hasInitiallyLoaded) ? (
+              <div className="flex justify-center items-center h-64">
+                <LoadingSpinner size="lg" text={
+                  boardsLoading ? "Loading your boards..." : "Loading your memories..."
+                } />
+              </div>
+            ) : boards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <p className="text-muted-foreground mb-4">No boards found</p>
+                <Button 
+                  onClick={handleCreateDefaultBoard}
+                  className="bg-memory-purple hover:bg-memory-purple/90"
+                >
+                  Create Your First Board
+                </Button>
+              </div>
+            ) : memories.length === 0 && hasInitiallyLoaded ? (
+              <EmptyState />
+            ) : memories.length > 0 ? (
+              <>
+                {viewMode === 'timeline' ? (
+                  <div className="max-w-3xl mx-auto">
+                    <MemoryList 
+                      memories={memories} 
+                      onDeleteMemory={handleDeleteMemory}
+                      onUpdateMemory={handleUpdateMemory}
+                    />
+                  </div>
+                ) : (
+                  <MemoryGrid 
+                    memories={memories}
+                    onViewDetail={handleViewDetail}
+                    onUpdateMemory={handleUpdateMemory}
+                  />
+                )}
+                <ScrollToBottom containerRef={mainRef} />
+              </>
+            ) : (
+              // Show a minimal loading state if we're waiting for data
+              <div className="flex justify-center items-center h-64">
+                <LoadingSpinner size="md" text="Loading..." />
+              </div>
+            )}
+          </main>
+          
+          <Footer activeTab="timeline" />
+        </div>
+      </>
     </ErrorBoundary>
   );
 };

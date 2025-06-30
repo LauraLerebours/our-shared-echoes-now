@@ -9,6 +9,7 @@ import { boardsApi } from '@/lib/api/boards';
 import { toast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import SEOHelmet from '@/components/SEOHelmet';
 import {
   Select,
   SelectContent,
@@ -146,112 +147,119 @@ const Share = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
+    <>
+      <SEOHelmet 
+        title="Share & Join Boards | This Is Us"
+        description="Share your memory boards with friends and family, or join boards shared with you. Collaborate on memories together."
+      />
       
-      <main className="flex-1 p-4 pt-16">
-        <div className="max-w-md mx-auto space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">Share & Collaborate</h1>
-            <p className="text-muted-foreground mt-2">
-              Share your boards or join others' boards to collaborate
-            </p>
-          </div>
-          
-          {/* Share Your Board Section */}
-          <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Share Your Board</h2>
-            <p className="text-sm text-muted-foreground">
-              Every board has a unique share code that never changes
-            </p>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Select Board to Share</label>
-              <Select value={selectedBoard} onValueChange={setSelectedBoard}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a board" />
-                </SelectTrigger>
-                <SelectContent>
-                  {boards.map((board) => (
-                    <SelectItem key={board.id} value={board.id}>
-                      {board.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button 
-              onClick={getShareCode}
-              className="w-full bg-memory-purple hover:bg-memory-purple/90"
-              disabled={!selectedBoard}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Get Share Code
-            </Button>
-            
-            {shareCode && (
-              <div className="border rounded-md overflow-hidden">
-                <div className="bg-muted p-3 flex items-center justify-between">
-                  <span className="font-mono text-lg">{shareCode}</span>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={copyToClipboard}
-                    className="h-8 w-8 p-0"
-                  >
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <div className="px-3 py-2 bg-blue-50 border-t">
-                  <p className="text-xs text-blue-600">
-                    Share this code with others so they can join your board
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Join a Board Section */}
-          <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Join a Board</h2>
-            <p className="text-sm text-muted-foreground">
-              Enter a share code to join someone else's board and collaborate
-            </p>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Share Code</label>
-              <Input
-                placeholder="Enter share code (e.g., ABC123)"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                maxLength={6}
-                autoComplete="off"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && joinCode.trim() && !isJoining) {
-                    handleJoinBoard();
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Share codes are 6 characters long (letters and numbers)
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        
+        <main className="flex-1 p-4 pt-16">
+          <div className="max-w-md mx-auto space-y-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold">Share & Collaborate</h1>
+              <p className="text-muted-foreground mt-2">
+                Share your boards or join others' boards to collaborate
               </p>
             </div>
+            
+            {/* Share Your Board Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+              <h2 className="text-lg font-semibold">Share Your Board</h2>
+              <p className="text-sm text-muted-foreground">
+                Every board has a unique share code that never changes
+              </p>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Board to Share</label>
+                <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a board" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {boards.map((board) => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <Button 
-              onClick={handleJoinBoard}
-              className="w-full bg-green-600 hover:bg-green-700"
-              disabled={isJoining || !joinCode.trim()}
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              {isJoining ? 'Joining...' : 'Join Board'}
-            </Button>
+              <Button 
+                onClick={getShareCode}
+                className="w-full bg-memory-purple hover:bg-memory-purple/90"
+                disabled={!selectedBoard}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Get Share Code
+              </Button>
+              
+              {shareCode && (
+                <div className="border rounded-md overflow-hidden">
+                  <div className="bg-muted p-3 flex items-center justify-between">
+                    <span className="font-mono text-lg">{shareCode}</span>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={copyToClipboard}
+                      className="h-8 w-8 p-0"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <div className="px-3 py-2 bg-blue-50 border-t">
+                    <p className="text-xs text-blue-600">
+                      Share this code with others so they can join your board
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Join a Board Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+              <h2 className="text-lg font-semibold">Join a Board</h2>
+              <p className="text-sm text-muted-foreground">
+                Enter a share code to join someone else's board and collaborate
+              </p>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Share Code</label>
+                <Input
+                  placeholder="Enter share code (e.g., ABC123)"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && joinCode.trim() && !isJoining) {
+                      handleJoinBoard();
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Share codes are 6 characters long (letters and numbers)
+                </p>
+              </div>
+
+              <Button 
+                onClick={handleJoinBoard}
+                className="w-full bg-green-600 hover:bg-green-700"
+                disabled={isJoining || !joinCode.trim()}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                {isJoining ? 'Joining...' : 'Join Board'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </main>
-      
-      <Footer activeTab="share" />
-    </div>
+        </main>
+        
+        <Footer activeTab="share" />
+      </div>
+    </>
   );
 };
 
