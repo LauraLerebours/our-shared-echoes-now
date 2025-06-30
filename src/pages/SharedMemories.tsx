@@ -10,6 +10,7 @@ import { fetchMemories, Board } from '@/lib/db';
 import { boardsApi } from '@/lib/api/boards';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 const SharedMemories = () => {
   const { code } = useParams<{ code: string }>();
@@ -143,7 +144,7 @@ const SharedMemories = () => {
       <main ref={mainRef} className="flex-1 relative pt-16">
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <p>Loading shared memories...</p>
+            <LoadingSpinner size="md" text="Loading shared memories..." />
           </div>
         ) : !board ? (
           <div className="flex flex-col items-center justify-center h-64">

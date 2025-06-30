@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Share2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MemoryList from '@/components/MemoryList';
 import ScrollToBottom from '@/components/ScrollToBottom';
@@ -10,6 +10,8 @@ import { toast } from '@/hooks/use-toast';
 import { Board } from '@/lib/db';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import BoardMembersDialog from '@/components/BoardMembersDialog';
+import BoardInviteDialog from '@/components/BoardInviteDialog';
 
 const BoardView = () => {
   const { boardId } = useParams();
@@ -146,13 +148,45 @@ const BoardView = () => {
         
         <h1 className="text-lg font-medium">{board?.name || 'Loading...'}</h1>
         
-        <Button 
-          size="sm"
-          onClick={() => navigate('/add', { state: { boardId: boardId } })}
-          className="bg-memory-purple hover:bg-memory-purple/90"
-        >
-          Add Memory
-        </Button>
+        <div className="flex gap-2">
+          {board && (
+            <>
+              <BoardMembersDialog boardId={board.id} boardName={board.name}>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="p-2 h-9 w-9"
+                  title="View Members"
+                >
+                  <Users className="h-5 w-5 text-memory-purple" />
+                </Button>
+              </BoardMembersDialog>
+              
+              <BoardInviteDialog 
+                boardId={board.id} 
+                boardName={board.name} 
+                shareCode={board.share_code}
+              >
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="p-2 h-9 w-9"
+                  title="Invite to Board"
+                >
+                  <Share2 className="h-5 w-5 text-memory-purple" />
+                </Button>
+              </BoardInviteDialog>
+            </>
+          )}
+          
+          <Button 
+            size="sm"
+            onClick={() => navigate('/add', { state: { boardId: boardId } })}
+            className="bg-memory-purple hover:bg-memory-purple/90"
+          >
+            Add Memory
+          </Button>
+        </div>
       </header>
       
       <main ref={mainRef} className="flex-1 relative pt-16">
