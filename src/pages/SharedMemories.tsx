@@ -172,7 +172,7 @@ const SharedMemories = () => {
             
             {memories.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64">
-                <p>No memories in this board yet.</p>
+                <p>You are joining {board?.name} </p>
                 {user && (
                   <Button 
                     onClick={handleJoinBoard}
