@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface IntroAnimationProps {
@@ -7,8 +7,12 @@ interface IntroAnimationProps {
 
 const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [animationCompleted, setAnimationCompleted] = useState(false);
   
   useEffect(() => {
+    // Only run the animation if it hasn't completed yet
+    if (animationCompleted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -123,6 +127,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     }
     
     // Animation loop
+    let animationFrameId: number;
+    
     function animate(timestamp: number) {
       // Calculate progress (0 to 1)
       const elapsed = timestamp - startTime;
@@ -211,18 +217,24 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       
       // Continue animation or end
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        animationFrameId = requestAnimationFrame(animate);
       } else {
         // Animation complete, trigger callback
+        setAnimationCompleted(true);
         onAnimationComplete();
       }
     }
     
     // Start animation
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
     
-    // Cleanup not needed as animation will end itself
-  }, [onAnimationComplete]);
+    // Cleanup function
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [onAnimationComplete, animationCompleted]);
   
   return (
     <motion.div 

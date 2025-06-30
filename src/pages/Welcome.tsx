@@ -13,6 +13,7 @@ const Welcome = () => {
   const [autoplay, setAutoplay] = useState(true);
   const [showIntro, setShowIntro] = useState(true);
   const [showMainContent, setShowMainContent] = useState(false);
+  const [introCompleted, setIntroCompleted] = useState(false);
 
   // Features to showcase
   const features = [
@@ -39,6 +40,7 @@ const Welcome = () => {
   // Handle intro animation completion
   const handleIntroComplete = () => {
     setShowMainContent(true);
+    setIntroCompleted(true);
     // Keep showIntro true so the title doesn't disappear
   };
 
@@ -74,7 +76,7 @@ const Welcome = () => {
     >
       {/* Intro Animation */}
       <AnimatePresence>
-        {showIntro && (
+        {showIntro && !introCompleted && (
           <IntroAnimation onAnimationComplete={handleIntroComplete} />
         )}
       </AnimatePresence>
