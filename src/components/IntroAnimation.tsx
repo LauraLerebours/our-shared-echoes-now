@@ -35,22 +35,12 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     const animationDuration = 4000; // 4 seconds total
     const heartFormationTime = 2000; // 2 seconds to form heart
     const heartDisplayTime = 1000; // 1 second to display heart
-    const textRiseTime = 1000; // 1 second for text to rise
+    const heartFadeTime = 1000; // 1 second for heart to fade
     const startTime = performance.now();
     
     // Center position
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    
-    // Calculate responsive font size based on screen dimensions
-    const calculateFontSize = () => {
-      const baseFontSize = 48;
-      const minFontSize = 24;
-      const screenSizeMultiplier = Math.min(canvas.width, canvas.height) / 1000;
-      return Math.max(minFontSize, Math.floor(baseFontSize * screenSizeMultiplier * 1.2));
-    };
-    
-    const fontSize = calculateFontSize();
     
     // Heart shape points (will be the targets for the small hearts)
     const heartPoints: {x: number, y: number}[] = [];
@@ -107,11 +97,6 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       });
     }
     
-    // Text elements
-    const text = "This Is Us";
-    let textOpacity = 0;
-    let textY = centerY + heartSize * 0.1; // Position text inside the heart
-    
     // Draw heart shape
     function drawHeart(x: number, y: number, size: number, color: string, rotation: number, opacity: number) {
       ctx.save();
@@ -152,8 +137,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       const heartFormationProgress = Math.min(elapsed / heartFormationTime, 1);
       const heartDisplayProgress = elapsed > heartFormationTime ? 
         Math.min((elapsed - heartFormationTime) / heartDisplayTime, 1) : 0;
-      const textRiseProgress = elapsed > (heartFormationTime + heartDisplayTime) ? 
-        Math.min((elapsed - heartFormationTime - heartDisplayTime) / textRiseTime, 1) : 0;
+      const heartFadeProgress = elapsed > (heartFormationTime + heartDisplayTime) ? 
+        Math.min((elapsed - heartFormationTime - heartDisplayTime) / heartFadeTime, 1) : 0;
       
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -168,7 +153,7 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       // Calculate heart opacity based on display phase
       // 0 during formation, rises to 1, then falls back to 0
       const heartOpacityMultiplier = heartFormationProgress < 1 ? 1 : 
-        (1 - heartDisplayProgress);
+        (1 - heartFadeProgress);
       
       // Update and draw hearts
       if (heartOpacityMultiplier > 0) {
@@ -187,45 +172,6 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
           
           // Draw heart
           drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
-        }
-      }
-      
-      // Draw text with fade in and movement
-      if (heartFormationProgress > 0.6) {
-        // Text appears during heart formation
-        textOpacity = Math.min(1, (heartFormationProgress - 0.6) * 2.5);
-        
-        // Text fades out after heart disappears
-        if (textRiseProgress > 0) {
-          textOpacity = Math.max(0, 1 - textRiseProgress * 2); // Fade out faster
-        }
-        
-        if (textOpacity > 0) {
-          ctx.save();
-          ctx.globalAlpha = textOpacity;
-          
-          // Use responsive font size
-          ctx.font = `bold ${fontSize}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          // Text shadow
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-          ctx.fillText(text, centerX + 2, textY + 2);
-          
-          // Gradient text
-          const textGradient = ctx.createLinearGradient(
-            centerX - fontSize * 2, 
-            textY, 
-            centerX + fontSize * 2, 
-            textY
-          );
-          textGradient.addColorStop(0, '#FFA5BA');
-          textGradient.addColorStop(1, '#9b87f5');
-          
-          ctx.fillStyle = textGradient;
-          ctx.fillText(text, centerX, textY);
-          ctx.restore();
         }
       }
       
