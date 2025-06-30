@@ -34,8 +34,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
     // Animation timing
     const animationDuration = 4000; // 4 seconds total
     const heartFormationTime = 2000; // 2 seconds to form heart
-    const heartDisplayTime = 1000; // 1 second to display heart
-    const heartFadeTime = 1000; // 1 second for heart to fade
+    const heartDisplayTime = 500; // 0.5 seconds to display heart
+    const heartExplosionTime = 1500; // 1.5 seconds for heart to explode
     const startTime = performance.now();
     
     // Center position
@@ -73,6 +73,10 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       targetSize: number;
       targetRotation: number;
       speed: number;
+      // For explosion phase
+      explosionSpeedX: number;
+      explosionSpeedY: number;
+      explosionRotationSpeed: number;
     }[] = [];
     
     // Create scattered hearts that will converge to form the heart shape
@@ -84,16 +88,22 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
         // Start from random positions around the screen
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 20 + 5,
+        // Increase the starting size of the hearts (was 5-25, now 15-35)
+        size: Math.random() * 20 + 15,
         color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * 360,
         opacity: 0,
         // Target is a point on the heart shape
         targetX: targetPoint.x,
         targetY: targetPoint.y,
-        targetSize: Math.random() * 10 + 5,
+        // Increase the target size of the hearts (was 5-15, now 15-25)
+        targetSize: Math.random() * 10 + 15,
         targetRotation: Math.random() * 30 - 15,
-        speed: 0.5 + Math.random() * 0.5 // Random speed for more natural movement
+        speed: 0.5 + Math.random() * 0.5, // Random speed for more natural movement
+        // For explosion phase - random direction and speed
+        explosionSpeedX: (Math.random() - 0.5) * 20,
+        explosionSpeedY: (Math.random() - 0.5) * 20,
+        explosionRotationSpeed: (Math.random() - 0.5) * 10
       });
     }
     
@@ -137,8 +147,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       const heartFormationProgress = Math.min(elapsed / heartFormationTime, 1);
       const heartDisplayProgress = elapsed > heartFormationTime ? 
         Math.min((elapsed - heartFormationTime) / heartDisplayTime, 1) : 0;
-      const heartFadeProgress = elapsed > (heartFormationTime + heartDisplayTime) ? 
-        Math.min((elapsed - heartFormationTime - heartDisplayTime) / heartFadeTime, 1) : 0;
+      const heartExplosionProgress = elapsed > (heartFormationTime + heartDisplayTime) ? 
+        Math.min((elapsed - heartFormationTime - heartDisplayTime) / heartExplosionTime, 1) : 0;
       
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -150,14 +160,26 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Calculate heart opacity based on display phase
-      // 0 during formation, rises to 1, then falls back to 0
-      const heartOpacityMultiplier = heartFormationProgress < 1 ? 1 : 
-        (1 - heartFadeProgress);
-      
       // Update and draw hearts
-      if (heartOpacityMultiplier > 0) {
-        for (const heart of hearts) {
+      for (const heart of hearts) {
+        if (heartExplosionProgress > 0) {
+          // EXPLOSION PHASE - hearts fly outward
+          const explosionEase = heartExplosionProgress < 0.3 
+            ? heartExplosionProgress / 0.3 // Accelerate
+            : 1; // Maintain speed
+          
+          // Update position based on explosion velocity
+          heart.x += heart.explosionSpeedX * explosionEase;
+          heart.y += heart.explosionSpeedY * explosionEase;
+          heart.rotation += heart.explosionRotationSpeed;
+          
+          // Gradually reduce opacity as hearts fly away
+          heart.opacity = Math.max(0, 1 - heartExplosionProgress);
+          
+          // Draw heart
+          drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
+        } else if (heartFormationProgress < 1) {
+          // FORMATION PHASE - hearts converge to form the big heart
           // Custom easing function for smoother movement
           const easeProgress = heartFormationProgress < 0.5 
             ? 4 * heartFormationProgress * heartFormationProgress * heartFormationProgress 
@@ -168,10 +190,13 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
           heart.y = heart.y + (heart.targetY - heart.y) * easeProgress * heart.speed;
           heart.size = heart.size + (heart.targetSize - heart.size) * easeProgress * 0.1;
           heart.rotation = heart.rotation + (heart.targetRotation - heart.rotation) * easeProgress * 0.1;
-          heart.opacity = Math.min(1, heartFormationProgress * 3) * heartOpacityMultiplier; // Fade in faster, then fade out
+          heart.opacity = Math.min(1, heartFormationProgress * 3); // Fade in faster
           
           // Draw heart
           drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, heart.opacity);
+        } else {
+          // DISPLAY PHASE - hearts stay in heart formation
+          drawHeart(heart.x, heart.y, heart.size, heart.color, heart.rotation, 1);
         }
       }
       
