@@ -184,6 +184,8 @@ const IntroAnimation: React.FC<IntroAnimationProps> = ({ onAnimationComplete }) 
         
         ctx.save();
         ctx.globalAlpha = textOpacity;
+        
+        // Use the same font as in the Welcome component
         ctx.font = 'bold 48px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

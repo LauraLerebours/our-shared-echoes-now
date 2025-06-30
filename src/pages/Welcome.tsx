@@ -38,8 +38,8 @@ const Welcome = () => {
   
   // Handle intro animation completion
   const handleIntroComplete = () => {
-    setShowIntro(false);
     setShowMainContent(true);
+    // Keep showIntro true so the title doesn't disappear
   };
 
   // Auto-advance slides
@@ -80,7 +80,7 @@ const Welcome = () => {
       </AnimatePresence>
       
       {/* Existing animated backgrounds - only show after intro */}
-      {!showIntro && (
+      {showMainContent && (
         <>
           <AuthAnimation />
           <FloatingHearts count={15} />
@@ -88,7 +88,7 @@ const Welcome = () => {
       )}
       
       {/* Overlay for better readability - only show after intro */}
-      {!showIntro && (
+      {showMainContent && (
         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
       )}
       
