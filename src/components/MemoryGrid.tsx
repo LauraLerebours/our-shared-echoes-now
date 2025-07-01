@@ -53,10 +53,20 @@ const VideoPreview: React.FC<{ src: string; alt: string; showFull: boolean }> = 
       video.addEventListener('loadeddata', handleLoadedData);
       video.addEventListener('error', handleError);
 
-      // Start playing the video
-      video.play().catch(error => {
-        console.error('Video autoplay failed:', error);
-      });
+      // Start playing the video with error handling
+      try {
+        video.play().catch(error => {
+          // Check if the error is due to media being removed from document
+          if (error.message && error.message.includes('media was removed from the document')) {
+            // This is expected during component unmounting, so we can safely ignore it
+            console.log('ℹ️ Video play interrupted due to component unmounting');
+          } else {
+            console.error('Video autoplay failed:', error);
+          }
+        });
+      } catch (error) {
+        console.error('Video play error:', error);
+      }
 
       return () => {
         video.removeEventListener('loadeddata', handleLoadedData);

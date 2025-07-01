@@ -57,37 +57,42 @@ export const DraftsSyncManager = () => {
       let serverFetchSuccessful = false;
       
       try {
-        const response = await draftsApi.fetchDrafts();
-        console.log(`☁️ Server response:`, response);
-        
-        // Check if response has the expected structure
-        if (response && typeof response === 'object') {
-          if (Array.isArray(response)) {
-            // Direct array response
-            serverDrafts = response;
-            serverFetchSuccessful = true;
-          } else if (response.success && Array.isArray(response.data)) {
-            // Wrapped response with success flag
-            serverDrafts = response.data;
-            serverFetchSuccessful = true;
-          } else if (response.data && Array.isArray(response.data)) {
-            // Response with data property
-            serverDrafts = response.data;
-            serverFetchSuccessful = true;
+        // Only attempt to fetch from server if user is authenticated
+        if (user) {
+          const response = await draftsApi.fetchDrafts();
+          console.log(`☁️ Server response:`, response);
+          
+          // Check if response has the expected structure
+          if (response && typeof response === 'object') {
+            if (Array.isArray(response)) {
+              // Direct array response
+              serverDrafts = response;
+              serverFetchSuccessful = true;
+            } else if (response.success && Array.isArray(response.data)) {
+              // Wrapped response with success flag
+              serverDrafts = response.data;
+              serverFetchSuccessful = true;
+            } else if (response.data && Array.isArray(response.data)) {
+              // Response with data property
+              serverDrafts = response.data;
+              serverFetchSuccessful = true;
+            } else {
+              console.warn('⚠️ Unexpected server response format:', response);
+              serverDrafts = [];
+            }
           } else {
-            console.warn('⚠️ Unexpected server response format:', response);
+            console.warn('⚠️ Invalid server response:', response);
             serverDrafts = [];
           }
+          
+          console.log(`☁️ Processed ${serverDrafts.length} server drafts`);
+          
+          // Reset retry count on success
+          if (retryCount > 0) {
+            setRetryCount(0);
+          }
         } else {
-          console.warn('⚠️ Invalid server response:', response);
-          serverDrafts = [];
-        }
-        
-        console.log(`☁️ Processed ${serverDrafts.length} server drafts`);
-        
-        // Reset retry count on success
-        if (retryCount > 0) {
-          setRetryCount(0);
+          console.log('ℹ️ No authenticated user, skipping server fetch');
         }
       } catch (error) {
         console.warn('⚠️ Failed to fetch server drafts:', error);
@@ -170,8 +175,8 @@ export const DraftsSyncManager = () => {
         saveDraft(draft);
       });
       
-      // Sync local drafts to server (only if we successfully fetched from server)
-      if (serverFetchSuccessful) {
+      // Sync local drafts to server (only if we successfully fetched from server and user is authenticated)
+      if (serverFetchSuccessful && user) {
         // Only sync drafts that don't exist on server or have been updated locally
         for (const draft of localDrafts) {
           const serverDraft = serverDraftsMap.get(draft.id);
@@ -195,7 +200,7 @@ export const DraftsSyncManager = () => {
           }
         }
       } else {
-        console.log('⚠️ Skipping server sync due to failed server fetch');
+        console.log('⚠️ Skipping server sync due to failed server fetch or no authenticated user');
       }
       
       console.log('✅ Drafts sync completed successfully');
