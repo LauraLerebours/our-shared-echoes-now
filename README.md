@@ -1,6 +1,6 @@
 # This Is Us - Shared Memory App
 
-A beautiful application for couples to capture and share their memories together.
+A beautiful application for friends to capture and share their memories together.
 
 ## Features
 
@@ -86,7 +86,7 @@ The built files will be in the `dist` folder, ready for deployment to any static
 
 ## Contributing
 
-This is a personal project, but feel free to fork and customize it for your own use!
+Please contact lerebo@mit.edu if you want to contribute
 
 ## License
 
