@@ -80,8 +80,9 @@ export const getDraftById = (id: string): Draft | null => {
 
 /**
  * Delete a draft by ID from both localStorage and server
+ * Returns a promise that resolves when the server deletion is complete
  */
-export const deleteDraft = (id: string): void => {
+export const deleteDraft = async (id: string): Promise<void> => {
   try {
     // Delete from localStorage
     const drafts = getDrafts();
@@ -89,27 +90,23 @@ export const deleteDraft = (id: string): void => {
     localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(filteredDrafts));
     console.log(`Draft deleted from localStorage: ${id}`);
     
-    // Try to delete from server (don't wait for result)
+    // Delete from server - wait for completion
     try {
-      draftsApi.deleteDraft(id)
-        .then(result => {
-          if (result.success) {
-            console.log(`Draft deleted from server: ${id}`);
-          } else {
-            console.warn(`Failed to delete draft ${id} from server:`, result.error);
-          }
-        })
-        .catch(error => {
-          console.warn(`Failed to delete draft ${id} from server:`, error);
-        });
+      const result = await draftsApi.deleteDraft(id);
+      if (result.success) {
+        console.log(`Draft deleted from server: ${id}`);
+      } else {
+        console.warn(`Failed to delete draft ${id} from server:`, result.error);
+      }
     } catch (error) {
-      console.warn(`Failed to initiate server deletion for draft ${id}:`, error);
+      console.warn(`Failed to delete draft ${id} from server:`, error);
     }
     
     // Dispatch custom event to notify other components
     window.dispatchEvent(new Event('draftsUpdated'));
   } catch (error) {
     console.error('Error deleting draft:', error);
+    throw error; // Re-throw to allow caller to handle
   }
 };
 

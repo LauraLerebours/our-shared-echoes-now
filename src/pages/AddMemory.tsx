@@ -611,7 +611,7 @@ const AddMemory = () => {
       
       // Delete the draft if it exists
       if (draftId) {
-        deleteDraft(draftId);
+        await deleteDraft(draftId);
         // Dispatch custom event to notify other components
         window.dispatchEvent(new Event('draftsUpdated'));
       }

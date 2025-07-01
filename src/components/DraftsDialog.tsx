@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileEdit, Trash2, Calendar, MapPin, FileText, Video, Image, Images } from 'lucide-react';
+import { format } from 'date-fns';
+import { getDrafts, deleteDraft, clearAllDrafts } from '@/lib/draftsStorage';
+import { Draft } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -9,13 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileEdit, Trash2, Calendar, MapPin, FileText, Video, Image, Images } from 'lucide-react';
-import { format } from 'date-fns';
-import { getDrafts, deleteDraft, clearAllDrafts } from '@/lib/draftsStorage';
-import { Draft } from '@/lib/types';
-import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +62,7 @@ const DraftsDialog: React.FC<DraftsDialogProps> = ({ children, onDraftSelected }
   const handleDeleteDraft = async (id: string) => {
     try {
       setIsDeleting(id);
-      deleteDraft(id);
+      await deleteDraft(id);
       setDrafts(drafts.filter(draft => draft.id !== id));
       toast({
         title: "Draft deleted",
