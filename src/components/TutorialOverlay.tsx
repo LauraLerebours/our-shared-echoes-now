@@ -38,7 +38,7 @@ const TutorialOverlay: React.FC = () => {
     },
     {
       title: "Invite Friends & Family",
-      description: "Share your board code with friends and family so they can join and contribute memories. Everyone can add photos, like, and comment.",
+      description: "Share your board code or board link with friends and family so they can join and contribute memories. Everyone can add photos, like, and comment.",
       icon: <Users className="h-12 w-12" />,
       color: "bg-memory-purple text-white"
     },
