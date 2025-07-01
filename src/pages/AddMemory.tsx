@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchBoards, createBoard, createMemory } from '@/lib/db';
 import DraftsDialog from '@/components/DraftsDialog';
+import SEOHelmet from '@/components/SEOHelmet';
 
 const AddMemory = () => {
   const navigate = useNavigate();
@@ -632,256 +633,285 @@ const AddMemory = () => {
   };
   
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        
-        <h1 className="text-lg font-medium">
-          {draftId ? 'Edit Draft' : 'Add New Memory'}
-        </h1>
-        
-        <div className="flex gap-2">
-          <DraftsDialog>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <FileEdit className="h-4 w-4" />
-              Drafts
-            </Button>
-          </DraftsDialog>
-          
-          <Button 
-            size="sm" 
-            onClick={handleSubmit}
-            disabled={
-              !caption.trim() || 
-              uploading || 
-              moderating || 
-              !selectedAccessCode || 
-              (memoryType === 'photo' && !previewMedia) || 
-              (memoryType === 'video' && !previewMedia) || 
-              (memoryType === 'carousel' && carouselItems.length === 0) ||
-              (memoryType === 'carousel' && carouselItems.some(item => item.uploading))
-            }
-            className="bg-memory-purple hover:bg-memory-purple/90"
-          >
-            {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
-          </Button>
-        </div>
-      </header>
+    <>
+      <SEOHelmet 
+        title="Add New Memory | This Is Us"
+        description="Create a new memory by adding photos, videos, or notes to your shared boards."
+      />
       
-      <main className="flex-1 p-4 pt-16 max-w-3xl mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note' | 'carousel')}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="photo" className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                Photo
-              </TabsTrigger>
-              <TabsTrigger value="video" className="flex items-center gap-2">
-                <Video className="h-4 w-4" />
-                Video
-              </TabsTrigger>
-              <TabsTrigger value="note" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Note
-              </TabsTrigger>
-              <TabsTrigger value="carousel" className="flex items-center gap-2">
-                <Images className="h-4 w-4" />
-                Carousel
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          
+          <h1 className="text-lg font-medium">
+            {draftId ? 'Edit Draft' : 'Add New Memory'}
+          </h1>
+          
+          <div className="flex gap-2">
+            <DraftsDialog>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-1"
+              >
+                <FileEdit className="h-4 w-4" />
+                Drafts
+              </Button>
+            </DraftsDialog>
+            
+            <Button 
+              size="sm" 
+              onClick={handleSubmit}
+              disabled={
+                !caption.trim() || 
+                uploading || 
+                moderating || 
+                !selectedAccessCode || 
+                (memoryType === 'photo' && !previewMedia) || 
+                (memoryType === 'video' && !previewMedia) || 
+                (memoryType === 'carousel' && carouselItems.length === 0) ||
+                (memoryType === 'carousel' && carouselItems.some(item => item.uploading))
+              }
+              className="bg-memory-purple hover:bg-memory-purple/90"
+            >
+              {uploading ? 'Saving...' : moderating ? 'Checking...' : 'Save'}
+            </Button>
+          </div>
+        </header>
+        
+        <main className="flex-1 p-4 pt-16 max-w-3xl mx-auto">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <Tabs defaultValue="photo" className="mb-4" onValueChange={(value) => setMemoryType(value as 'photo' | 'video' | 'note' | 'carousel')}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="photo" className="flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  Photo
+                </TabsTrigger>
+                <TabsTrigger value="video" className="flex items-center gap-2">
+                  <Video className="h-4 w-4" />
+                  Video
+                </TabsTrigger>
+                <TabsTrigger value="note" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Note
+                </TabsTrigger>
+                <TabsTrigger value="carousel" className="flex items-center gap-2">
+                  <Images className="h-4 w-4" />
+                  Carousel
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-          {/* Content Moderation Info */}
-          <Alert>
-            <Shield className="h-4 w-4" />
-            <AlertDescription>
-              All content is automatically checked for appropriateness before being saved. 
-              Please ensure your content follows community guidelines.
-            </AlertDescription>
-          </Alert>
-
-          {/* Moderation Error Display */}
-          {moderationError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+            {/* Content Moderation Info */}
+            <Alert>
+              <Shield className="h-4 w-4" />
               <AlertDescription>
-                <strong>Content Blocked:</strong> {moderationError}
+                All content is automatically checked for appropriateness before being saved. 
+                Please ensure your content follows community guidelines.
               </AlertDescription>
             </Alert>
-          )}
-          
-          {uploadError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center">
-                <div className="text-red-600 font-medium">Upload Error</div>
+
+            {/* Moderation Error Display */}
+            {moderationError && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Content Blocked:</strong> {moderationError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {uploadError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center">
+                  <div className="text-red-600 font-medium">Upload Error</div>
+                </div>
+                <div className="text-red-600 text-sm mt-1">{uploadError}</div>
               </div>
-              <div className="text-red-600 text-sm mt-1">{uploadError}</div>
-            </div>
-          )}
-          
-          {/* Media upload section - only show for photo/video */}
-          {memoryType === 'photo' || memoryType === 'video' ? (
-            <div className={cn(
-              "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
-              previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
-            )}>
-              {uploading || moderating ? (
-                <div className="flex flex-col items-center justify-center h-[200px]">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple"></div>
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    {moderating ? 'Checking content...' : 'Uploading...'}
-                  </p>
-                </div>
-              ) : previewMedia ? (
-                <div className="relative w-full">
-                  {memoryType === 'video' ? (
-                    <video 
-                      src={previewMedia} 
-                      className="w-full aspect-[4/3] object-cover rounded-lg"
-                      controls
-                    />
-                  ) : (
-                    <img 
-                      src={previewMedia} 
-                      alt="Memory preview" 
-                      className="w-full aspect-[4/3] object-cover rounded-lg" 
-                    />
-                  )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="absolute bottom-4 right-4"
-                    onClick={() => {
-                      setPreviewMedia(null);
-                      setUploadError(null);
-                      setModerationError(null);
-                      setSelectedFile(null);
-                    }}
-                  >
-                    Change
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center w-full">
-                  {memoryType === 'video' ? (
-                    <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
-                  ) : (
-                    <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
-                  )}
-                  <p className="text-muted-foreground mb-4 text-center">
-                    Tap to add a {memoryType === 'video' ? 'video' : 'photo'} for this memory
-                  </p>
-                  
-                  <div className="relative inline-block">
-                    <button
-                      type="button"
-                      disabled={uploading || moderating}
-                      onClick={() => document.getElementById('file-input')?.click()}
-                      className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {uploading || moderating ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⏳</span>
-                          {moderating ? 'Checking...' : 'Uploading...'}
-                        </span>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Select {memoryType === 'video' ? 'Video' : 'Photo'}
-                        </>
-                      )}
-                    </button>
-                    <input
-                      id="file-input"
-                      type="file"
-                      accept={memoryType === 'video' ? 'video/*' : 'image/*'}
-                      className="absolute inset-0 opacity-0 pointer-events-none"
-                      onChange={handleFileChange}
-                      disabled={uploading || moderating}
-                      autoComplete="off"
-                    />
+            )}
+            
+            {/* Media upload section - only show for photo/video */}
+            {memoryType === 'photo' || memoryType === 'video' ? (
+              <div className={cn(
+                "border-2 border-dashed rounded-lg flex flex-col items-center justify-center p-6 relative",
+                previewMedia ? "border-none p-0" : "border-memory-purple/30 bg-memory-lightpurple/20"
+              )}>
+                {uploading || moderating ? (
+                  <div className="flex flex-col items-center justify-center h-[200px]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-memory-purple"></div>
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      {moderating ? 'Checking content...' : 'Uploading...'}
+                    </p>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          {/* Note preview section - only show for notes */}
-          {memoryType === 'note' && (
-            <div className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-6">
-              <div className="flex flex-col items-center justify-center">
-                <FileText className="h-12 w-12 text-memory-purple/50 mb-3" />
-                <p className="text-muted-foreground text-center">
-                  This will be a text-only note without any media
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Carousel upload section */}
-          {memoryType === 'carousel' && (
-            <div className="space-y-4">
-              {/* Carousel items preview */}
-              {carouselItems.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {carouselItems.map((item, index) => (
-                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
-                      {item.isVideo ? (
-                        <video 
-                          src={item.preview} 
-                          className="w-full h-full object-cover"
-                          muted
-                        />
-                      ) : (
-                        <img 
-                          src={item.preview} 
-                          alt={`Carousel item ${index + 1}`} 
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                      
-                      {/* Loading overlay */}
-                      {item.uploading && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                        </div>
-                      )}
-                      
-                      {/* Remove button */}
-                      <Button
+                ) : previewMedia ? (
+                  <div className="relative w-full">
+                    {memoryType === 'video' ? (
+                      <video 
+                        src={previewMedia} 
+                        className="w-full aspect-[4/3] object-cover rounded-lg"
+                        controls
+                      />
+                    ) : (
+                      <img 
+                        src={previewMedia} 
+                        alt="Memory preview" 
+                        className="w-full aspect-[4/3] object-cover rounded-lg" 
+                      />
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="absolute bottom-4 right-4"
+                      onClick={() => {
+                        setPreviewMedia(null);
+                        setUploadError(null);
+                        setModerationError(null);
+                        setSelectedFile(null);
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full">
+                    {memoryType === 'video' ? (
+                      <Video className="h-12 w-12 text-memory-purple/50 mb-3" />
+                    ) : (
+                      <Image className="h-12 w-12 text-memory-purple/50 mb-3" />
+                    )}
+                    <p className="text-muted-foreground mb-4 text-center">
+                      Tap to add a {memoryType === 'video' ? 'video' : 'photo'} for this memory
+                    </p>
+                    
+                    <div className="relative inline-block">
+                      <button
                         type="button"
-                        size="icon"
-                        variant="destructive"
-                        className="absolute top-1 right-1 h-6 w-6 rounded-full p-0"
-                        onClick={() => removeCarouselItem(index)}
-                        disabled={item.uploading}
+                        disabled={uploading || moderating}
+                        onClick={() => document.getElementById('file-input')?.click()}
+                        className="flex items-center px-4 py-2 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <X className="h-3 w-3" />
-                      </Button>
-                      
-                      {/* Item type indicator */}
-                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
-                        {item.isVideo ? 'Video' : 'Photo'}
-                      </div>
+                        {uploading || moderating ? (
+                          <span className="flex items-center">
+                            <span className="animate-spin mr-2">⏳</span>
+                            {moderating ? 'Checking...' : 'Uploading...'}
+                          </span>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Select {memoryType === 'video' ? 'Video' : 'Photo'}
+                          </>
+                        )}
+                      </button>
+                      <input
+                        id="file-input"
+                        type="file"
+                        accept={memoryType === 'video' ? 'video/*' : 'image/*'}
+                        className="absolute inset-0 opacity-0 pointer-events-none"
+                        onChange={handleFileChange}
+                        disabled={uploading || moderating}
+                        autoComplete="off"
+                      />
                     </div>
-                  ))}
-                  
-                  {/* Add more button */}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {/* Note preview section - only show for notes */}
+            {memoryType === 'note' && (
+              <div className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-6">
+                <div className="flex flex-col items-center justify-center">
+                  <FileText className="h-12 w-12 text-memory-purple/50 mb-3" />
+                  <p className="text-muted-foreground text-center">
+                    This will be a text-only note without any media
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Carousel upload section */}
+            {memoryType === 'carousel' && (
+              <div className="space-y-4">
+                {/* Carousel items preview */}
+                {carouselItems.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {carouselItems.map((item, index) => (
+                      <div key={index} className="relative aspect-square rounded-lg overflow-hidden border">
+                        {item.isVideo ? (
+                          <video 
+                            src={item.preview} 
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <img 
+                            src={item.preview} 
+                            alt={`Carousel item ${index + 1}`} 
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        
+                        {/* Loading overlay */}
+                        {item.uploading && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                          </div>
+                        )}
+                        
+                        {/* Remove button */}
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full p-0"
+                          onClick={() => removeCarouselItem(index)}
+                          disabled={item.uploading}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                        
+                        {/* Item type indicator */}
+                        <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-2 py-0.5 rounded-full">
+                          {item.isVideo ? 'Video' : 'Photo'}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Add more button */}
+                    <div 
+                      className="aspect-square rounded-lg border-2 border-dashed border-memory-purple/30 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/10"
+                      onClick={() => document.getElementById('carousel-file-input')?.click()}
+                    >
+                      <Plus className="h-8 w-8 text-memory-purple/50 mb-2" />
+                      <p className="text-sm text-memory-purple/70">Add More</p>
+                      <input
+                        id="carousel-file-input"
+                        type="file"
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        disabled={uploading || moderating}
+                        ref={fileInputRef}
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div 
-                    className="aspect-square rounded-lg border-2 border-dashed border-memory-purple/30 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/10"
+                    className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/30"
                     onClick={() => document.getElementById('carousel-file-input')?.click()}
                   >
-                    <Plus className="h-8 w-8 text-memory-purple/50 mb-2" />
-                    <p className="text-sm text-memory-purple/70">Add More</p>
+                    <Images className="h-12 w-12 text-memory-purple/50 mb-3" />
+                    <p className="text-muted-foreground mb-4 text-center">
+                      Tap to add photos and videos to your carousel
+                    </p>
+                    <p className="text-xs text-muted-foreground text-center">
+                      You can add multiple photos and videos that users can swipe through
+                    </p>
                     <input
                       id="carousel-file-input"
                       type="file"
@@ -892,144 +922,122 @@ const AddMemory = () => {
                       ref={fileInputRef}
                     />
                   </div>
-                </div>
-              ) : (
-                <div 
-                  className="border-2 border-dashed border-memory-purple/30 bg-memory-lightpurple/20 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-memory-lightpurple/30"
-                  onClick={() => document.getElementById('carousel-file-input')?.click()}
-                >
-                  <Images className="h-12 w-12 text-memory-purple/50 mb-3" />
-                  <p className="text-muted-foreground mb-4 text-center">
-                    Tap to add photos and videos to your carousel
-                  </p>
-                  <p className="text-xs text-muted-foreground text-center">
-                    You can add multiple photos and videos that users can swipe through
-                  </p>
-                  <input
-                    id="carousel-file-input"
-                    type="file"
-                    accept="image/*,video/*"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    disabled={uploading || moderating}
-                    ref={fileInputRef}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="caption" className="block text-sm font-medium text-muted-foreground mb-1">
-                {memoryType === 'note' ? 'Note Content' : 'Caption'}
-              </label>
-              <Textarea
-                id="caption"
-                placeholder={memoryType === 'note' ? "Write your note..." : "Write something about this memory..."}
-                value={caption}
-                onChange={(e) => {
-                  setCaption(e.target.value);
-                  // Auto-save draft when caption changes and there's content
-                  if (e.target.value.trim() && shouldSaveDraft()) {
-                    handleSaveDraft();
-                  }
-                }}
-                className="resize-none"
-                rows={memoryType === 'note' ? 6 : 3}
-                required
-                autoComplete="off"
-                maxLength={5000}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {caption.length}/5000 characters
-              </p>
-            </div>
+                )}
+              </div>
+            )}
             
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">
-                Date
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, 'PPP')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(newDate) => {
-                      if (newDate) {
-                        setDate(newDate);
-                        // Auto-save draft when date changes
-                        if (shouldSaveDraft()) {
-                          handleSaveDraft();
-                        }
-                      }
-                    }}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-muted-foreground mb-1">
-                Location (optional)
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="location"
-                  placeholder="Add a location"
-                  value={location_}
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="caption" className="block text-sm font-medium text-muted-foreground mb-1">
+                  {memoryType === 'note' ? 'Note Content' : 'Caption'}
+                </label>
+                <Textarea
+                  id="caption"
+                  placeholder={memoryType === 'note' ? "Write your note..." : "Write something about this memory..."}
+                  value={caption}
                   onChange={(e) => {
-                    setLocation(e.target.value);
-                    // Auto-save draft when location changes and there's content
+                    setCaption(e.target.value);
+                    // Auto-save draft when caption changes and there's content
                     if (e.target.value.trim() && shouldSaveDraft()) {
                       handleSaveDraft();
                     }
                   }}
-                  className="pl-10"
+                  className="resize-none"
+                  rows={memoryType === 'note' ? 6 : 3}
+                  required
                   autoComplete="off"
-                  maxLength={200}
+                  maxLength={5000}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {caption.length}/5000 characters
+                </p>
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
+                  Date
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, 'PPP')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(newDate) => {
+                        if (newDate) {
+                          setDate(newDate);
+                          // Auto-save draft when date changes
+                          if (shouldSaveDraft()) {
+                            handleSaveDraft();
+                          }
+                        }
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-muted-foreground mb-1">
+                  Location (optional)
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="location"
+                    placeholder="Add a location"
+                    value={location_}
+                    onChange={(e) => {
+                      setLocation(e.target.value);
+                      // Auto-save draft when location changes and there's content
+                      if (e.target.value.trim() && shouldSaveDraft()) {
+                        handleSaveDraft();
+                      }
+                    }}
+                    className="pl-10"
+                    autoComplete="off"
+                    maxLength={200}
+                  />
+                </div>
+              </div>
+              
+              {/* Manual save draft button */}
+              {shouldSaveDraft() && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    className="flex items-center gap-1 text-memory-purple border-memory-purple/30"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save as Draft
+                  </Button>
+                </div>
+              )}
+              
+              {/* Last saved indicator */}
+              {lastSaved && (
+                <div className="text-xs text-muted-foreground text-right">
+                  Last saved: {format(lastSaved, 'h:mm a')}
+                </div>
+              )}
             </div>
-            
-            {/* Manual save draft button */}
-            {shouldSaveDraft() && (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveDraft}
-                  className="flex items-center gap-1 text-memory-purple border-memory-purple/30"
-                >
-                  <Save className="h-4 w-4" />
-                  Save as Draft
-                </Button>
-              </div>
-            )}
-            
-            {/* Last saved indicator */}
-            {lastSaved && (
-              <div className="text-xs text-muted-foreground text-right">
-                Last saved: {format(lastSaved, 'h:mm a')}
-              </div>
-            )}
-          </div>
-        </form>
-      </main>
-    </div>
+          </form>
+        </main>
+      </div>
+    </>
   );
 };
 
