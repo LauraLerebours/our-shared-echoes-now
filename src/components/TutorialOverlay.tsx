@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Heart, Users, Camera, Share2, ArrowRight } from 'lucide-react';
+import { X, Heart, Users, Camera, Share2, ArrowRight, FileText, Images, Calendar, Globe, Lock, Plus, Grid, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,6 +9,7 @@ interface TutorialStep {
   description: string;
   icon: React.ReactNode;
   color: string;
+  image?: string;
 }
 
 const TutorialOverlay: React.FC = () => {
@@ -20,27 +21,52 @@ const TutorialOverlay: React.FC = () => {
   const tutorialSteps: TutorialStep[] = [
     {
       title: "Welcome to This Is Us!",
-      description: "A beautiful space to capture and share memories with your loved ones.",
+      description: "A beautiful space to capture and share memories with your loved ones. Let's walk through the main features together.",
       icon: <Heart className="h-12 w-12" />,
-      color: "bg-memory-pink text-white"
+      color: "bg-memory-pink text-white",
+      image: "/tutorial/welcome.png"
     },
     {
-      title: "Create Memories Together",
-      description: "Add photos and videos to your boards to build a shared timeline of special moments.",
+      title: "Create Memory Boards",
+      description: "Boards help you organize memories by theme, event, or relationship. Create private boards for close friends or public boards anyone can join.",
+      icon: <Grid className="h-12 w-12" />,
+      color: "bg-memory-purple text-white",
+      image: "/tutorial/boards.png"
+    },
+    {
+      title: "Add Different Memory Types",
+      description: "Capture photos, videos, text notes, or create carousels with multiple images and videos in a single memory.",
       icon: <Camera className="h-12 w-12" />,
-      color: "bg-memory-purple text-white"
+      color: "bg-memory-pink text-white",
+      image: "/tutorial/memory-types.png"
     },
     {
-      title: "Invite Your Friends",
-      description: "Share your board code with friends and family so they can join and contribute memories.",
+      title: "Invite Friends & Family",
+      description: "Share your board code with friends and family so they can join and contribute memories. Everyone can add photos, like, and comment.",
       icon: <Users className="h-12 w-12" />,
-      color: "bg-memory-pink text-white"
+      color: "bg-memory-purple text-white",
+      image: "/tutorial/invite.png"
     },
     {
-      title: "Collaborate on Boards",
-      description: "Everyone can add memories, like photos, and comment on shared boards.",
-      icon: <Share2 className="h-12 w-12" />,
-      color: "bg-memory-purple text-white"
+      title: "View Timeline or Grid",
+      description: "Switch between timeline view for detailed memories or grid view for a visual overview of all your memories.",
+      icon: <List className="h-12 w-12" />,
+      color: "bg-memory-pink text-white",
+      image: "/tutorial/views.png"
+    },
+    {
+      title: "Save Drafts",
+      description: "Working on a memory but not ready to post? Save it as a draft and come back to it later. Your drafts sync across devices.",
+      icon: <FileText className="h-12 w-12" />,
+      color: "bg-memory-purple text-white",
+      image: "/tutorial/drafts.png"
+    },
+    {
+      title: "Create Public Boards",
+      description: "Make your boards public so anyone can discover and join them, or keep them private for just the people you invite.",
+      icon: <Globe className="h-12 w-12" />,
+      color: "bg-memory-pink text-white",
+      image: "/tutorial/public-boards.png"
     }
   ];
 
@@ -67,6 +93,12 @@ const TutorialOverlay: React.FC = () => {
     }
   };
 
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const handleDismiss = () => {
     setDismissed(true);
     
@@ -77,6 +109,21 @@ const TutorialOverlay: React.FC = () => {
       localStorage.setItem('tutorialSeen', 'true');
     }, 300);
   };
+
+  // Function to show tutorial again (can be triggered from settings)
+  const showTutorial = () => {
+    setCurrentStep(0);
+    setDismissed(false);
+    setIsVisible(true);
+  };
+
+  // Expose the showTutorial function to window for external access
+  useEffect(() => {
+    (window as any).showAppTutorial = showTutorial;
+    return () => {
+      delete (window as any).showAppTutorial;
+    };
+  }, []);
 
   if (!isVisible) return null;
 
@@ -129,11 +176,33 @@ const TutorialOverlay: React.FC = () => {
                 {tutorialSteps[currentStep].title}
               </h2>
               
-              <p className="text-center text-gray-600 mb-8">
+              <p className="text-center text-gray-600 mb-4">
                 {tutorialSteps[currentStep].description}
               </p>
               
-              <div className="flex justify-center">
+              {/* Tutorial image if available */}
+              {tutorialSteps[currentStep].image && (
+                <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">
+                  <img 
+                    src={tutorialSteps[currentStep].image} 
+                    alt={tutorialSteps[currentStep].title}
+                    className="w-full h-auto"
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center">
+                {currentStep > 0 ? (
+                  <Button 
+                    variant="outline"
+                    onClick={handlePrevious}
+                  >
+                    Previous
+                  </Button>
+                ) : (
+                  <div></div> // Empty div to maintain layout
+                )}
+                
                 <Button 
                   onClick={handleNext}
                   className="bg-memory-purple hover:bg-memory-purple/90 px-6"

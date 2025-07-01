@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
-import { User, Camera, Trash2, Upload } from 'lucide-react';
+import { User, Camera, Trash2, Upload, HelpCircle } from 'lucide-react';
 
 interface UserProfileDialogProps {
   children: React.ReactNode;
@@ -172,6 +172,18 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ children }) => {
     return 'US';
   };
 
+  const showTutorial = () => {
+    // Close the profile dialog
+    setOpen(false);
+    
+    // Call the global tutorial function with a small delay to ensure dialog is closed
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && (window as any).showAppTutorial) {
+        (window as any).showAppTutorial();
+      }
+    }, 100);
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -294,6 +306,23 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ children }) => {
               />
             </div>
           </form>
+          
+          {/* Help & Tutorial Section */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label>Help & Tutorial</Label>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full flex items-center gap-2"
+              onClick={showTutorial}
+            >
+              <HelpCircle className="h-4 w-4" />
+              Show App Tutorial
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Rewatch the tutorial to learn about all features
+            </p>
+          </div>
         </div>
         
         <DialogFooter>

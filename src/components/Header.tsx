@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, Settings, FileEdit } from 'lucide-react';
+import { LogOut, Settings, FileEdit, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import UserProfileDialog from './UserProfileDialog';
@@ -59,6 +59,12 @@ const Header = () => {
     return user?.email?.split('@')[0] || 'User';
   };
 
+  const showTutorial = () => {
+    if (typeof window !== 'undefined' && (window as any).showAppTutorial) {
+      (window as any).showAppTutorial();
+    }
+  };
+
   return (
     <header className={`flex items-center justify-between px-4 py-3 border-b fixed top-0 left-0 right-0 bg-white z-50 ${isPWA ? 'pt-safe' : ''}`}>
       <div className="flex items-center gap-3">
@@ -95,6 +101,16 @@ const Header = () => {
       
       {/* Drafts and Logout buttons in the corner */}
       <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-memory-purple"
+          title="Help & Tutorial"
+          onClick={showTutorial}
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button>
+        
         <DraftsDialog>
           <Button
             variant="ghost"

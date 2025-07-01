@@ -16,8 +16,11 @@ import SharedMemories from "./pages/SharedMemories";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
 import Welcome from "./pages/Welcome";
+import Help from "./pages/Help";
 import TutorialOverlay from "./components/TutorialOverlay";
 import { DraftsSyncManager } from "./components/DraftsSyncManager";
+import HelpButton from "./components/HelpButton";
+import { HelmetProvider } from 'react-helmet-async';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,73 +69,77 @@ const App = () => {
   
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner position="top-center" closeButton richColors />
-            <BrowserRouter>
-              <TutorialOverlay />
-              <DraftsSyncManager />
-              <Routes>
-                <Route path="/welcome" element={<Welcome />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/shared/:code" element={<SharedMemories />} />
-                <Route 
-                  path="/" 
-                  element={
-                    <ProtectedRoute>
-                      <Index />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/boards" 
-                  element={
-                    <ProtectedRoute>
-                      <Boards />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/board/:boardId" 
-                  element={
-                    <ProtectedRoute>
-                      <BoardView />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/add" 
-                  element={
-                    <ProtectedRoute>
-                      <AddMemory />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/memory/:id" 
-                  element={
-                    <ProtectedRoute>
-                      <MemoryDetail />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/share" 
-                  element={
-                    <ProtectedRoute>
-                      <Share />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner position="top-center" closeButton richColors />
+              <BrowserRouter>
+                <TutorialOverlay />
+                <DraftsSyncManager />
+                <HelpButton />
+                <Routes>
+                  <Route path="/welcome" element={<Welcome />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/shared/:code" element={<SharedMemories />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route 
+                    path="/" 
+                    element={
+                      <ProtectedRoute>
+                        <Index />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/boards" 
+                    element={
+                      <ProtectedRoute>
+                        <Boards />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/board/:boardId" 
+                    element={
+                      <ProtectedRoute>
+                        <BoardView />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/add" 
+                    element={
+                      <ProtectedRoute>
+                        <AddMemory />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/memory/:id" 
+                    element={
+                      <ProtectedRoute>
+                        <MemoryDetail />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/share" 
+                    element={
+                      <ProtectedRoute>
+                        <Share />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };
