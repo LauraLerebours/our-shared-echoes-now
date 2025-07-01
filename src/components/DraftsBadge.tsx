@@ -41,16 +41,15 @@ const DraftsBadge: React.FC<DraftsBadgeProps> = ({ className }) => {
     setCount(draftsCount);
   };
 
-  if (count === 0) {
-    return null;
-  }
-
+  // Always render the icon, but only show the count badge if there are drafts
   return (
     <div className={cn("relative", className)}>
       <FileEdit className="h-5 w-5 text-memory-purple" />
-      <div className="absolute -top-1 -right-1 bg-memory-pink text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-        {count > 9 ? '9+' : count}
-      </div>
+      {count > 0 && (
+        <div className="absolute -top-1 -right-1 bg-memory-pink text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+          {count > 9 ? '9+' : count}
+        </div>
+      )}
     </div>
   );
 };
