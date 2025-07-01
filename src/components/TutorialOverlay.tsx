@@ -9,7 +9,6 @@ interface TutorialStep {
   description: string;
   icon: React.ReactNode;
   color: string;
-  image?: string;
 }
 
 const TutorialOverlay: React.FC = () => {
@@ -23,50 +22,43 @@ const TutorialOverlay: React.FC = () => {
       title: "Welcome to This Is Us!",
       description: "A beautiful space to capture and share memories with your loved ones. Let's walk through the main features together.",
       icon: <Heart className="h-12 w-12" />,
-      color: "bg-memory-pink text-white",
-      image: "/tutorial/welcome.png"
+      color: "bg-memory-pink text-white"
     },
     {
       title: "Create Memory Boards",
       description: "Boards help you organize memories by theme, event, or relationship. Create private boards for close friends or public boards anyone can join.",
       icon: <Grid className="h-12 w-12" />,
-      color: "bg-memory-purple text-white",
-      image: "/tutorial/boards.png"
+      color: "bg-memory-purple text-white"
     },
     {
       title: "Add Different Memory Types",
       description: "Capture photos, videos, text notes, or create carousels with multiple images and videos in a single memory.",
       icon: <Camera className="h-12 w-12" />,
-      color: "bg-memory-pink text-white",
-      image: "/tutorial/memory-types.png"
+      color: "bg-memory-pink text-white"
     },
     {
       title: "Invite Friends & Family",
       description: "Share your board code with friends and family so they can join and contribute memories. Everyone can add photos, like, and comment.",
       icon: <Users className="h-12 w-12" />,
-      color: "bg-memory-purple text-white",
-      image: "/tutorial/invite.png"
+      color: "bg-memory-purple text-white"
     },
     {
       title: "View Timeline or Grid",
       description: "Switch between timeline view for detailed memories or grid view for a visual overview of all your memories.",
       icon: <List className="h-12 w-12" />,
-      color: "bg-memory-pink text-white",
-      image: "/tutorial/views.png"
+      color: "bg-memory-pink text-white"
     },
     {
       title: "Save Drafts",
       description: "Working on a memory but not ready to post? Save it as a draft and come back to it later. Your drafts sync across devices.",
       icon: <FileText className="h-12 w-12" />,
-      color: "bg-memory-purple text-white",
-      image: "/tutorial/drafts.png"
+      color: "bg-memory-purple text-white"
     },
     {
       title: "Create Public Boards",
       description: "Make your boards public so anyone can discover and join them, or keep them private for just the people you invite.",
       icon: <Globe className="h-12 w-12" />,
-      color: "bg-memory-pink text-white",
-      image: "/tutorial/public-boards.png"
+      color: "bg-memory-pink text-white"
     }
   ];
 
@@ -179,17 +171,6 @@ const TutorialOverlay: React.FC = () => {
               <p className="text-center text-gray-600 mb-4">
                 {tutorialSteps[currentStep].description}
               </p>
-              
-              {/* Tutorial image if available */}
-              {tutorialSteps[currentStep].image && (
-                <div className="mb-6 rounded-lg overflow-hidden border border-gray-200">
-                  <img 
-                    src={tutorialSteps[currentStep].image} 
-                    alt={tutorialSteps[currentStep].title}
-                    className="w-full h-auto"
-                  />
-                </div>
-              )}
               
               <div className="flex justify-between items-center">
                 {currentStep > 0 ? (
