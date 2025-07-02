@@ -89,7 +89,7 @@ const HelpButton: React.FC = () => {
           <div className="space-y-2">
             <h3 className="text-lg font-medium">Contact Support</h3>
             <p className="text-sm text-muted-foreground">
-              Need more help? Contact us at <a href="mailto:support@thisisus.space" className="text-memory-purple">support@thisisus.space</a>
+              Need more help? Contact us at <a href="mailto:lerebourslaura26@gmail.com" className="text-memory-purple">support@thisisus.space</a>
             </p>
           </div>
         </div>
