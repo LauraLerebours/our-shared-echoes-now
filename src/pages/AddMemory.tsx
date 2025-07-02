@@ -48,34 +48,10 @@ const AddMemory = () => {
   const { user, userProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [autosaveInterval, setAutosaveInterval] = useState<NodeJS.Timeout | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const hasContentRef = useRef(false);
   
-  // Auto-save draft every 30 seconds if there are changes
-  useEffect(() => {
-    // Clear any existing interval
-    if (autosaveInterval) {
-      clearInterval(autosaveInterval);
-    }
-    
-    // Set up new interval for auto-saving
-    const interval = setInterval(() => {
-      if (shouldSaveDraft()) {
-        handleSaveDraft();
-      }
-    }, 30000); // 30 seconds
-    
-    setAutosaveInterval(interval);
-    
-    // Clean up on unmount
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [caption, location_, date, previewMedia, memoryType, carouselItems, selectedBoard]);
-  
-  // Check if we should save a draft (if there's content to save)
+  // Check if there's content to save
   const shouldSaveDraft = () => {
     // Don't save if user is not logged in
     if (!user) return false;
@@ -98,6 +74,33 @@ const AddMemory = () => {
     // Otherwise, don't save
     return false;
   };
+  
+  // Update hasContentRef whenever relevant state changes
+  useEffect(() => {
+    hasContentRef.current = shouldSaveDraft();
+  }, [caption, location_, previewMedia, carouselItems, selectedBoard]);
+  
+  // Save draft when navigating away if there's content
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (hasContentRef.current) {
+        handleSaveDraft();
+      }
+    };
+    
+    // Add event listener for page navigation
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // Save draft when component unmounts if there's content
+      if (hasContentRef.current) {
+        handleSaveDraft();
+      }
+    };
+  }, []);
   
   // Handle saving draft
   const handleSaveDraft = () => {
@@ -340,11 +343,6 @@ const AddMemory = () => {
             title: "Upload successful",
             description: `Your ${isVideoFile ? 'video' : 'image'} has been added to the carousel.`,
           });
-          
-          // Auto-save draft after adding media
-          if (shouldSaveDraft()) {
-            handleSaveDraft();
-          }
         } else {
           // Remove the item if upload failed
           setCarouselItems(prev => prev.filter(item => item.preview !== preview));
@@ -373,11 +371,6 @@ const AddMemory = () => {
             title: "Upload successful",
             description: `Your ${file.type.startsWith('video/') ? 'video' : 'image'} has been uploaded successfully.`,
           });
-          
-          // Auto-save draft after adding media
-          if (shouldSaveDraft()) {
-            handleSaveDraft();
-          }
         } else {
           toast({
             title: "Upload failed",
@@ -410,11 +403,6 @@ const AddMemory = () => {
 
   const removeCarouselItem = (index: number) => {
     setCarouselItems(prev => prev.filter((_, i) => i !== index));
-    
-    // Auto-save draft after removing media
-    if (shouldSaveDraft()) {
-      handleSaveDraft();
-    }
   };
 
   const sendNotification = async (memoryId: string, boardId: string, caption: string) => {
@@ -935,13 +923,7 @@ const AddMemory = () => {
                   id="caption"
                   placeholder={memoryType === 'note' ? "Write your note..." : "Write something about this memory..."}
                   value={caption}
-                  onChange={(e) => {
-                    setCaption(e.target.value);
-                    // Auto-save draft when caption changes and there's content
-                    if (e.target.value.trim() && shouldSaveDraft()) {
-                      handleSaveDraft();
-                    }
-                  }}
+                  onChange={(e) => setCaption(e.target.value)}
                   className="resize-none"
                   rows={memoryType === 'note' ? 6 : 3}
                   required
@@ -974,10 +956,6 @@ const AddMemory = () => {
                       onSelect={(newDate) => {
                         if (newDate) {
                           setDate(newDate);
-                          // Auto-save draft when date changes
-                          if (shouldSaveDraft()) {
-                            handleSaveDraft();
-                          }
                         }
                       }}
                       initialFocus
@@ -997,13 +975,7 @@ const AddMemory = () => {
                     id="location"
                     placeholder="Add a location"
                     value={location_}
-                    onChange={(e) => {
-                      setLocation(e.target.value);
-                      // Auto-save draft when location changes and there's content
-                      if (e.target.value.trim() && shouldSaveDraft()) {
-                        handleSaveDraft();
-                      }
-                    }}
+                    onChange={(e) => setLocation(e.target.value)}
                     className="pl-10"
                     autoComplete="off"
                     maxLength={200}
