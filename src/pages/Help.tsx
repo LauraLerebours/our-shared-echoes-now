@@ -15,7 +15,7 @@ const Help = () => {
     <>
       <SEOHelmet 
         title="Help & Tutorial | Amity"
-        description="Learn how to use This Is Us with our comprehensive help guide and interactive tutorial."
+        description="Learn how to use Amity with our comprehensive help guide and interactive tutorial."
       />
       
       <div className="min-h-screen bg-background flex flex-col">
@@ -43,7 +43,7 @@ const Help = () => {
               </div>
               
               <p className="text-muted-foreground mb-4">
-                New to This Is Us? Take our guided tour to learn all the features and get the most out of your experience.
+                New to Amity? Take our guided tour to learn all the features and get the most out of your experience.
               </p>
               
               <Button 
