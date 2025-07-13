@@ -183,7 +183,7 @@ const MemoryCard = ({
       // Call API to update the like status
       const result = await toggleMemoryLike(id, accessCode);
       
-      if (result && result.success) {
+      if (result && result.success && result.likes !== undefined && result.isLiked !== undefined) {
         // Update with actual server values
         setCurrentLikes(result.likes);
         setCurrentIsLiked(result.isLiked);

@@ -137,7 +137,7 @@ const MemoryDetail = () => {
       
       const result = await toggleMemoryLike(memory.id, accessCode);
       
-      if (result && result.success) {
+      if (result && result.success && result.likes !== undefined && result.isLiked !== undefined) {
         // Update with actual server values
         setLikes(result.likes);
         setIsLiked(result.isLiked);

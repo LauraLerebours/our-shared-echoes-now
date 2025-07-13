@@ -617,14 +617,29 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
-      console.log('🔄 [memoriesApi.toggleMemoryLike] Using new like system');
+      console.log('🔄 [memoriesApi.toggleMemoryLike] Using like system');
       const result = await withRetry(async () => {
-        const { data, error } = await supabase.rpc('toggle_memory_like_v2', {
+        const { data, error } = await supabase.rpc('toggle_memory_like_v3', {
           memory_id_param: id
         });
         
         if (error) {
           console.error('❌ [memoriesApi.toggleMemoryLike] RPC error:', error);
+          
+          // If the v3 function doesn't exist, try the v2 function
+          if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+            console.log('🔄 [memoriesApi.toggleMemoryLike] Falling back to v2 function');
+            const fallbackResult = await supabase.rpc('toggle_memory_like_v2', {
+              memory_id_param: id
+            });
+            
+            if (fallbackResult.error) {
+              throw fallbackResult.error;
+            }
+            
+            return fallbackResult.data;
+          }
+          
           throw new Error(error.message);
         }
         

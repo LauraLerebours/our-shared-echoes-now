@@ -62,11 +62,15 @@ export const deleteMemory = async (id: string, accessCode: string) => {
 
 export const toggleMemoryLike = async (id: string, accessCode: string) => {
   const result = await memoriesApi.toggleMemoryLike(id, accessCode);
-  return result.success ? { 
+  return result.success && result.data ? { 
     success: true,
     likes: result.data?.likes || 0, 
     isLiked: result.data?.isLiked || false 
-  } : null;
+  } : { 
+    success: false, 
+    likes: 0, 
+    isLiked: false 
+  };
 };
 
 // New function to update memory details
