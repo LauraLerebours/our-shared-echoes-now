@@ -414,7 +414,8 @@ const AddMemory = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'x-client-info': 'amity-app'
         },
         body: JSON.stringify({
           memory_id: memoryId,
@@ -427,7 +428,7 @@ const AddMemory = () => {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Failed to send notification:', errorText);
+        console.error('Failed to send notification:', response.status, errorText);
         return false;
       }
       
@@ -587,11 +588,7 @@ const AddMemory = () => {
       // Send notification to board members
       sendNotification(memoryId, selectedBoard.id, caption)
         .then(success => {
-          if (success) {
-            console.log('Notification sent to board members');
-          } else {
-            console.warn('Failed to send notification to board members');
-          }
+          console.log(success ? 'Notification sent to board members' : 'Failed to send notification to board members');
         })
         .catch(error => {
           console.error('Error sending notification:', error);

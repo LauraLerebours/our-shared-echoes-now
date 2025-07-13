@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.50.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,7 +113,7 @@ serve(async (req) => {
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_RESEND_API_KEY') || Deno.env.get('RESEND_API_KEY')}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -149,7 +149,7 @@ serve(async (req) => {
                   <div style="text-align: center; margin: 32px 0;">
                     <a href="https://thisisus.space" 
                        style="display: inline-block; background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(155, 135, 245, 0.3); transition: all 0.2s ease;">
-                      View Memory
+                      View on Amity
                     </a>
                   </div>
                   
@@ -163,9 +163,9 @@ serve(async (req) => {
                 <!-- Footer -->
                 <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; line-height: 1.5;">
                   <p style="margin: 0 0 8px 0; font-weight: 500;">Amity - Shared Memories</p>
-                  <p style="margin: 0;">You received this email because you're a member of the "${board_name}" board.</p>
+                  <p style="margin: 0;">You received this email because you're a member of the "${board_name}" board on Amity.</p>
                   <p style="margin: 8px 0 0 0;">
-                    <a href="https://amity.space" style="color: #9b87f5; text-decoration: none;">Visit Amity</a>
+                    <a href="https://amity.space" style="color: #9b87f5; text-decoration: none;">Visit Amity App</a>
                   </p>
                 </div>
               </div>
