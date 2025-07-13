@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageCircle, Reply, Edit2, Trash2, Send } from 'lucide-react';
+import { MessageCircle, Reply, Edit2, Trash2, Send, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
   const [editContent, setEditContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [sendingNotification, setSendingNotification] = useState(false);
   const { user, userProfile } = useAuth();
 
   // Load comments for this memory
@@ -129,9 +131,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
       await loadComments();
       
       toast({
-        title: 'Comment added',
-        description: 'Your comment has been posted successfully',
+        title: 'Comment posted',
+        description: 'Your comment has been added successfully',
       });
+      
+      // Send notification to memory owner
+      await sendCommentNotification(memory);
     } catch (error) {
       console.error('Error adding comment:', error);
       toast({
@@ -141,6 +146,48 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Send notification to memory owner
+  const sendCommentNotification = async (memory: any) => {
+    if (!user || !userProfile) return;
+    
+    // Don't notify if the commenter is the memory owner
+    if (memory.created_by === user.id) return;
+    
+    try {
+      setSendingNotification(true);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hhcoeuedfeoudgxtttgn.supabase.co';
+      const apiUrl = `${supabaseUrl}/functions/v1/send-comment-notification`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'x-client-info': 'amity-app'
+        },
+        body: JSON.stringify({
+          memory_id: memoryId,
+          comment_id: memory.id,
+          commenter_name: userProfile.name || 'A user',
+          comment_content: newComment,
+          memory_caption: memory.caption
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to send comment notification:', response.status, errorText);
+      } else {
+        console.log('Comment notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Error sending comment notification:', error);
+    } finally {
+      setSendingNotification(false);
     }
   };
 
@@ -437,6 +484,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
       <div className="flex items-center gap-2 mb-4">
         <MessageCircle className="h-5 w-5 text-memory-purple" />
         <span className="font-medium">Comments ({comments.length})</span>
+        {sendingNotification && (
+          <Alert variant="default" className="py-1 px-2 ml-2 bg-blue-50 border-blue-200">
+            <AlertCircle className="h-3 w-3 text-blue-500" />
+            <AlertDescription className="text-xs text-blue-600">
+              Sending notification...
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
       
       {/* Add new comment */}
@@ -461,11 +516,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode })
               />
               <Button
                 onClick={handleSubmitComment}
-                disabled={submitting || !newComment.trim()}
+                disabled={submitting || sendingNotification || !newComment.trim()}
                 className="bg-memory-purple hover:bg-memory-purple/90"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {submitting ? 'Posting...' : 'Post Comment'}
+                {submitting || sendingNotification ? 'Posting...' : 'Post Comment'}
               </Button>
             </div>
           </div>

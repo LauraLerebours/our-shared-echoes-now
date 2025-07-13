@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize, User, Images } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Trash2, Edit2, Calendar, Save, X, FileText, Maximize, Minimize, User, Images, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -52,6 +52,7 @@ const MemoryDetail = () => {
   const [showFullImage, setShowFullImage] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState<{name: string, profile_picture_url?: string} | null>(null);
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   
   const accessCode = location.state?.accessCode;
   
@@ -636,7 +637,11 @@ const MemoryDetail = () => {
           
           {/* Comments Section - only show when not editing */}
           {!isEditing && (
-            <CommentSection memoryId={memory.id} accessCode={accessCode} />
+            <CommentSection 
+              memoryId={memory.id} 
+              accessCode={accessCode} 
+              onCommentsLoaded={(count) => setCommentCount(count)}
+            />
           )}
         </main>
       </div>
