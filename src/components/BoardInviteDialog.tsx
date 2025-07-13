@@ -44,7 +44,7 @@ const BoardInviteDialog: React.FC<BoardInviteDialogProps> = ({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join my "${boardName}" board on Amity,
+          title: `Join my "${boardName}" board on Amity`,
           text: `I've invited you to join my "${boardName}" board on Amity. Click the link to join!`,
           url: inviteLink,
         });
