@@ -334,7 +334,7 @@ const Index = () => {
     <ErrorBoundary>
       <>
         <SEOHelmet 
-          title="Your Timeline | This Is Us"
+          title="Your Timeline | Amity"
           description="View and manage your shared memories timeline. Add photos, videos, and notes to capture special moments with your loved ones."
         />
         
