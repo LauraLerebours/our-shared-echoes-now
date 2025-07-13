@@ -414,7 +414,7 @@ const Boards = () => {
     <ErrorBoundary>
       <>
         <SEOHelmet 
-          title="Your Memory Boards | This Is Us"
+          title="Your Memory Boards | Amity"
           description="Manage your memory boards, create new ones, and join public boards shared by others. Organize your memories in collaborative spaces."
         />
         
