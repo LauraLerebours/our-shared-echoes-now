@@ -370,8 +370,8 @@ const Auth = () => {
   return (
     <>
       <SEOHelmet 
-        title="Sign In or Sign Up | Amity"
-        description="Create an account or sign in to Amity to start capturing and sharing memories with your loved ones."
+        title="Sign In or Sign Up | This Is Us"
+        description="Create an account or sign in to This Is Us to start capturing and sharing memories with your loved ones."
       />
       
       <div 

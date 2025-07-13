@@ -19,7 +19,7 @@ const TutorialOverlay: React.FC = () => {
 
   const tutorialSteps: TutorialStep[] = [
     {
-      title: "Welcome to Amity!",
+      title: "Welcome to This Is Us!",
       description: "A beautiful space to capture and share memories with your loved ones. Let's walk through the main features together.",
       icon: <Heart className="h-12 w-12" />,
       color: "bg-memory-pink text-white"

@@ -15,7 +15,7 @@ import { toast } from '@/hooks/use-toast';
 interface BoardInviteDialogProps {
   boardId: string;
   boardName: string;
-  shareCode: string | null;
+  shareCode: string;
   children: React.ReactNode;
 }
 
@@ -27,17 +27,8 @@ const BoardInviteDialog: React.FC<BoardInviteDialogProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
-  
-  // Ensure shareCode is always a string to prevent undefined.indexOf errors
-  const safeShareCode = shareCode || '';
 
-  useEffect(() => {
-    // Only access window.location.origin on the client side
-    if (typeof window !== 'undefined') {
-      setInviteLink(`${window.location.origin}/shared/${safeShareCode}`);
-    }
-  }, [safeShareCode]);
+  const inviteLink = `${window.location.origin}/shared/${shareCode}`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(inviteLink);
