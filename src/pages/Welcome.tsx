@@ -67,7 +67,7 @@ const Welcome = () => {
   return (
     <>
       <SEOHelmet 
-        title="This Is Us - Shared Memories App for Couples & Friends"
+        title="Amity - Shared Memories App for Friends and Communites"
         description="Create beautiful memory boards with your loved ones. Share photos, videos, and notes in a private, collaborative space designed for couples and friends."
         canonicalUrl="https://thisisus.space"
       />
