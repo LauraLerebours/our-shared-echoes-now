@@ -149,7 +149,7 @@ const Share = () => {
   return (
     <>
       <SEOHelmet 
-        title="Share & Join Boards | This Is Us"
+        title="Share & Join Boards | Amity"
         description="Share your memory boards with friends and family, or join boards shared with you. Collaborate on memories together."
       />
       
