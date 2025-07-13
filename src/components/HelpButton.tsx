@@ -50,7 +50,7 @@ const HelpButton: React.FC = () => {
           <div className="space-y-2">
             <h3 className="text-lg font-medium">App Tutorial</h3>
             <p className="text-sm text-muted-foreground">
-              New to This Is Us? Take a guided tour to learn all the features.
+              New to Amity? Take a guided tour to learn all the features.
             </p>
             <Button 
               onClick={showTutorial}
