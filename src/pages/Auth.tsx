@@ -51,7 +51,7 @@ const Auth = () => {
   // Try to restore form state from localStorage
   useEffect(() => {
     try {
-      const savedState = localStorage.getItem('thisisus_auth_state');
+      const savedState = localStorage.getItem('amity_auth_state');
       if (savedState) {
         const { signInEmail, signUpEmail, signUpName, activeTab } = JSON.parse(savedState);
         if (signInEmail) setSignInEmail(signInEmail);
@@ -69,7 +69,7 @@ const Auth = () => {
   // Save form state to localStorage when it changes
   useEffect(() => {
     try {
-      localStorage.setItem('thisisus_auth_state', JSON.stringify({
+      localStorage.setItem('amity_auth_state', JSON.stringify({
         signInEmail,
         signUpEmail,
         signUpName,
@@ -229,7 +229,7 @@ const Auth = () => {
       toast.success('Welcome back!');
       
       // Clear auth state from localStorage
-      localStorage.removeItem('thisisus_auth_state');
+      localStorage.removeItem('amity_auth_state');
       
       // Navigation will be handled by the useEffect when user state changes
     } catch (error) {
@@ -308,7 +308,7 @@ const Auth = () => {
         setSignUpName('');
         
         // Clear auth state from localStorage
-        localStorage.removeItem('thisisus_auth_state');
+        localStorage.removeItem('amity_auth_state');
         
         // Navigate to home page
         navigate('/');

@@ -117,14 +117,14 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'This Is Us <notifications@thisisus.space>',
+            from: 'Amity <notifications@amity.space>',
             to: [email],
             subject: `New memory added to "${board_name}"`,
             html: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
                 <!-- Header -->
                 <div style="background: linear-gradient(135deg, #FFA5BA 0%, #9b87f5 100%); padding: 32px 24px; text-align: center; border-radius: 12px 12px 0 0;">
-                  <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">This Is Us</h1>
+                  <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">Amity</h1>
                   <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 16px;">Shared Memories</p>
                 </div>
                 
@@ -162,10 +162,10 @@ serve(async (req) => {
                 
                 <!-- Footer -->
                 <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px; line-height: 1.5;">
-                  <p style="margin: 0 0 8px 0; font-weight: 500;">This Is Us - Shared Memories</p>
+                  <p style="margin: 0 0 8px 0; font-weight: 500;">Amity - Shared Memories</p>
                   <p style="margin: 0;">You received this email because you're a member of the "${board_name}" board.</p>
                   <p style="margin: 8px 0 0 0;">
-                    <a href="https://thisisus.space" style="color: #9b87f5; text-decoration: none;">Visit This Is Us</a>
+                    <a href="https://amity.space" style="color: #9b87f5; text-decoration: none;">Visit Amity</a>
                   </p>
                 </div>
               </div>

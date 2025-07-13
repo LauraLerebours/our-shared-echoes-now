@@ -2,7 +2,7 @@ import { Draft } from './types';
 import { draftsApi } from './api/drafts';
 
 // Key for storing drafts in localStorage
-const DRAFTS_STORAGE_KEY = 'thisisus_memory_drafts';
+const DRAFTS_STORAGE_KEY = 'amity_memory_drafts';
 
 /**
  * Save a draft to localStorage
