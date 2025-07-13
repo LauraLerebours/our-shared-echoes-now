@@ -42,7 +42,7 @@ const HelpButton: React.FC = () => {
         <DialogHeader>
           <DialogTitle>Help & Tutorial</DialogTitle>
           <DialogDescription>
-            Learn how to use This Is Us and get the most out of your shared memories.
+            Learn how to use Amity and get the most out of your shared memories.
           </DialogDescription>
         </DialogHeader>
         
