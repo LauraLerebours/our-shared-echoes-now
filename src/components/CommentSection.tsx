@@ -121,6 +121,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode, o
 
     setSubmitting(true);
     try {
+      console.log('🔄 Submitting new comment');
       const { error } = await supabase
         .from('comments')
         .insert([{
@@ -134,6 +135,39 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode, o
 
       setNewComment('');
       await loadComments();
+      
+      // Send notification to memory owner
+      try {
+        console.log('🔄 Sending comment notification');
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hhcoeuedfeoudgxtttgn.supabase.co';
+        const apiUrl = `${supabaseUrl}/functions/v1/send-comment-notification`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'x-client-info': 'amity-app-comment-notification'
+          },
+          body: JSON.stringify({
+            memory_id: memoryId,
+            comment_id: 'new', // We don't have the ID yet as we just inserted
+            commenter_name: userProfile?.name || 'A user',
+            comment_content: newComment.trim(),
+            memory_caption: '' // We don't have the caption here
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Comment notification sent:', result.success ? 'Success' : 'Failed');
+        } else {
+          console.warn('⚠️ Failed to send comment notification:', response.status, await response.text());
+        }
+      } catch (notificationError) {
+        // Don't fail the comment submission if notification fails
+        console.error('❌ Error sending comment notification:', notificationError);
+      }
       
       toast({
         title: 'Comment added',
@@ -156,6 +190,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode, o
 
     setSubmitting(true);
     try {
+      console.log('🔄 Submitting reply to comment:', parentId);
       const { error } = await supabase
         .from('comments')
         .insert([{
@@ -170,6 +205,39 @@ const CommentSection: React.FC<CommentSectionProps> = ({ memoryId, accessCode, o
       setReplyContent('');
       setReplyingTo(null);
       await loadComments();
+      
+      // Send notification for reply
+      try {
+        console.log('🔄 Sending reply notification');
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hhcoeuedfeoudgxtttgn.supabase.co';
+        const apiUrl = `${supabaseUrl}/functions/v1/send-comment-notification`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'x-client-info': 'amity-app-reply-notification'
+          },
+          body: JSON.stringify({
+            memory_id: memoryId,
+            comment_id: parentId,
+            commenter_name: userProfile?.name || 'A user',
+            comment_content: `Reply: ${replyContent.trim()}`,
+            memory_caption: '' // We don't have the caption here
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Reply notification sent:', result.success ? 'Success' : 'Failed');
+        } else {
+          console.warn('⚠️ Failed to send reply notification:', response.status, await response.text());
+        }
+      } catch (notificationError) {
+        // Don't fail the reply submission if notification fails
+        console.error('❌ Error sending reply notification:', notificationError);
+      }
       
       toast({
         title: 'Reply added',

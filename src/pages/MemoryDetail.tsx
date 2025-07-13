@@ -52,7 +52,7 @@ const MemoryDetail = () => {
   const [showFullImage, setShowFullImage] = useState(true);
   const [creatorProfile, setCreatorProfile] = useState<{name: string, profile_picture_url?: string} | null>(null);
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
-  const [commentCount, setCommentCount] = useState(0);
+  const [commentCount, setCommentCount] = useState<number>(0);
   
   const accessCode = location.state?.accessCode;
   
@@ -638,7 +638,7 @@ const MemoryDetail = () => {
           {/* Comments Section - only show when not editing */}
           {!isEditing && (
             <CommentSection 
-              memoryId={memory.id} 
+              memoryId={memory.id}
               accessCode={accessCode} 
               onCommentsLoaded={(count) => setCommentCount(count)}
             />

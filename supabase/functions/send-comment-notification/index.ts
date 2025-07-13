@@ -21,13 +21,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting send-comment-notification function');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    console.log('Supabase client created with URL:', Deno.env.get('SUPABASE_URL')?.substring(0, 20) + '...');
+    
     const { memory_id, comment_id, commenter_name, comment_content, memory_caption }: NotificationPayload = await req.json()
 
+    console.log('Received payload:', { memory_id, comment_id, commenter_name });
+    
     // Get the memory details to find the owner
     const { data: memory, error: memoryError } = await supabaseClient
       .from('memories')
@@ -36,16 +42,20 @@ serve(async (req) => {
       .single()
 
     if (memoryError) {
+      console.error('Failed to fetch memory:', memoryError);
       throw new Error(`Failed to fetch memory: ${memoryError.message}`)
     }
 
     if (!memory.created_by) {
+      console.log('Memory has no owner to notify');
       return new Response(
         JSON.stringify({ message: 'Memory has no owner to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log('Memory owner found:', memory.created_by.substring(0, 8) + '...');
+    
     // Get the board name for context
     const { data: board, error: boardError } = await supabaseClient
       .from('boards')
@@ -58,6 +68,7 @@ serve(async (req) => {
     }
 
     const boardName = board?.name || 'Shared Board'
+    console.log('Board name:', boardName);
 
     // Get the owner's email
     const { data: ownerData, error: ownerError } = await supabaseClient.auth.admin.getUserById(
@@ -65,16 +76,20 @@ serve(async (req) => {
     )
 
     if (ownerError) {
+      console.error('Failed to fetch owner:', ownerError);
       throw new Error(`Failed to fetch owner: ${ownerError.message}`)
     }
 
     const ownerEmail = ownerData.user.email
     if (!ownerEmail) {
+      console.log('Owner has no email address');
       return new Response(
         JSON.stringify({ message: 'Owner has no email address' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('Owner email found:', ownerEmail.substring(0, 3) + '***@***' + ownerEmail.split('@')[1]);
 
     // Truncate comment content if too long
     const truncatedComment = comment_content.length > 150 
@@ -87,11 +102,22 @@ serve(async (req) => {
       : memory.caption
 
     try {
+      console.log('Preparing to send email notification');
+      
+      // Check if Resend API key is available
+      const resendApiKey = Deno.env.get('SUPABASE_RESEND_API_KEY') || Deno.env.get('RESEND_API_KEY');
+      if (!resendApiKey) {
+        console.error('No Resend API key found in environment variables');
+        throw new Error('Missing Resend API key');
+      }
+      
+      console.log('Resend API key available:', resendApiKey.substring(0, 3) + '***');
+      
       // Using Resend API for email sending
       const emailResponse = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_RESEND_API_KEY') || Deno.env.get('RESEND_API_KEY')}`,
+          'Authorization': `Bearer ${resendApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -159,26 +185,37 @@ serve(async (req) => {
 
       if (!emailResponse.ok) {
         const errorText = await emailResponse.text();
-        console.error(`Failed to send email to ${ownerEmail}:`, errorText);
+        const statusCode = emailResponse.status;
+        console.error(`Failed to send email to ${ownerEmail.substring(0, 3)}***@***: Status ${statusCode}, Error:`, errorText);
         return new Response(
-          JSON.stringify({ success: false, error: errorText }),
+          JSON.stringify({ 
+            success: false, 
+            error: errorText,
+            status: statusCode,
+            message: `Email sending failed with status ${statusCode}`
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`Successfully sent comment notification email to ${ownerEmail}`);
+      console.log(`Successfully sent comment notification email to ${ownerEmail.substring(0, 3)}***@***`);
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Comment notification email sent successfully'
+          message: 'Comment notification email sent successfully',
+          recipient: ownerEmail.substring(0, 3) + '***@***' + ownerEmail.split('@')[1]
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
 
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error('Error sending email:', error.message || error);
       return new Response(
-        JSON.stringify({ success: false, error: error.message }),
+        JSON.stringify({ 
+          success: false, 
+          error: error.message || 'Unknown error',
+          details: typeof error === 'object' ? Object.keys(error).join(', ') : 'No details available'
+        }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -187,9 +224,12 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in send-comment-notification function:', error)
+    console.error('Error in send-comment-notification function:', error.message || error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'Unknown error',
+        stack: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : 'No stack trace'
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
