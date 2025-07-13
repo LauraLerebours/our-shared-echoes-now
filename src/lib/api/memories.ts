@@ -617,10 +617,18 @@ export const memoriesApi = {
     try {
       console.log('🔄 [memoriesApi.toggleMemoryLike] Starting for ID:', id);
       
+      // Get the current user to resolve function overloading ambiguity
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('❌ [memoriesApi.toggleMemoryLike] User not authenticated:', userError);
+        return { success: false, error: 'User not authenticated' };
+      }
+      
       console.log('🔄 [memoriesApi.toggleMemoryLike] Using like system');
       const result = await withRetry(async () => {
         const { data, error } = await supabase.rpc('toggle_memory_like_v3', {
-          memory_id_param: id
+          memory_id_param: id,
+          user_id_param: user.id
         });
         
         if (error) {
