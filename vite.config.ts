@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'This Is Us',
-        short_name: 'This Is Us',
+        name: 'Amity',
+        short_name: 'Amity',
         description: 'A beautiful app to capture and share memories with your loved ones',
         theme_color: '#9b87f5',
         icons: [
