@@ -429,11 +429,11 @@ const Auth = () => {
             <h1 className="text-4xl font-bold mb-2 relative">
               {/* Shadow effect for better contrast */}
               <span className="absolute inset-0 text-black/10 blur-[2px] transform translate-x-[2px] translate-y-[2px]">
-                This Is Us
+                Amity
               </span>
               {/* Main title with gradient */}
               <span className="relative bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent drop-shadow-md">
-                This Is Us
+                Amity
               </span>
             </h1>
             <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full inline-block">

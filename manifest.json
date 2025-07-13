@@ -1,6 +1,6 @@
 {
-  "name": "This Is Us",
-  "short_name": "This Is Us",
+  "name": "Amity",
+  "short_name": "Amity",
   "description": "A beautiful app to capture and share memories with your loved ones",
   "start_url": "/",
   "display": "standalone",

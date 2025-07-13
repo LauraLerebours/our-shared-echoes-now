@@ -14,7 +14,7 @@ const Help = () => {
   return (
     <>
       <SEOHelmet 
-        title="Help & Tutorial | This Is Us"
+        title="Help & Tutorial | Amity"
         description="Learn how to use This Is Us with our comprehensive help guide and interactive tutorial."
       />
       
@@ -204,14 +204,14 @@ const Help = () => {
               </div>
               
               <p className="text-muted-foreground mb-4">
-                If you have any questions or need assistance, our support team is here to help.
+              If you have any questions or need assistance, our support team is here to help.
               </p>
               
               <Button 
                 asChild
                 className="w-full bg-memory-purple hover:bg-memory-purple/90"
               >
-                <a href="mailto:support@thisisus.space">
+                <a href="mailto:support@amity.space">
                   Contact Support
                 </a>
               </Button>

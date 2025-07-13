@@ -1,6 +1,6 @@
 // Application constants
 export const APP_CONFIG = {
-  NAME: 'This Is Us',
+  NAME: 'Amity',
   DESCRIPTION: 'Shared Memory App',
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   SUPPORTED_IMAGE_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],

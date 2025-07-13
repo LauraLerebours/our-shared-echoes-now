@@ -138,10 +138,10 @@ const Welcome = () => {
                   transition={{ duration: 0.5, delay: 0.7 }}
                 >
                   <span className="absolute inset-0 text-black/10 blur-[2px] transform translate-x-[2px] translate-y-[2px]">
-                    This Is Us
+                    Amity
                   </span>
                   <span className="relative bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent drop-shadow-md">
-                    This Is Us
+                    Amity
                   </span>
                 </motion.h1>
                 

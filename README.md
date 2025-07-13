@@ -1,4 +1,4 @@
-# This Is Us - Shared Memory App
+# Amity - Shared Memory App
 
 A beautiful application for friends to capture and share their memories together.
 

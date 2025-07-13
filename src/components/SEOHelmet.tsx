@@ -12,15 +12,15 @@ interface SEOHelmetProps {
 }
 
 const SEOHelmet: React.FC<SEOHelmetProps> = ({
-  title = 'This Is Us - Shared Memories App for Couples & Friends',
+  title = 'Amity - Shared Memories App for Couples & Friends',
   description = 'Create beautiful memory boards with your loved ones. Share photos, videos, and notes in a private, collaborative space designed for couples and friends.',
-  canonicalUrl = 'https://thisisus.space',
-  imageUrl = 'https://thisisus.space/best.png',
+  canonicalUrl = 'https://amity.space',
+  imageUrl = 'https://amity.space/best.png',
   type = 'website',
   articlePublishedTime,
   keywords = ['shared memories', 'couples app', 'photo sharing', 'memory boards', 'collaborative albums', 'relationship app'],
 }) => {
-  const fullTitle = title.includes('This Is Us') ? title : `${title} | This Is Us`;
+  const fullTitle = title.includes('Amity') ? title : `${title} | Amity`;
   
   return (
     <Helmet>
@@ -36,7 +36,7 @@ const SEOHelmet: React.FC<SEOHelmetProps> = ({
       <meta property="og:description" content={description} />
       <meta property="og:image" content={imageUrl} />
       <meta property="og:url" content={canonicalUrl} />
-      <meta property="og:site_name" content="This Is Us" />
+      <meta property="og:site_name" content="Amity" />
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />

@@ -95,7 +95,7 @@ const Header = () => {
       {/* App Title - Centered */}
       <div className="absolute left-1/2 transform -translate-x-1/2">
         <h1 className="text-xl font-semibold text-center bg-gradient-to-r from-memory-pink to-memory-purple bg-clip-text text-transparent">
-          This Is Us
+          Amity
         </h1>
       </div>
       
