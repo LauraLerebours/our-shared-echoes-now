@@ -447,7 +447,7 @@ const Auth = () => {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>Beta Testing Notice:</strong> This Is Us is currently in beta testing. If you have forgotten your password, please contact support@thisisus.space for assistance
+              <strong>Beta Testing Notice:</strong> Amity is currently in beta testing. If you have forgotten your password, please contact support@thisisus.space for assistance
             </AlertDescription>
           </Alert>
 
