@@ -27,8 +27,14 @@ const BoardInviteDialog: React.FC<BoardInviteDialogProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
 
-  const inviteLink = `${window.location.origin}/shared/${shareCode}`;
+  useEffect(() => {
+    // Only access window.location.origin on the client side
+    if (typeof window !== 'undefined') {
+      setInviteLink(`${window.location.origin}/shared/${shareCode}`);
+    }
+  }, [shareCode]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(inviteLink);
