@@ -29,9 +29,9 @@ export interface Board {
   id: string;
   name: string;
   created_at: string;
-  access_code: string;
+  access_code: string | null;
   owner_id?: string;
-  share_code: string;
+  share_code: string | null;
   member_ids?: string[];
   is_public?: boolean;
 }

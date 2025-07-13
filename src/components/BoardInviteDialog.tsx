@@ -15,7 +15,7 @@ import { toast } from '@/hooks/use-toast';
 interface BoardInviteDialogProps {
   boardId: string;
   boardName: string;
-  shareCode: string;
+  shareCode: string | null;
   children: React.ReactNode;
 }
 
